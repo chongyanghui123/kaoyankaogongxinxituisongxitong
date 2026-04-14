@@ -1,0 +1,167 @@
+{
+  "user_id": 38,
+  "username": "kaogong_law_user",
+  "user_type": "考公法律用户",
+  "priority": "高",
+  "crawling_strategy": "法律专业深度解析",
+  "websites": [
+    {
+      "name": "国家公务员局",
+      "url": "http://www.scs.gov.cn/",
+      "crawl_frequency": "每天2次",
+      "parsing_rules": {
+        "target_content": [
+          "招考公告",
+          "职位表",
+          "法律类岗位"
+        ],
+        "extract_fields": [
+          "发布时间",
+          "报名条件",
+          "专业要求",
+          "考试科目"
+        ],
+        "special_focus": [
+          "法律",
+          "司法",
+          "法务",
+          "行政"
+        ]
+      }
+    },
+    {
+      "name": "北京市人力资源和社会保障局",
+      "url": "http://rsj.beijing.gov.cn/",
+      "crawl_frequency": "每天1次",
+      "parsing_rules": {
+        "target_content": [
+          "北京公务员招考",
+          "事业单位招聘"
+        ],
+        "extract_fields": [
+          "岗位名称",
+          "专业限制",
+          "学历要求",
+          "工作地点"
+        ],
+        "special_focus": [
+          "法院",
+          "检察院",
+          "司法局",
+          "法制办"
+        ]
+      }
+    },
+    {
+      "name": "广东省人力资源和社会保障厅",
+      "url": "http://hrss.gd.gov.cn/",
+      "crawl_frequency": "每天1次",
+      "parsing_rules": {
+        "target_content": [
+          "广东公务员考试",
+          "珠三角地区招聘"
+        ],
+        "extract_fields": [
+          "招录单位",
+          "职位描述",
+          "薪酬待遇",
+          "发展前景"
+        ],
+        "special_focus": [
+          "大湾区",
+          "深圳",
+          "广州",
+          "法律专业"
+        ]
+      }
+    },
+    {
+      "name": "法律职业资格考试网",
+      "url": "http://www.moj.gov.cn/",
+      "crawl_frequency": "每周1次",
+      "parsing_rules": {
+        "target_content": [
+          "司法考试",
+          "法律职业资格"
+        ],
+        "extract_fields": [
+          "考试时间",
+          "报名条件",
+          "考试大纲",
+          "通过率"
+        ],
+        "special_focus": [
+          "法律职业资格",
+          "司法考试",
+          "律师资格"
+        ]
+      }
+    },
+    {
+      "name": "中公教育法律频道",
+      "url": "https://www.offcn.com/fakao/",
+      "crawl_frequency": "每天1次",
+      "parsing_rules": {
+        "target_content": [
+          "法律考试资料",
+          "备考经验",
+          "政策解读"
+        ],
+        "extract_fields": [
+          "备考资料",
+          "考试技巧",
+          "政策分析",
+          "经验分享"
+        ],
+        "special_focus": [
+          "公务员法律考试",
+          "法律专业知识",
+          "案例分析"
+        ]
+      }
+    }
+  ],
+  "content_filtering": {
+    "required_keywords": [
+      "法律",
+      "法学",
+      "司法",
+      "法务",
+      "公务员",
+      "招考",
+      "职位"
+    ],
+    "priority_keywords": [
+      "北京",
+      "广东",
+      "行政",
+      "法律专业",
+      "本科",
+      "硕士"
+    ],
+    "excluded_keywords": [
+      "考研",
+      "教师",
+      "医生",
+      "工程",
+      "技术(非法律)"
+    ]
+  },
+  "notification_settings": {
+    "immediate_notification": [
+      "招考公告发布",
+      "报名开始",
+      "政策重大变化"
+    ],
+    "daily_summary": [
+      "新职位发布",
+      "备考资料更新",
+      "政策解读"
+    ],
+    "weekly_report": [
+      "竞争情况分析",
+      "备考进度评估",
+      "职业机会展望"
+    ]
+  }
+}

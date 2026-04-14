@@ -1,0 +1,135 @@
+# 火山引擎Coding Plan配置文件
+# 请将 YOUR_API_KEY_HERE 替换为你的实际API密钥
+
+version: "1.0"
+provider: "volcengine_coding_plan"
+last_updated: "2026-04-09T19:55:00+08:00"
+
+# API配置
+api:
+  # ⚠️ 重要：请将下面的示例密钥替换为你的真实API密钥
+  key: "your_volcengine_api_key_here"  # 替换为你的API密钥
+  
+  # 火山引擎API端点
+  endpoint: "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+  
+  # 模型选择
+  model: "deepseek-chat"
+  
+  # 性能参数
+  temperature: 0.7      # 创造力，0-1，越高越有创意
+  max_tokens: 2000      # 最大响应长度
+  timeout: 30           # 请求超时时间（秒）
+  
+  # 重试策略
+  max_retries: 3        # 最大重试次数
+  retry_delay: 1        # 重试延迟（秒）
+
+# 缓存配置
+cache:
+  enabled: true        # 是否启用缓存
+  default_ttl: 1800    # 默认缓存时间（秒），30分钟
+  max_size: 1000       # 最大缓存条目数
+
+# 爬虫调度优化
+scheduling:
+  # 紧急任务配置（urgency > 0.7）
+  high_priority:
+    frequency: 5        # 监控频率（分钟）
+    timeout: 30         # 超时时间（秒）
+    retry_times: 5      # 重试次数
+    
+  # 重要任务配置（urgency > 0.4）
+  medium_priority:
+    frequency: 15       # 监控频率（分钟）
+    timeout: 20         # 超时时间（秒）
+    retry_times: 3      # 重试次数
+    
+  # 普通任务配置
+  low_priority:
+    frequency: 30       # 监控频率（分钟）
+    timeout: 15         # 超时时间（秒）
+    retry_times: 2      # 重试次数
+
+
+
+# AI分析优化
+ai_optimization:
+  # 意图分析提示词模板
+  demand_prompt: |
+    请作为考研考公需求分析专家，分析以下学生需求：
+    
+    学生需求："{raw_demand}"
+    学生背景：{context}
+    
+    请详细分析以下内容：
+    1. 主要意图：考研、考公、双赛道或其他？
+    2. 紧急程度：1-5分（5为最紧急）
+    3. 具体关注点：省份、学校、专业、关键词等
+    4. 建议监控策略：频率、优先级、重点网站
+    5. 个性化建议
+    
+    请以JSON格式返回结果，包含以下字段：
+    - intent: 主要意图
+    - confidence: 置信度(0-1)
+    - urgency: 紧急程度(1-5)
+    - entities: 实体信息对象
+    - recommendations: AI建议列表
+    
+  # 实体提取模板
+  entity_prompt: |
+    请从以下文本中提取考研考公相关的实体信息：
+    
+    文本："{text}"
+    
+    需要提取的实体类型：
+    1. 省份/地区
+    2. 学校/机构
+    3. 专业/学科
+    4. 职位类型
+    5. 考试类型
+    6. 关键词
+    7. 时间信息
+
+
+# 系统性能监控
+monitoring:
+  enabled: true        # 是否启用监控
+  
+  # 日志级别
+  log_level: "INFO"    # 可选: DEBUG, INFO, WARNING, ERROR
+  
+  # 性能指标收集
+  metrics:
+    - "ai_response_time"
+    - "ai_success_rate"
+    - "crawler_success_rate"
+    - "new_info_count"
+    
+  # 告警阈值
+  alerts:
+    ai_success_rate_threshold: 0.8      # AI成功率低于80%告警
+    ai_response_time_threshold: 30.0    # AI响应时间超过30秒告警
+    crawler_success_rate_threshold: 0.7 # 爬虫成功率低于70%告警
+
+
+
+# 集成说明
+integration_notes: |
+  1. 替换 'your_volcengine_api_key_here' 为你的真实API密钥
+  2. 系统会自动使用配置的模型和参数
+  3. 可调整 temperature 控制分析结果的创造性
+  4. 缓存可提高性能，但会消耗内存
+  5. 建议在生产环境启用监控和告警
+
+
+# 版本说明
+release_notes:
+  "1.0":
+    date: "2026-04-09"
+    features:
+      - 支持火山引擎Coding Plan API
+      - 智能需求分析
+      - 个性化爬虫配置
+      - 性能优化和缓存
+      - 监控和告警功能

@@ -1,0 +1,498 @@
+[
+  {
+    "username": "huichongyang",
+    "user_id": 40,
+    "subscribe_type": 2,
+    "matched_websites": [
+      {
+        "name": "国家公务员局",
+        "url": "http://www.scs.gov.cn/",
+        "description": "国家公务员考试官方平台",
+        "relevance": 0.98,
+        "tags": [
+          "官方",
+          "国考",
+          "招考公告"
+        ]
+      },
+      {
+        "name": "中国人事考试网",
+        "url": "https://www.cpta.com.cn/",
+        "description": "全国专业技术人员资格考试平台",
+        "relevance": 0.9,
+        "tags": [
+          "资格考试",
+          "证书查询"
+        ]
+      },
+      {
+        "name": "陕西省人力资源和社会保障厅",
+        "url": "http://rst.shaanxi.gov.cn/",
+        "relevance": 0.95
+      },
+      {
+        "name": "陕西人事考试网",
+        "url": "http://www.sxrsks.cn/",
+        "relevance": 0.95
+      },
+      {
+        "name": "北京市人力资源和社会保障局",
+        "url": "http://rsj.beijing.gov.cn/",
+        "relevance": 0.95
+      },
+      {
+        "name": "北京人事考试网",
+        "url": "http://rsj.beijing.gov.cn/ywsite/bjpta/",
+        "relevance": 0.95
+      },
+      {
+        "name": "中国计算机技术职业资格网",
+        "url": "https://www.ruankao.org.cn/",
+        "relevance": 0.85
+      },
+      {
+        "name": "技术公务员考试论坛",
+        "url": "https://bbs.csdn.net/forums/gwy",
+        "relevance": 0.8
+      },
+      {
+        "name": "管理公务员考试信息网",
+        "url": "https://www.guanligwy.com/",
+        "relevance": 0.85
+      },
+      {
+        "name": "公共管理硕士(MPA)考试网",
+        "url": "https://www.mpacn.com/",
+        "relevance": 0.8
+      }
+    ],
+    "recommendation_score": 0.898
+  },
+  {
+    "username": "hui",
+    "user_id": 41,
+    "subscribe_type": 3,
+    "matched_websites": [
+      {
+        "name": "中国研究生招生信息网",
+        "url": "https://yz.chsi.com.cn/",
+        "description": "教育部官方研究生招生信息平台",
+        "relevance": 0.95,
+        "tags": [
+          "官方",
+          "权威",
+          "招生简章",
+          "报名系统"
+        ]
+      },
+      {
+        "name": "学信网",
+        "url": "https://www.chsi.com.cn/",
+        "description": "学历查询、学籍管理官方平台",
+        "relevance": 0.9,
+        "tags": [
+          "学历认证",
+          "学籍查询"
+        ]
+      },
+      {
+        "name": "西安电子科技大学研究生院",
+        "url": "https://gr.xidian.edu.cn/",
+        "relevance": 0.98
+      },
+      {
+        "name": "西安交通大学研究生院",
+        "url": "https://gs.xjtu.edu.cn/",
+        "relevance": 0.98
+      },
+      {
+        "name": "西北工业大学研究生院",
+        "url": "https://yzb.nwpu.edu.cn/",
+        "relevance": 0.95
+      },
+      {
+        "name": "中国计算机学会",
+        "url": "https://www.ccf.org.cn/",
+        "relevance": 0.85
+      },
+      {
+        "name": "CSDN考研论坛",
+        "url": "https://bbs.csdn.net/forums/kaoyan",
+        "relevance": 0.8
+      },
+      {
+        "name": "中国教育在线考研频道",
+        "url": "https://kaoyan.eol.cn/",
+        "description": "综合考研信息平台",
+        "relevance": 0.9,
+        "tags": [
+          "综合",
+          "资讯",
+          "经验分享"
+        ]
+      },
+      {
+        "name": "考研帮",
+        "url": "https://www.kaoyan.com/",
+        "description": "考研社区与信息平台",
+        "relevance": 0.85,
+        "tags": [
+          "社区",
+          "经验",
+          "资料"
+        ]
+      },
+      {
+        "name": "国家公务员局",
+        "url": "http://www.scs.gov.cn/",
+        "description": "国家公务员考试官方平台",
+        "relevance": 0.98,
+        "tags": [
+          "官方",
+          "国考",
+          "招考公告"
+        ]
+      },
+      {
+        "name": "中国人事考试网",
+        "url": "https://www.cpta.com.cn/",
+        "description": "全国专业技术人员资格考试平台",
+        "relevance": 0.9,
+        "tags": [
+          "资格考试",
+          "证书查询"
+        ]
+      },
+      {
+        "name": "陕西省人力资源和社会保障厅",
+        "url": "http://rst.shaanxi.gov.cn/",
+        "relevance": 0.95
+      },
+      {
+        "name": "陕西人事考试网",
+        "url": "http://www.sxrsks.cn/",
+        "relevance": 0.95
+      },
+      {
+        "name": "中国计算机技术职业资格网",
+        "url": "https://www.ruankao.org.cn/",
+        "relevance": 0.85
+      },
+      {
+        "name": "技术公务员考试论坛",
+        "url": "https://bbs.csdn.net/forums/gwy",
+        "relevance": 0.8
+      },
+      {
+        "name": "中公教育",
+        "url": "https://www.offcn.com/",
+        "description": "公务员考试培训综合平台",
+        "relevance": 0.9,
+        "tags": [
+          "培训",
+          "题库",
+          "资讯"
+        ]
+      },
+      {
+        "name": "华图教育",
+        "url": "https://www.huatu.com/",
+        "description": "公务员考试信息平台",
+        "relevance": 0.9,
+        "tags": [
+          "培训",
+          "资料",
+          "招考信息"
+        ]
+      },
+      {
+        "name": "粉笔公考",
+        "url": "https://www.fenbi.com/",
+        "description": "在线公务员考试学习平台",
+        "relevance": 0.85,
+        "tags": [
+          "在线学习",
+          "题库",
+          "模考"
+        ]
+      }
+    ],
+    "recommendation_score": 0.9022222222222224
+  },
+  {
+    "username": "kaoyan_ai_user",
+    "user_id": 37,
+    "subscribe_type": 1,
+    "matched_websites": [
+      {
+        "name": "中国研究生招生信息网",
+        "url": "https://yz.chsi.com.cn/",
+        "description": "教育部官方研究生招生信息平台",
+        "relevance": 0.95,
+        "tags": [
+          "官方",
+          "权威",
+          "招生简章",
+          "报名系统"
+        ]
+      },
+      {
+        "name": "学信网",
+        "url": "https://www.chsi.com.cn/",
+        "description": "学历查询、学籍管理官方平台",
+        "relevance": 0.9,
+        "tags": [
+          "学历认证",
+          "学籍查询"
+        ]
+      },
+      {
+        "name": "清华大学研究生院",
+        "url": "https://yz.tsinghua.edu.cn/",
+        "relevance": 0.98
+      },
+      {
+        "name": "北京大学研究生院",
+        "url": "https://admission.pku.edu.cn/",
+        "relevance": 0.98
+      },
+      {
+        "name": "北京航空航天大学研究生院",
+        "url": "https://yzb.buaa.edu.cn/",
+        "relevance": 0.95
+      },
+      {
+        "name": "复旦大学研究生院",
+        "url": "https://gsao.fudan.edu.cn/",
+        "relevance": 0.98
+      },
+      {
+        "name": "上海交通大学研究生院",
+        "url": "https://yzb.sjtu.edu.cn/",
+        "relevance": 0.98
+      },
+      {
+        "name": "同济大学研究生院",
+        "url": "https://yz.tongji.edu.cn/",
+        "relevance": 0.95
+      },
+      {
+        "name": "AI科技评论",
+        "url": "https://www.leiphone.com/category/ai",
+        "relevance": 0.85
+      },
+      {
+        "name": "机器之心",
+        "url": "https://www.jiqizhixin.com/",
+        "relevance": 0.85
+      }
+    ],
+    "recommendation_score": 0.937
+  },
+  {
+    "username": "kaogong_law_user",
+    "user_id": 38,
+    "subscribe_type": 2,
+    "matched_websites": [
+      {
+        "name": "国家公务员局",
+        "url": "http://www.scs.gov.cn/",
+        "description": "国家公务员考试官方平台",
+        "relevance": 0.98,
+        "tags": [
+          "官方",
+          "国考",
+          "招考公告"
+        ]
+      },
+      {
+        "name": "中国人事考试网",
+        "url": "https://www.cpta.com.cn/",
+        "description": "全国专业技术人员资格考试平台",
+        "relevance": 0.9,
+        "tags": [
+          "资格考试",
+          "证书查询"
+        ]
+      },
+      {
+        "name": "北京市人力资源和社会保障局",
+        "url": "http://rsj.beijing.gov.cn/",
+        "relevance": 0.95
+      },
+      {
+        "name": "北京人事考试网",
+        "url": "http://rsj.beijing.gov.cn/ywsite/bjpta/",
+        "relevance": 0.95
+      },
+      {
+        "name": "广东省人力资源和社会保障厅",
+        "url": "http://hrss.gd.gov.cn/",
+        "relevance": 0.95
+      },
+      {
+        "name": "广东人事考试网",
+        "url": "http://rsks.gd.gov.cn/",
+        "relevance": 0.95
+      },
+      {
+        "name": "公务员考试网",
+        "url": "https://www.gwyksw.com/",
+        "relevance": 0.85
+      },
+      {
+        "name": "行政能力测试题库",
+        "url": "https://www.zggwy.org/",
+        "relevance": 0.8
+      },
+      {
+        "name": "法律职业资格考试网",
+        "url": "http://www.moj.gov.cn/",
+        "relevance": 0.9
+      },
+      {
+        "name": "法治政府网",
+        "url": "https://www.chinalaw.gov.cn/",
+        "relevance": 0.85
+      }
+    ],
+    "recommendation_score": 0.908
+  },
+  {
+    "username": "double_business_user",
+    "user_id": 39,
+    "subscribe_type": 3,
+    "matched_websites": [
+      {
+        "name": "中国研究生招生信息网",
+        "url": "https://yz.chsi.com.cn/",
+        "description": "教育部官方研究生招生信息平台",
+        "relevance": 0.95,
+        "tags": [
+          "官方",
+          "权威",
+          "招生简章",
+          "报名系统"
+        ]
+      },
+      {
+        "name": "学信网",
+        "url": "https://www.chsi.com.cn/",
+        "description": "学历查询、学籍管理官方平台",
+        "relevance": 0.9,
+        "tags": [
+          "学历认证",
+          "学籍查询"
+        ]
+      },
+      {
+        "name": "复旦大学研究生院",
+        "url": "https://gsao.fudan.edu.cn/",
+        "relevance": 0.98
+      },
+      {
+        "name": "上海交通大学研究生院",
+        "url": "https://yzb.sjtu.edu.cn/",
+        "relevance": 0.98
+      },
+      {
+        "name": "同济大学研究生院",
+        "url": "https://yz.tongji.edu.cn/",
+        "relevance": 0.95
+      },
+      {
+        "name": "浙江大学研究生院",
+        "url": "https://grs.zju.edu.cn/",
+        "relevance": 0.98
+      },
+      {
+        "name": "浙江工业大学研究生院",
+        "url": "https://yjsb.zjut.edu.cn/",
+        "relevance": 0.9
+      },
+      {
+        "name": "MBA中国网",
+        "url": "https://www.mbachina.com/",
+        "relevance": 0.9
+      },
+      {
+        "name": "中国MBA教育网",
+        "url": "https://www.mbaedu.cn/",
+        "relevance": 0.85
+      },
+      {
+        "name": "中国教育在线考研频道",
+        "url": "https://kaoyan.eol.cn/",
+        "description": "综合考研信息平台",
+        "relevance": 0.9,
+        "tags": [
+          "综合",
+          "资讯",
+          "经验分享"
+        ]
+      },
+      {
+        "name": "国家公务员局",
+        "url": "http://www.scs.gov.cn/",
+        "description": "国家公务员考试官方平台",
+        "relevance": 0.98,
+        "tags": [
+          "官方",
+          "国考",
+          "招考公告"
+        ]
+      },
+      {
+        "name": "中国人事考试网",
+        "url": "https://www.cpta.com.cn/",
+        "description": "全国专业技术人员资格考试平台",
+        "relevance": 0.9,
+        "tags": [
+          "资格考试",
+          "证书查询"
+        ]
+      },
+      {
+        "name": "上海市人力资源和社会保障局",
+        "url": "https://rsj.sh.gov.cn/",
+        "relevance": 0.95
+      },
+      {
+        "name": "上海公务员局",
+        "url": "https://www.shacs.gov.cn/",
+        "relevance": 0.95
+      },
+      {
+        "name": "江苏省人力资源和社会保障厅",
+        "url": "http://jshrss.jiangsu.gov.cn/",
+        "relevance": 0.95
+      },
+      {
+        "name": "江苏人事考试网",
+        "url": "http://jshrss.jiangsu.gov.cn/col/col57253/",
+        "relevance": 0.95
+      },
+      {
+        "name": "管理公务员考试信息网",
+        "url": "https://www.guanligwy.com/",
+        "relevance": 0.85
+      },
+      {
+        "name": "公共管理硕士(MPA)考试网",
+        "url": "https://www.mpacn.com/",
+        "relevance": 0.8
+      },
+      {
+        "name": "经济类公务员考试网",
+        "url": "https://www.jingjigwy.com/",
+        "relevance": 0.85
+      },
+      {
+        "name": "财经公务员考试信息",
+        "url": "https://www.caijinggwy.com/",
+        "relevance": 0.8
+      }
+    ],
+    "recommendation_score": 0.9135
+  }
+]

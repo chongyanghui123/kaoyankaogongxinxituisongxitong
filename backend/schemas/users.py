@@ -1,0 +1,85 @@
+from pydantic import BaseModel, Field
+from typing import Optional, List
+from datetime import datetime
+
+
+class UserBase(BaseModel):
+    username: str = Field(..., min_length=2, max_length=50)
+    email: str
+    phone: str
+
+
+class UserCreate(UserBase):
+    password: str = Field(..., min_length=6)
+
+
+class UserUpdate(BaseModel):
+    username: Optional[str] = Field(None, min_length=2, max_length=50)
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    is_admin: Optional[bool] = None
+    user_type: Optional[str] = None
+
+
+class UserResponse(UserBase):
+    id: int
+    is_admin: bool
+    is_active: bool
+    real_name: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    user_type: Optional[str] = None  # 新增字段：用户类型
+    
+    class Config:
+        orm_mode = True
+
+
+class UserSubscription(BaseModel):
+    id: int
+    user_id: int
+    subscription_type: str
+    start_date: datetime
+    end_date: datetime
+    is_active: bool
+    
+    class Config:
+        orm_mode = True
+
+
+class UserKeyword(BaseModel):
+    id: int
+    user_id: int
+    keyword: str
+    category: str
+    
+    class Config:
+        orm_mode = True
+
+
+class UserReadInfo(BaseModel):
+    id: int
+    user_id: int
+    info_type: str
+    info_id: int
+    read_at: datetime
+    
+    class Config:
+        orm_mode = True
+
+
+class UserFavorite(BaseModel):
+    id: int
+    user_id: int
+    info_type: str
+    info_id: int
+    created_at: datetime
+    
+    class Config:
+        orm_mode = True
+
+
+class UserStats(BaseModel):
+    total_read: int
+    total_favorites: int
+    total_keywords: int
+    subscription_status: Optional[str] = None

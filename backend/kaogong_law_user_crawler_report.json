@@ -1,0 +1,555 @@
+{
+  "报告标题": "kaogong_law_user 法律岗位爬虫分析报告",
+  "生成时间": "2026-04-10 15:30:18",
+  "报告概要": "为法学专业考公用户提供精准、及时的法律岗位信息服务",
+  "第一章: 用户需求分析": {
+    "user_id": 38,
+    "username": "kaogong_law_user",
+    "needs": {
+      "provinces": [
+        "北京",
+        "广东"
+      ],
+      "position_types": [
+        "行政",
+        "法律"
+      ],
+      "majors": "法学,法律",
+      "education": [
+        "本科",
+        "硕士"
+      ]
+    }
+  },
+  "第二章: 目标网站分析": {
+    "网站总数": 19,
+    "网站分类": [
+      "官方招考平台",
+      "法律专业网站",
+      "人才市场网站",
+      "备考培训网站"
+    ],
+    "网站列表": [
+      {
+        "name": "国家公务员局",
+        "url": "http://www.scs.gov.cn/",
+        "status": "待爬取"
+      },
+      {
+        "name": "北京市人社局",
+        "url": "http://rsj.beijing.gov.cn/",
+        "status": "待爬取"
+      },
+      {
+        "name": "广东省人社厅",
+        "url": "http://hrss.gd.gov.cn/",
+        "status": "待爬取"
+      },
+      {
+        "name": "中国人事考试网",
+        "url": "https://www.cpta.com.cn/",
+        "status": "待爬取"
+      },
+      {
+        "name": "法律职业资格考试网",
+        "url": "http://www.moj.gov.cn/",
+        "status": "待爬取"
+      },
+      {
+        "name": "最高人民法院人才网",
+        "url": "http://rmfyb.chinacourt.org/",
+        "status": "待爬取"
+      },
+      {
+        "name": "最高人民检察院招聘网",
+        "url": "https://www.spp.gov.cn/",
+        "status": "待爬取"
+      },
+      {
+        "name": "北京法院网",
+        "url": "http://bjgy.chinacourt.gov.cn/",
+        "status": "待爬取"
+      },
+      {
+        "name": "北京市司法局",
+        "url": "http://sfj.beijing.gov.cn/",
+        "status": "待爬取"
+      },
+      {
+        "name": "北京人才市场网",
+        "url": "https://www.bjrc.com/",
+        "status": "待爬取"
+      },
+      {
+        "name": "广东法院网",
+        "url": "http://www.gdcourts.gov.cn/",
+        "status": "待爬取"
+      },
+      {
+        "name": "广东省司法厅",
+        "url": "http://sft.gd.gov.cn/",
+        "status": "待爬取"
+      },
+      {
+        "name": "深圳人才网",
+        "url": "https://www.szhr.com/",
+        "status": "待爬取"
+      },
+      {
+        "name": "中公教育法律频道",
+        "url": "https://www.offcn.com/fakao/",
+        "status": "待爬取"
+      },
+      {
+        "name": "华图教育法律考试",
+        "url": "https://www.huatu.com/fakao/",
+        "status": "待爬取"
+      },
+      {
+        "name": "粉笔公考法律模块",
+        "url": "https://www.fenbi.com/page/fakao",
+        "status": "待爬取"
+      },
+      {
+        "name": "中国律师网",
+        "url": "http://www.acla.org.cn/",
+        "status": "待爬取"
+      },
+      {
+        "name": "法律人才网",
+        "url": "https://www.lawjob.cn/",
+        "status": "待爬取"
+      },
+      {
+        "name": "智联招聘法律频道",
+        "url": "https://www.zhaopin.com/law/",
+        "status": "待爬取"
+      }
+    ]
+  },
+  "第三章: 爬虫计划": {
+    "report_date": "2026-04-10 15:30:18",
+    "user_info": {
+      "user_id": 38,
+      "username": "kaogong_law_user",
+      "needs": {
+        "provinces": [
+          "北京",
+          "广东"
+        ],
+        "position_types": [
+          "行政",
+          "法律"
+        ],
+        "majors": "法学,法律",
+        "education": [
+          "本科",
+          "硕士"
+        ]
+      }
+    },
+    "crawling_strategy": "法律专业深度爬取",
+    "total_websites": 19,
+    "priority_groups": {
+      "group_1": {
+        "name": "官方招考平台",
+        "websites": [
+          {
+            "name": "国家公务员局",
+            "url": "http://www.scs.gov.cn/",
+            "status": "待爬取"
+          },
+          {
+            "name": "北京市人社局",
+            "url": "http://rsj.beijing.gov.cn/",
+            "status": "待爬取"
+          },
+          {
+            "name": "广东省人社厅",
+            "url": "http://hrss.gd.gov.cn/",
+            "status": "待爬取"
+          },
+          {
+            "name": "中国人事考试网",
+            "url": "https://www.cpta.com.cn/",
+            "status": "待爬取"
+          }
+        ],
+        "priority": "最高",
+        "frequency": "每天2次",
+        "target_content": [
+          "招考公告",
+          "职位表",
+          "报名通知",
+          "政策文件"
+        ]
+      },
+      "group_2": {
+        "name": "法律专业网站",
+        "websites": [
+          {
+            "name": "法律职业资格考试网",
+            "url": "http://www.moj.gov.cn/",
+            "status": "待爬取"
+          },
+          {
+            "name": "最高人民法院人才网",
+            "url": "http://rmfyb.chinacourt.org/",
+            "status": "待爬取"
+          },
+          {
+            "name": "最高人民检察院招聘网",
+            "url": "https://www.spp.gov.cn/",
+            "status": "待爬取"
+          },
+          {
+            "name": "北京法院网",
+            "url": "http://bjgy.chinacourt.gov.cn/",
+            "status": "待爬取"
+          },
+          {
+            "name": "北京市司法局",
+            "url": "http://sfj.beijing.gov.cn/",
+            "status": "待爬取"
+          },
+          {
+            "name": "广东法院网",
+            "url": "http://www.gdcourts.gov.cn/",
+            "status": "待爬取"
+          },
+          {
+            "name": "广东省司法厅",
+            "url": "http://sft.gd.gov.cn/",
+            "status": "待爬取"
+          }
+        ],
+        "priority": "高",
+        "frequency": "每天1次",
+        "target_content": [
+          "法律岗位招聘",
+          "司法考试信息",
+          "法院检察院招聘",
+          "司法行政岗位"
+        ]
+      },
+      "group_3": {
+        "name": "人才市场网站",
+        "websites": [
+          {
+            "name": "北京人才市场网",
+            "url": "https://www.bjrc.com/",
+            "status": "待爬取"
+          },
+          {
+            "name": "深圳人才网",
+            "url": "https://www.szhr.com/",
+            "status": "待爬取"
+          },
+          {
+            "name": "法律人才网",
+            "url": "https://www.lawjob.cn/",
+            "status": "待爬取"
+          },
+          {
+            "name": "智联招聘法律频道",
+            "url": "https://www.zhaopin.com/law/",
+            "status": "待爬取"
+          }
+        ],
+        "priority": "中",
+        "frequency": "每天1次",
+        "target_content": [
+          "法律类职位",
+          "法务岗位",
+          "法律顾问",
+          "合规岗位"
+        ]
+      },
+      "group_4": {
+        "name": "备考培训网站",
+        "websites": [
+          {
+            "name": "中公教育法律频道",
+            "url": "https://www.offcn.com/fakao/",
+            "status": "待爬取"
+          },
+          {
+            "name": "华图教育法律考试",
+            "url": "https://www.huatu.com/fakao/",
+            "status": "待爬取"
+          },
+          {
+            "name": "粉笔公考法律模块",
+            "url": "https://www.fenbi.com/page/fakao",
+            "status": "待爬取"
+          },
+          {
+            "name": "中国律师网",
+            "url": "http://www.acla.org.cn/",
+            "status": "待爬取"
+          }
+        ],
+        "priority": "低",
+        "frequency": "每周1次",
+        "target_content": [
+          "备考资料",
+          "考试技巧",
+          "政策解读",
+          "职业发展"
+        ]
+      }
+    },
+    "content_filtering_rules": {
+      "required_keywords": [
+        "法律",
+        "法学",
+        "司法",
+        "法务",
+        "公务员",
+        "招考",
+        "职位",
+        "岗位",
+        "招聘"
+      ],
+      "location_keywords": [
+        "北京",
+        "广东",
+        "深圳",
+        "广州",
+        "珠三角",
+        "大湾区"
+      ],
+      "position_keywords": [
+        "行政",
+        "法律",
+        "法务",
+        "合规",
+        "律师",
+        "法官",
+        "检察官",
+        "司法"
+      ],
+      "education_keywords": [
+        "本科",
+        "硕士",
+        "研究生",
+        "学士",
+        "硕士及以上"
+      ],
+      "excluded_keywords": [
+        "考研",
+        "教师",
+        "医生",
+        "工程",
+        "技术(非法律)",
+        "金融(非法务)"
+      ]
+    },
+    "extraction_rules": {
+      "metadata_fields": [
+        "标题",
+        "发布时间",
+        "来源网站",
+        "URL"
+      ],
+      "content_fields": [
+        "职位名称",
+        "招聘单位",
+        "工作地点",
+        "专业要求",
+        "学历要求",
+        "职位描述",
+        "报名条件",
+        "考试科目",
+        "薪资待遇"
+      ],
+      "special_fields": [
+        "法律专业要求",
+        "司法考试要求",
+        "工作经历要求",
+        "政治面貌要求"
+      ]
+    },
+    "notification_settings": {
+      "real_time_alerts": [
+        "招考公告发布",
+        "报名开始",
+        "政策重大变化",
+        "重要职位发布"
+      ],
+      "daily_digest": [
+        "新职位汇总",
+        "政策解读",
+        "备考资料更新"
+      ],
+      "weekly_report": [
+        "竞争分析",
+        "机会评估",
+        "备考进度",
+        "职业规划"
+      ]
+    }
+  },
+  "第四章: 实施步骤": [
+    "1. 网站可访问性测试",
+    "2. 反爬虫策略分析",
+    "3. 页面结构解析",
+    "4. 数据提取规则制定",
+    "5. 爬虫脚本开发",
+    "6. 数据清洗和格式化",
+    "7. 内容匹配和过滤",
+    "8. 通知系统集成",
+    "9. 监控和告警设置",
+    "10. 性能优化和调度"
+  ],
+  "第五章: 预期结果": {
+    "crawling_coverage": {
+      "total_websites": 19,
+      "expected_success_rate": "85%",
+      "daily_data_volume": "500-1000条",
+      "update_frequency": "实时+定时"
+    },
+    "content_quality": {
+      "relevance_score": ">90%",
+      "completeness_score": ">85%",
+      "timeliness_score": ">95%",
+      "accuracy_score": ">90%"
+    },
+    "user_value": {
+      "position_matches_per_day": "10-30个",
+      "policy_updates_per_week": "5-15条",
+      "exam_information": "全覆盖",
+      "career_opportunities": "持续发现"
+    },
+    "technical_metrics": {
+      "response_time": "<5秒",
+      "success_rate": ">90%",
+      "error_rate": "<5%",
+      "data_freshness": "<1小时"
+    }
+  },
+  "第六章: OpenClaw集成方案": {
+    "crawler_config": {
+      "runtime": "openclaw",
+      "model": "gpt-4",
+      "thinking": "on",
+      "timeout": 300,
+      "parallel_tasks": 5
+    },
+    "task_distribution": {
+      "official_sites": {
+        "agent": "legal_expert_agent",
+        "model": "gpt-4",
+        "strategy": "深度解析"
+      },
+      "professional_sites": {
+        "agent": "data_expert_agent",
+        "model": "claude-3",
+        "strategy": "精准提取"
+      },
+      "market_sites": {
+        "agent": "market_expert_agent",
+        "model": "gemini-pro",
+        "strategy": "广度扫描"
+      },
+      "training_sites": {
+        "agent": "training_expert_agent",
+        "model": "local-model",
+        "strategy": "内容聚合"
+      }
+    },
+    "data_processing": {
+      "extraction": "AI智能解析",
+      "cleaning": "自动化清洗",
+      "enrichment": "语义增强",
+      "categorization": "智能分类"
+    },
+    "delivery_mechanism": {
+      "real_time": "Webhook推送",
+      "scheduled": "定时报告",
+      "on_demand": "API查询",
+      "interactive": "聊天界面"
+    }
+  },
+  "第七章: 风险与对策": {
+    "技术风险": [
+      "网站反爬虫机制 - 对策: 使用代理IP和智能延迟",
+      "页面结构变化 - 对策: 自适应解析和监控告警",
+      "数据质量不稳定 - 对策: 多源验证和人工审核"
+    ],
+    "业务风险": [
+      "信息过时 - 对策: 实时监控和定期更新",
+      "内容相关性低 - 对策: 智能过滤和人工标注",
+      "用户需求变化 - 对策: 动态调整和反馈机制"
+    ],
+    "法律风险": [
+      "版权问题 - 对策: 合理使用和内容标注",
+      "隐私保护 - 对策: 数据脱敏和访问控制",
+      "合规要求 - 对策: 合规审查和法律咨询"
+    ]
+  },
+  "第八章: 时间规划": {
+    "第一阶段 (1-3天)": [
+      "网站测试",
+      "策略制定",
+      "基础开发"
+    ],
+    "第二阶段 (4-7天)": [
+      "爬虫开发",
+      "数据提取",
+      "初步测试"
+    ],
+    "第三阶段 (8-14天)": [
+      "系统集成",
+      "性能优化",
+      "正式上线"
+    ],
+    "第四阶段 (15-30天)": [
+      "监控优化",
+      "用户反馈",
+      "持续改进"
+    ]
+  },
+  "第九章: 资源需求": {
+    "技术资源": [
+      "OpenClaw平台",
+      "AI模型API",
+      "服务器资源",
+      "存储空间"
+    ],
+    "人力资源": [
+      "爬虫工程师",
+      "数据分析师",
+      "产品经理",
+      "测试人员"
+    ],
+    "时间资源": [
+      "开发时间: 14天",
+      "测试时间: 7天",
+      "优化时间: 持续"
+    ],
+    "预算资源": [
+      "API调用费用",
+      "服务器费用",
+      "人力成本",
+      "其他费用"
+    ]
+  },
+  "第十章: 成功标准": {
+    "技术标准": [
+      "爬虫成功率>90%",
+      "响应时间<5秒",
+      "数据准确率>95%"
+    ],
+    "业务标准": [
+      "用户满意度>90%",
+      "信息覆盖率>85%",
+      "及时性>95%"
+    ],
+    "用户标准": [
+      "岗位匹配度>90%",
+      "使用频率>3次/周",
+      "推荐转化率>30%"
+    ]
+  }
+}
