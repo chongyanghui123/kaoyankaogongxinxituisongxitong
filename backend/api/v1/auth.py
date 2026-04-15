@@ -9,7 +9,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, EmailStr, Field, validator, model_validator
 
 from config import settings
 from core.database import get_db_common
@@ -18,7 +18,7 @@ from core.security import (
     create_refresh_token, validate_email, validate_phone, validate_password as validate_pwd
 )
 from core.logger import log_user_action, log_error
-from core.crawler_manager import SmartDemandAnalyzer
+
 from models.users import User, UserSubscription
 import asyncio
 
@@ -29,7 +29,7 @@ class RegisterRequest(BaseModel):
     username: str = Field(..., min_length=2, max_length=50, description="用户名")
     email: EmailStr = Field(..., description="邮箱")
     phone: str = Field(..., min_length=11, max_length=11, description="手机号")
-    password: str = Field(..., min_length=6, description="密码")
+    password: Optional[str] = Field(default=None, description="密码（仅管理员用户需要）")
     real_name: Optional[str] = Field(None, description="真实姓名")
     gender: Optional[str] = Field(None, description="性别")
     birthdate: Optional[str] = Field(None, description="出生日期")
@@ -43,11 +43,22 @@ class RegisterRequest(BaseModel):
             raise ValueError('手机号格式不正确')
         return v
     
-    @validator('password')
-    def validate_password_strength(cls, v):
-        if not validate_pwd(v):
-            raise ValueError('密码必须至少包含6个字符，且包含字母和数字')
-        return v
+    @model_validator(mode='before')
+    @classmethod
+    def validate_password(cls, values):
+        is_admin = values.get('is_admin', False)
+        password = values.get('password')
+        
+        if is_admin:
+            if not password or len(password) < 6:
+                raise ValueError('管理员用户必须设置密码，且密码至少包含6个字符')
+            if not validate_pwd(password):
+                raise ValueError('密码必须至少包含6个字符，且包含字母和数字')
+        else:
+            # 普通用户不需要密码
+            values['password'] = None
+            
+        return values
 
 class LoginRequest(BaseModel):
     """登录请求模型"""
@@ -127,7 +138,10 @@ async def register(
                 )
         
         # 创建新用户
-        password_hash = get_password_hash(req.password)
+        # 普通用户密码设置为空字符串，管理员用户需要设置密码
+        password_hash = ""
+        if req.is_admin:
+            password_hash = get_password_hash(req.password)
         
         # 解析出生日期
         birthdate = None
@@ -190,10 +204,23 @@ async def register(
         
         # 如果前端发送了考研需求信息，使用前端发送的信息
         if req.kaoyan_requirements:
+            # 安全处理字段类型
+            schools = req.kaoyan_requirements.get("schools", [])
+            if isinstance(schools, str):
+                schools = schools.split(",") if schools else []
+            elif not isinstance(schools, list):
+                schools = []
+                
+            majors = req.kaoyan_requirements.get("majors", [])
+            if isinstance(majors, str):
+                majors = majors.split(",") if majors else []
+            elif not isinstance(majors, list):
+                majors = []
+                
             kaoyan_config = {
                 "provinces": req.kaoyan_requirements.get("provinces", []),
-                "schools": req.kaoyan_requirements.get("schools", "").split(",") if req.kaoyan_requirements.get("schools") else [],
-                "majors": req.kaoyan_requirements.get("majors", "").split(",") if req.kaoyan_requirements.get("majors") else [],
+                "schools": [s.strip() for s in schools if s.strip()],
+                "majors": [m.strip() for m in majors if m.strip()],
                 "types": req.kaoyan_requirements.get("types", []),
                 "degree_type": [],
                 "study_type": []
@@ -205,10 +232,17 @@ async def register(
         
         # 如果前端发送了考公需求信息，使用前端发送的信息
         if req.kaogong_requirements:
+            # 安全处理字段类型
+            majors = req.kaogong_requirements.get("majors", [])
+            if isinstance(majors, str):
+                majors = majors.split(",") if majors else []
+            elif not isinstance(majors, list):
+                majors = []
+                
             kaogong_config = {
                 "provinces": req.kaogong_requirements.get("provinces", []),
                 "position_types": req.kaogong_requirements.get("position_types", []),
-                "majors": req.kaogong_requirements.get("majors", "").split(",") if req.kaogong_requirements.get("majors") else [],
+                "majors": [m.strip() for m in majors if m.strip()],
                 "education": [req.kaogong_requirements.get("education", "不限")],
                 "is_fresh_graduate": req.kaogong_requirements.get("is_fresh_graduate", "不限"),
                 "is_unlimited": None
@@ -430,13 +464,7 @@ async def register(
                     # 调用AI分析需求
                     demand_analysis = await SmartDemandAnalyzer.analyze_demand(demand_text, {})
                     
-                    # 生成相关链接和爬虫配置
-                    from core.crawler_manager import _add_crawler_config_to_db, clear_all_crawler_configs
-                    
-                    # 清理旧的爬虫配置
-                    clear_all_crawler_configs()
-                    
-                    # 生成爬虫配置
+                    # 生成相关链接
                     crawler_configs = []
                     
                     # 学校相关链接和爬虫配置
@@ -615,31 +643,56 @@ async def register(
             kaogong_config
         ))
         
-        # 生成令牌
-        access_token = create_access_token(data={"sub": str(new_user.id)})
-        refresh_token = create_refresh_token(data={"sub": str(new_user.id)})
+        # 检查是否是管理员创建用户
+        x_admin_create = request.headers.get('X-Admin-Create', 'false')
         
         log_user_action(new_user.id, "register", f"用户注册: {req.username}")
         
-        return JSONResponse(
-            status_code=status.HTTP_201_CREATED,
-            content={
-                "success": True,
-                "code": 201,
-                "message": "注册成功",
-                "data": {
-                    "user_id": new_user.id,
-                    "username": new_user.username,
-                    "email": new_user.email,
-                    "phone": new_user.phone,
-                    "is_vip": new_user.is_vip,
-                    "is_trial": True,
-                    "access_token": access_token,
-                    "refresh_token": refresh_token,
-                    "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        # 只有管理员用户需要返回token
+        if new_user.is_admin:
+            # 生成令牌
+            access_token = create_access_token(data={"sub": str(new_user.id)})
+            refresh_token = create_refresh_token(data={"sub": str(new_user.id)})
+            
+            return JSONResponse(
+                status_code=status.HTTP_201_CREATED,
+                content={
+                    "success": True,
+                    "code": 201,
+                    "message": "注册成功",
+                    "data": {
+                        "user_id": new_user.id,
+                        "username": new_user.username,
+                        "email": new_user.email,
+                        "phone": new_user.phone,
+                        "is_vip": new_user.is_vip,
+                        "is_trial": True,
+                        "is_admin": new_user.is_admin,
+                        "access_token": access_token,
+                        "refresh_token": refresh_token,
+                        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+                    }
                 }
-            }
-        )
+            )
+        else:
+            # 普通用户不返回token
+            return JSONResponse(
+                status_code=status.HTTP_201_CREATED,
+                content={
+                    "success": True,
+                    "code": 201,
+                    "message": "注册成功",
+                    "data": {
+                        "user_id": new_user.id,
+                        "username": new_user.username,
+                        "email": new_user.email,
+                        "phone": new_user.phone,
+                        "is_vip": new_user.is_vip,
+                        "is_trial": True,
+                        "is_admin": new_user.is_admin
+                    }
+                }
+            )
         
     except Exception as e:
         error_message = str(e)
@@ -660,7 +713,7 @@ async def login(
     req: LoginRequest,
     db: Session = Depends(get_db_common)
 ):
-    """用户登录接口"""
+    """用户登录接口（仅管理员用户可登录）"""
     try:
         # 查找用户
         user = db.query(User).filter(
@@ -669,12 +722,8 @@ async def login(
             (User.phone == req.username)
         ).first()
         
-        # 验证密码（使用明文验证）
-        password_valid = False
-        if user:
-            password_valid = verify_password(req.password, user.password)
-        
-        if not user or not password_valid:
+        # 只有管理员用户可以登录
+        if not user or not user.is_admin:
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 content={
@@ -685,16 +734,31 @@ async def login(
                 }
             )
         
-        if not user.is_active:
+        # 验证密码
+        password_valid = False
+        if user:
+            password_valid = verify_password(req.password, user.password)
+        
+        if not password_valid:
             return JSONResponse(
-                status_code=status.HTTP_403_FORBIDDEN,
+                status_code=status.HTTP_401_UNAUTHORIZED,
                 content={
                     "success": False,
-                    "code": 403,
-                    "message": "账号已被禁用",
+                    "code": 401,
+                    "message": "用户名或密码错误",
                     "data": None
                 }
             )
+        
+        # 检查服务到期时间
+        if user.is_vip and user.vip_end_time:
+            if datetime.now() > user.vip_end_time:
+                # 服务到期，更新用户状态
+                user.is_vip = False
+                user.is_active = False  # 设置为非活跃，在用户管理页面显示为"到期"
+                db.commit()
+        
+
         
         # 更新登录信息
         user.last_login_ip = request.client.host
@@ -782,16 +846,26 @@ async def refresh_token(
         # 查找用户
         user = db.query(User).filter(User.id == user_id).first()
         
-        if not user or not user.is_active:
+        # 检查服务到期时间
+        if user and user.is_vip and user.vip_end_time:
+            if datetime.now() > user.vip_end_time:
+                # 服务到期，更新用户状态
+                user.is_vip = False
+                user.is_active = False  # 设置为非活跃，在用户管理页面显示为"到期"
+                db.commit()
+        
+        if not user:
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 content={
                     "success": False,
                     "code": 401,
-                    "message": "用户不存在或已被禁用",
+                    "message": "用户不存在",
                     "data": None
                 }
             )
+        
+
         
         # 生成新的访问令牌
         access_token = create_access_token(data={"sub": user_id})
@@ -996,6 +1070,14 @@ async def get_current_admin(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="用户不存在"
         )
+    
+    # 检查服务到期时间（管理员也需要检查）
+    if user.is_vip and user.vip_end_time:
+        if datetime.now() > user.vip_end_time:
+            # 服务到期，更新用户状态
+            user.is_vip = False
+            user.is_active = False  # 设置为非活跃，在用户管理页面显示为"到期"
+            db.commit()
     
     if not user.is_admin:
         raise HTTPException(

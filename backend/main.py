@@ -33,7 +33,7 @@ from config import settings
 from core.database import engine, get_db
 from core.logger import setup_logging
 from core.security import verify_token, get_current_user
-from core.scheduler import scheduler
+
 from core.celery_app import celery_app
 
 # 导入路由
@@ -201,17 +201,6 @@ async def startup_event():
             logger.info("数据库连接成功")
         except Exception as e:
             logger.error(f"初始化数据库失败: {str(e)}")
-            logger.error(f"堆栈信息: {traceback.format_exc()}")
-        
-        # 启动爬虫调度（只执行一次，不开启定时任务）
-        try:
-            import asyncio
-            from core.crawler_manager import start_crawler_scheduler
-            # 异步执行，不阻塞服务启动
-            asyncio.create_task(start_crawler_scheduler())
-            logger.info("爬虫调度器已启动（只执行一次）")
-        except Exception as e:
-            logger.error(f"启动爬虫调度器失败: {str(e)}")
             logger.error(f"堆栈信息: {traceback.format_exc()}")
         
         # 启动推送任务调度

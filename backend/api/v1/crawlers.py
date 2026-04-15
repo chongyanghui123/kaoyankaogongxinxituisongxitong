@@ -309,12 +309,7 @@ async def delete_kaoyan_crawler_config(
         db.delete(config)
         db.commit()
         
-        # 从调度器中移除对应的任务
-        try:
-            from core.crawler_manager import remove_crawler_job
-            remove_crawler_job('kaoyan', config_id)
-        except Exception as e:
-            log_error(f"移除爬虫任务失败: {str(e)}")
+
         
         log_system_event("delete_kaoyan_crawler", f"删除考研爬虫配置: {config_name}")
         
@@ -621,12 +616,7 @@ async def delete_kaogong_crawler_config(
         db.delete(config)
         db.commit()
         
-        # 从调度器中移除对应的任务
-        try:
-            from core.crawler_manager import remove_crawler_job
-            remove_crawler_job('kaogong', config_id)
-        except Exception as e:
-            log_error(f"移除爬虫任务失败: {str(e)}")
+
         
         log_system_event("delete_kaogong_crawler", f"删除考公爬虫配置: {config_name}")
         

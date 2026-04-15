@@ -5,27 +5,42 @@ from datetime import datetime
 
 class OrderBase(BaseModel):
     product_id: int
-    payment_method: str
+    user_id: int
+    quantity: int = 1
+    payment_method: int
 
 
-class OrderCreate(OrderBase):
-    pass
+class OrderCreate(BaseModel):
+    product_id: int
+    payment_method: int
+    user_requirements: Optional[dict] = None
+    user_id: Optional[int] = None
 
 
 class OrderUpdate(BaseModel):
-    status: Optional[str] = None
-    transaction_id: Optional[str] = None
+    payment_status: Optional[int] = Field(None, ge=0, le=3)
+    payment_method: Optional[int] = None
+    trade_no: Optional[str] = None
+    payment_time: Optional[datetime] = None
 
 
-class OrderResponse(OrderBase):
+class OrderResponse(BaseModel):
     id: int
+    order_no: str
     user_id: int
-    amount: float
-    status: str
-    transaction_id: Optional[str] = None
+    product_id: int
+    product_name: str
+    price: float
+    quantity: int
+    total_amount: float
+    payment_method: int
+    payment_status: int
+
+    payment_time: Optional[datetime] = None
+    refund_time: Optional[datetime] = None
+    expire_time: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
-    paid_at: Optional[datetime] = None
     
     class Config:
         orm_mode = True

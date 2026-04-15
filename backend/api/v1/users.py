@@ -13,9 +13,9 @@ from pydantic import BaseModel, EmailStr, Field, validator
 
 from config import settings
 from core.database import get_db_common
-from core.security import get_current_user, get_password_hash, validate_email, validate_phone
+from core.security import get_current_user, get_current_admin, get_password_hash, validate_email, validate_phone
 from core.logger import log_user_action, log_error
-from core.crawler_manager import SmartDemandAnalyzer
+
 from models.users import User, UserSubscription, UserKeyword, UserReadInfo, UserFavorite
 import asyncio
 
@@ -315,13 +315,7 @@ async def update_subscription(
                     # 调用AI分析需求
                     demand_analysis = await SmartDemandAnalyzer.analyze_demand(demand_text, {})
                     
-                    # 生成相关链接和爬虫配置
-                    from core.crawler_manager import _add_crawler_config_to_db, clear_all_crawler_configs
-                    
-                    # 清理旧的爬虫配置
-                    clear_all_crawler_configs()
-                    
-                    # 生成爬虫配置
+                    # 生成相关链接
                     crawler_configs = []
                     
                     # 学校相关链接和爬虫配置
@@ -885,4 +879,56 @@ async def get_user_stats(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="获取用户统计信息失败"
+        )
+
+
+@router.get("/{user_id}", dependencies=[Depends(get_current_admin)])
+async def get_user(
+    user_id: int,
+    db: Session = Depends(get_db_common)
+):
+    """根据用户ID获取用户信息（管理员）"""
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return JSONResponse(
+                status_code=status.HTTP_404_NOT_FOUND,
+                content={
+                    "success": False,
+                    "code": 404,
+                    "message": "用户不存在",
+                    "data": None
+                }
+            )
+        
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "获取用户信息成功",
+                "data": {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "phone": user.phone,
+                    "is_admin": user.is_admin,
+                    "is_vip": user.is_vip,
+                    "vip_start_time": user.vip_start_time.isoformat() if user.vip_start_time else None,
+                    "vip_end_time": user.vip_end_time.isoformat() if user.vip_end_time else None,
+                    "vip_type": user.vip_type,
+                    "created_at": user.created_at.isoformat()
+                }
+            }
+        )
+    except Exception as e:
+        log_error(f"获取用户信息失败: {str(e)}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "success": False,
+                "code": 500,
+                "message": "获取用户信息失败",
+                "data": None
+            }
         )

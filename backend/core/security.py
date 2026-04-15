@@ -98,12 +98,14 @@ def get_current_user(
     
     if user is None:
         raise credentials_exception
-        
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户已被禁用"
-        )
+    
+    # 检查服务到期时间
+    if user.is_vip and user.vip_end_time:
+        if datetime.now() > user.vip_end_time:
+            # 服务到期，更新用户状态
+            user.is_vip = False
+            user.is_active = False  # 设置为非活跃，在用户管理页面显示为"到期"
+            db.commit()
         
     return user
 

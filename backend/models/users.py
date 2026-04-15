@@ -19,7 +19,7 @@ class User(BaseCommon):
     username = Column(String(50), unique=True, nullable=False, comment="用户名")
     email = Column(String(100), unique=True, nullable=False, comment="邮箱")
     phone = Column(String(20), unique=True, nullable=False, comment="手机号")
-    password = Column(String(255), nullable=False, comment="密码")
+    password = Column(String(255), nullable=True, comment="密码（仅管理员用户需要）")
     avatar = Column(String(255), nullable=True, comment="头像URL")
     real_name = Column(String(50), nullable=True, comment="真实姓名")
     id_card = Column(String(20), nullable=True, comment="身份证号")
@@ -46,6 +46,9 @@ class User(BaseCommon):
         """检查VIP是否有效"""
         if not self.is_vip or not self.vip_end_time:
             return False
+        # VIP服务从vip_start_time开始，到vip_end_time结束
+        if self.vip_start_time:
+            return self.vip_start_time <= datetime.now() < self.vip_end_time
         return datetime.now() < self.vip_end_time
     
     @property
@@ -123,6 +126,7 @@ class Order(BaseCommon):
     user_id = Column(Integer, nullable=False, comment="用户ID")
     product_id = Column(Integer, nullable=False, comment="产品ID")
     product_name = Column(String(100), nullable=False, comment="产品名称")
+    user_requirements = Column(JSON, nullable=True, comment="用户需求信息JSON")
     price = Column(Float, nullable=False, comment="价格")
     quantity = Column(Integer, default=1, comment="数量")
     total_amount = Column(Float, nullable=False, comment="总金额")

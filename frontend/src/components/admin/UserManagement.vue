@@ -44,7 +44,7 @@
       
       <!-- 用户表格 -->
       <el-table :data="users" style="width: 100%">
-        <el-table-column prop="id" label="ID" width="80" />
+        <el-table-column type="index" label="序号" width="80" :index="(index) => index + 1" />
         <el-table-column prop="username" label="用户名" />
         <el-table-column prop="email" label="邮箱" />
         <el-table-column prop="phone" label="手机号" />
@@ -56,13 +56,31 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="is_active" label="状态" width="100">
+        <el-table-column prop="is_vip" label="VIP" width="80">
           <template #default="scope">
-            <el-tag :type="scope.row.is_active ? 'success' : 'danger'">
-              {{ scope.row.is_active ? '活跃' : '禁用' }}
+            <el-tag :type="scope.row.is_vip ? 'warning' : 'info'">
+              {{ scope.row.is_vip ? '是' : '否' }}
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="服务到期时间" width="180">
+          <template #default="scope">
+            {{ scope.row.vip_end_time ? new Date(scope.row.vip_end_time).toLocaleString() : '无' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="服务开始时间" width="180">
+          <template #default="scope">
+            {{ scope.row.vip_start_time ? new Date(scope.row.vip_start_time).toLocaleString() : '无' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="100">
+          <template #default="scope">
+            <el-tag :type="scope.row.is_active ? 'success' : 'danger'">
+              {{ scope.row.is_active ? '活跃' : '到期' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+
         <el-table-column prop="created_at" label="创建时间" width="180" />
         <el-table-column label="操作" width="200">
           <template #default="scope">
@@ -315,9 +333,9 @@
             </el-form-item>
             <el-form-item label="是否应届生">
               <el-radio-group v-model="editUserRequirementsForm.kaogong.is_fresh_graduate">
-                <el-radio label="是">是</el-radio>
-                <el-radio label="否">否</el-radio>
-                <el-radio label="不限">不限</el-radio>
+                <el-radio value="是">是</el-radio>
+                <el-radio value="否">否</el-radio>
+                <el-radio value="不限">不限</el-radio>
               </el-radio-group>
             </el-form-item>
             <el-form-item label="关键词">
@@ -454,10 +472,21 @@ const editUserRequirementsForm = reactive({
 const getUsers = async () => {
   try {
     const token = localStorage.getItem('token')
+    const params = {
+      keyword: searchQuery.value
+    }
+    if (userTypeFilter.value) {
+      params.user_type = userTypeFilter.value
+    }
+    if (userStatusFilter.value) {
+      params.is_active = userStatusFilter.value === 'true'
+    }
+    
     const response = await axios.get('/api/v1/admin/users', {
       headers: {
         'Authorization': `Bearer ${token}`
-      }
+      },
+      params
     })
     users.value = response.data
   } catch (error) {

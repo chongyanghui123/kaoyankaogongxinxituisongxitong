@@ -16,8 +16,8 @@
           </el-form-item>
           <el-form-item label="性别">
             <el-radio-group v-model="formData.gender">
-              <el-radio label="男">男</el-radio>
-              <el-radio label="女">女</el-radio>
+              <el-radio value="男">男</el-radio>
+              <el-radio value="女">女</el-radio>
             </el-radio-group>
           </el-form-item>
           <el-form-item label="出生日期">
@@ -77,9 +77,9 @@
           </el-form-item>
           <el-form-item label="是否应届生">
             <el-radio-group v-model="formData.kaogong.is_fresh_graduate">
-              <el-radio label="是">是</el-radio>
-              <el-radio label="否">否</el-radio>
-              <el-radio label="不限">不限</el-radio>
+              <el-radio value="是">是</el-radio>
+              <el-radio value="否">否</el-radio>
+              <el-radio value="不限">不限</el-radio>
             </el-radio-group>
           </el-form-item>
           <el-form-item label="关键词">
@@ -87,9 +87,45 @@
           </el-form-item>
         </el-card>
 
+        <!-- 产品选择 -->
+        <el-card class="form-section" header="产品选择" shadow="hover">
+          <el-form-item label="选择产品">
+            <el-radio-group v-model="selectedProductId" @change="handleProductChange">
+              <el-radio-button
+                v-for="product in products"
+                :key="product.id"
+                :value="product.id"
+              >
+                <span>{{ product.name }} - ¥{{ product.price }}</span>
+              </el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="产品详情">
+            <div v-if="selectedProduct" class="product-details">
+              <p><strong>产品描述：</strong>{{ selectedProduct.description }}</p>
+              <p><strong>价格：</strong>¥{{ selectedProduct.price }}</p>
+              <p><strong>时长：</strong>{{ selectedProduct.duration }}天</p>
+              <p><strong>类型：</strong>{{ getProductTypeText(selectedProduct.type) }}</p>
+            </div>
+            <div v-else class="product-details">
+              <p>请选择一个产品</p>
+            </div>
+          </el-form-item>
+        </el-card>
+
+        <!-- 支付方式 -->
+        <el-card class="form-section" header="支付方式" shadow="hover">
+          <el-form-item label="支付方式">
+            <el-radio-group v-model="paymentMethod">
+              <el-radio value="1">微信支付</el-radio>
+              <el-radio value="2">支付宝</el-radio>
+            </el-radio-group>
+          </el-form-item>
+        </el-card>
+
         <!-- 提交按钮 -->
         <div class="form-actions">
-          <el-button type="primary" @click="submitForm">提交信息</el-button>
+          <el-button type="primary" @click="handlePayment">立即支付</el-button>
           <el-button @click="resetForm">重置</el-button>
         </div>
       </el-form>
@@ -98,9 +134,60 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
+// 提交状态
+const hasSubmitted = ref(false)
+const isProcessing = ref(false)
+
+// 产品相关
+const products = ref([])
+const productsLoading = ref(false)
+const selectedProductId = ref(null)
+const selectedProduct = ref(null)
+const paymentMethod = ref(1)
+
+// 获取产品列表
+const getProducts = async () => {
+  try {
+    productsLoading.value = true
+    const response = await axios.get('/api/v1/payments/products')
+    // 筛选考公相关产品（type=2或type=3）
+    products.value = response.data.filter(product => 
+      product.type === 2 || product.type === 3
+    )
+    // 默认选择第一个产品
+    if (products.value.length > 0) {
+      selectedProductId.value = products.value[0].id
+      selectedProduct.value = products.value[0]
+    }
+  } catch (error) {
+    console.error('获取产品列表失败:', error)
+    ElMessage.error('获取产品列表失败，请稍后重试')
+  } finally {
+    productsLoading.value = false
+  }
+}
+
+// 产品选择变化
+const handleProductChange = (productId) => {
+  selectedProduct.value = products.value.find(product => product.id === productId)
+}
+
+// 获取产品类型文本
+const getProductTypeText = (type) => {
+  const typeMap = {
+    1: '考研VIP',
+    2: '考公VIP',
+    3: '双赛道VIP'
+  }
+  return typeMap[type] || '未知类型'
+}
 
 // 表单数据
 const formData = reactive({
@@ -137,15 +224,15 @@ const rules = {
 // 表单引用
 const formRef = ref(null)
 
-// 省份列表
+// 省份列表（数据库中实际存在的省份）
 const provinces = [
-  '北京', '天津', '河北', '山西', '内蒙古',
-  '辽宁', '吉林', '黑龙江', '上海', '江苏',
-  '浙江', '安徽', '福建', '江西', '山东',
-  '河南', '湖北', '湖南', '广东', '广西',
-  '海南', '重庆', '四川', '贵州', '云南',
-  '西藏', '陕西', '甘肃', '青海', '宁夏',
-  '新疆'
+  '上海', '云南', '内蒙古', '北京', '吉林',
+  '四川', '天津', '宁夏', '安徽', '山东',
+  '山西', '广东', '广西', '新疆', '江苏',
+  '江西', '河北', '河南', '浙江', '海南',
+  '湖北', '湖南', '甘肃', '福建', '西藏',
+  '贵州', '辽宁', '重庆', '陕西', '青海',
+  '黑龙江'
 ]
 
 // 提交表单
@@ -155,11 +242,16 @@ const submitForm = async () => {
   await formRef.value.validate(async (valid, fields) => {
     if (valid) {
       try {
+        if (!selectedProductId.value) {
+          ElMessage.error('请选择一个产品')
+          return
+        }
+        
         // 准备提交数据
         const submitData = {
           username: formData.real_name,
           email: formData.email,
-          password: '123456a', // 默认密码，包含字母和数字
+          // 普通用户不需要密码字段
           phone: formData.phone,
           real_name: formData.real_name,
           gender: formData.gender,
@@ -175,21 +267,79 @@ const submitForm = async () => {
           }
         }
 
-        // 调用API创建用户
-        const response = await axios.post('/api/v1/auth/register', submitData)
+        // 保存用户数据到 localStorage，供支付页面使用
+        localStorage.setItem('pendingUserData', JSON.stringify(submitData))
         
-        if (response.data && (response.data.code === 200 || response.data.code === 201)) {
-          ElMessage.success('学生信息录入成功！')
-          resetForm()
-        } else {
-          ElMessage.error('录入失败：' + (response.data.message || '未知错误'))
-        }
+        // 直接跳转到支付页面，传递产品信息
+        router.push({
+          path: '/payment',
+          query: {
+            product_id: selectedProductId.value,
+            payment_method: paymentMethod.value
+          }
+        })
       } catch (error) {
         console.error('录入失败', error)
         ElMessage.error('录入失败：' + (error.response?.data?.message || '网络错误'))
       }
     } else {
+      ElMessage.error('请检查表单填写是否正确')
+    }
+  })
+}
 
+// 立即支付
+const handlePayment = async () => {
+  if (!formRef.value) return
+  
+  await formRef.value.validate(async (valid, fields) => {
+    if (valid) {
+      try {
+        if (!selectedProductId.value) {
+          ElMessage.error('请选择一个产品')
+          return
+        }
+        
+        isProcessing.value = true
+        // 准备提交数据（用于支付页面）
+        const userData = {
+          username: formData.real_name,
+          email: formData.email,
+          phone: formData.phone,
+          password: '123456', // 为用户自动生成一个默认密码
+          real_name: formData.real_name,
+          gender: formData.gender,
+          birthdate: formData.birthdate ? formData.birthdate.toISOString().split('T')[0] : null,
+          kaoyan_requirements: null,
+          kaogong_requirements: {
+            provinces: formData.kaogong.provinces,
+            position_types: formData.kaogong.position_types,
+            majors: formData.kaogong.majors,
+            education: formData.kaogong.education,
+            is_fresh_graduate: formData.kaogong.is_fresh_graduate,
+            keywords: formData.kaogong.keywords
+          },
+          is_admin: false // 明确指定为普通用户
+        }
+        
+        // 保存用户数据到 localStorage，供支付页面使用
+        localStorage.setItem('pendingUserData', JSON.stringify(userData))
+        
+        // 直接跳转到支付页面，传递产品信息
+        router.push({
+          path: '/payment',
+          query: {
+            product_id: selectedProductId.value,
+            payment_method: paymentMethod.value
+          }
+        })
+      } catch (error) {
+        console.error('支付失败', error)
+        ElMessage.error('支付失败：' + (error.response?.data?.message || '网络错误'))
+      } finally {
+        isProcessing.value = false
+      }
+    } else {
       ElMessage.error('请检查表单填写是否正确')
     }
   })
@@ -210,6 +360,10 @@ const resetForm = () => {
     keywords: ''
   }
 }
+
+onMounted(() => {
+  getProducts()
+})
 
 
 </script>

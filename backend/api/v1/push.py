@@ -5,6 +5,7 @@ from datetime import datetime
 
 from core.database import get_db_common
 from core.security import get_current_user, get_current_admin
+from core.push_manager import send_payment_users_notifications
 from models.users import PushTemplate, PushLog, User
 from schemas.push import PushTemplateCreate, PushTemplateUpdate, PushTemplateResponse, PushLogResponse, PushRequest
 
@@ -161,3 +162,17 @@ async def get_push_log(
     if not log:
         raise HTTPException(status_code=404, detail="推送日志不存在")
     return log
+
+
+@router.post("/send-to-payment-users")
+async def send_to_payment_users(
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_admin)
+):
+    """给已经支付订单的用户推送消息"""
+    try:
+        # 调用推送函数
+        send_payment_users_notifications()
+        return {"message": "推送任务已启动，正在处理"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"推送失败: {str(e)}")

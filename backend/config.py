@@ -14,26 +14,26 @@ class Settings(BaseSettings):
     """应用配置类"""
     
     # 基本配置
-    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
-    DEBUG: bool = os.getenv("DEBUG", "True").lower() == "true"
-    PORT: int = int(os.getenv("PORT", 8000))
-    HOST: str = os.getenv("HOST", "0.0.0.0")
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-here-change-in-production")
+    ENVIRONMENT: str = "development"
+    DEBUG: bool = True
+    PORT: int = 8000
+    HOST: str = "0.0.0.0"
+    SECRET_KEY: str = "your-secret-key-here-change-in-production"
     API_V1_STR: str = "/api/v1"
-    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000,http://127.0.0.1:8080,http://localhost:5175,http://127.0.0.1:5175,http://localhost:5173,http://127.0.0.1:5173")
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000,http://127.0.0.1:8080,http://localhost:5175,http://127.0.0.1:5175,http://localhost:5173,http://127.0.0.1:5173"
     
     @property
     def cors_origins_list(self) -> List[str]:
         return [i.strip() for i in self.CORS_ORIGINS.split(',')]
     
     # 数据库配置
-    DATABASE_USER: str = os.getenv("DATABASE_USER", "root")
-    DATABASE_PASSWORD: str = os.getenv("DATABASE_PASSWORD", "123456789")
-    DATABASE_HOST: str = os.getenv("DATABASE_HOST", "localhost")
-    DATABASE_PORT: int = int(os.getenv("DATABASE_PORT", 3306))
-    COMMON_DB: str = os.getenv("COMMON_DB", "common_db")
-    KAOYAN_DB: str = os.getenv("KAOYAN_DB", "kaoyan_db")
-    KAOGONG_DB: str = os.getenv("KAOGONG_DB", "kaogong_db")
+    DATABASE_USER: str = "root"
+    DATABASE_PASSWORD: str = "123456789"
+    DATABASE_HOST: str = "localhost"
+    DATABASE_PORT: int = 3306
+    COMMON_DB: str = "common_db"
+    KAOYAN_DB: str = "kaoyan_db"
+    KAOGONG_DB: str = "kaogong_db"
     
     # Redis配置
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -121,21 +121,12 @@ class Settings(BaseSettings):
     # 爬虫配置扩展
     CRAWLER_RETRY_TIMES: int = int(os.getenv("CRAWLER_RETRY_TIMES", "3"))
     
-    # 火山引擎AI配置
-    VOLCENGINE_API_KEY: str = os.getenv("VOLCENGINE_API_KEY", "")
-    VOLCENGINE_API_URL: str = os.getenv("VOLCENGINE_API_URL", "https://ark.cn-beijing.volces.com/api/v3/chat/completions")
-    VOLCENGINE_MODEL: str = os.getenv("VOLCENGINE_MODEL", "doubao-seed-2-0-code-preview-260215")
-    VOLCENGINE_TEMPERATURE: float = float(os.getenv("VOLCENGINE_TEMPERATURE", "0.7"))
-    
-    # AI配置
-    AI_ENABLED: bool = os.getenv("AI_ENABLED", "True").lower() == "true"
-    AI_MAX_RETRIES: int = int(os.getenv("AI_MAX_RETRIES", "3"))
-    AI_CONFIDENCE_THRESHOLD: float = float(os.getenv("AI_CONFIDENCE_THRESHOLD", "0.6"))
-    AI_CACHE_TTL: int = int(os.getenv("AI_CACHE_TTL", "3600"))
+
     
     class Config:
-        env_file = ".env"
+        env_file = None
         case_sensitive = True
+        extra = "ignore"
 
 # 实例化配置
 settings = Settings()

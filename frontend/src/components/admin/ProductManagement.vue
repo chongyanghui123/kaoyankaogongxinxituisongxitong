@@ -45,7 +45,7 @@
       
       <!-- 产品表格 -->
       <el-table :data="products" style="width: 100%" v-loading="productsLoading">
-        <el-table-column prop="id" label="ID" width="80" />
+        <el-table-column type="index" label="序号" width="80" :index="(index) => index + 1" />
         <el-table-column prop="name" label="产品名称" />
         <el-table-column prop="price" label="价格" width="100" />
         <el-table-column prop="original_price" label="原价" width="100" />

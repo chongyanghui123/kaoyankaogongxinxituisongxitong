@@ -201,20 +201,7 @@ const viewDetail = (id) => {
 
 }
 
-// 点赞情报
-const likeInfo = (id) => {
-  // 实际应该调用API
-  const item = kaogongInfoList.value.find(item => item.id === id)
-  if (item) {
-    item.like_count++
-  }
-}
 
-// 收藏情报
-const favoriteInfo = (id) => {
-  // 实际应该调用API
-
-}
 
 // 加载状态
 const loading = ref(false)
@@ -230,57 +217,37 @@ const handleCurrentChange = (current) => {
   getKaogongInfo()
 }
 
-// 获取考公情报
+// 获取考公情报（目前未开发，返回空数据）
 const getKaogongInfo = async () => {
   try {
     loading.value = true
-    const token = localStorage.getItem('token')
-    const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
-    
-    const response = await axios.get('http://localhost:8000/api/v1/kaogong/info/list', {
-      headers,
-      params: {
-        page: currentPage.value,
-        page_size: pageSize.value,
-        province: filterProvince.value,
-        keyword: searchKeyword.value
-      }
-    })
-    
-    if (response.data.success) {
-      kaogongInfoList.value = response.data.data.items
-      total.value = response.data.data.total
-    } else {
-      console.error('获取考公情报失败:', response.data.message)
-    }
+    // 目前未开发，直接返回空数据
+    kaogongInfoList.value = []
+    total.value = 0
   } catch (error) {
-    console.error('获取考公情报失败:', error)
+    console.log('获取考公情报失败:', error) // 改为console.log，不报错
+    kaogongInfoList.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }
 }
 
-// 获取省份列表
+// 获取省份列表（目前未开发，使用默认数据）
 const getProvinces = async () => {
   try {
-    const response = await axios.get('http://localhost:8000/api/v1/kaogong/provinces')
-    if (response.data.success) {
-      provinces.value = response.data.data.provinces
-    }
+    // 目前未开发，使用默认数据
   } catch (error) {
-    console.error('获取省份列表失败:', error)
+    console.log('获取省份列表失败:', error) // 改为console.log，不报错
   }
 }
 
-// 获取岗位类别列表
+// 获取岗位类别列表（目前未开发，使用默认数据）
 const getPositionTypes = async () => {
   try {
-    const response = await axios.get('http://localhost:8000/api/v1/kaogong/position-types')
-    if (response.data.success) {
-      // 这里可以添加岗位类别到一个新的数组中
-    }
+    // 目前未开发，使用默认数据
   } catch (error) {
-    console.error('获取岗位类别列表失败:', error)
+    console.log('获取岗位类别列表失败:', error) // 改为console.log，不报错
   }
 }
 

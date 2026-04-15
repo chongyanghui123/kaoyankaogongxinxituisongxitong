@@ -45,7 +45,7 @@
       
       <!-- 系统配置表格 -->
       <el-table :data="systemConfigs" style="width: 100%" v-loading="configsLoading">
-        <el-table-column prop="id" label="ID" width="80" />
+        <el-table-column type="index" label="序号" width="80" :index="(index) => index + 1" />
         <el-table-column prop="config_key" label="配置键" />
         <el-table-column prop="config_value" label="配置值" />
         <el-table-column prop="config_type_text" label="配置类型" width="120">

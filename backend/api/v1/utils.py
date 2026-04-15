@@ -3,7 +3,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from core.database import get_db_common
 from core.models.school import School
-from core.crawler_manager import SmartDemandAnalyzer
+from typing import List
+
 import asyncio
 from datetime import datetime
 
@@ -71,17 +72,18 @@ async def get_provinces(db: Session = Depends(get_db_common)):
         )
 
 @router.post("/analyze-demand")
-async def analyze_demand(
+async def analyze_and_generate_crawler_configs(
+    user_id: int,
     category: str,
-    provinces: list = [],
-    schools: list = [],
-    majors: str = "",
-    types: list = [],
+    provinces: List[str],
+    schools: List[str],
+    majors: str,
+    types: List[str],
     keywords: str = ""
 ):
     """
     分析用户需求并生成爬虫配置
-    根据用户填写的表单信息，通过AI分析生成匹配的网站结果，并为用户创建爬虫配置
+    根据用户填写的表单信息，生成匹配的网站结果，并为用户创建爬虫配置
     """
     try:
         # 构造需求文本
@@ -96,11 +98,6 @@ async def analyze_demand(
             demand_parts.append(f"关注{','.join(types)}")
         if keywords:
             demand_parts.append(f"关键词:{keywords}")
-        
-        demand_text = f"{category} {' '.join(demand_parts)}"
-        
-        # 调用AI分析需求
-        demand_analysis = await SmartDemandAnalyzer.analyze_demand(demand_text, {})
         
         # 生成相关链接
         relevant_links = []
@@ -131,13 +128,13 @@ async def analyze_demand(
                 
                 # 生成爬虫配置
                 crawler_configs.append({
-                    'name': f"AI增强-{category}-{datetime.now().strftime('%Y%m%d%H%M')}-{clean_school}-研究生招生网",
+                    'name': f"{category}-{datetime.now().strftime('%Y%m%d%H%M')}-{clean_school}-研究生招生网",
                     'url': url,
                     'selector': '.news-list li, .article-list li, .list-item, .news-item',
                     'interval': 60,
                     'priority': 3,
                     'status': 1,
-                    'ai_enhanced': True,
+                    'ai_enhanced': False,
                     'match_score': 0.9,
                     'personalized': True
                 })
@@ -153,13 +150,13 @@ async def analyze_demand(
             
             # 生成爬虫配置
             crawler_configs.append({
-                'name': f"AI增强-{category}-{datetime.now().strftime('%Y%m%d%H%M')}-{province}-教育考试院",
+                'name': f"{category}-{datetime.now().strftime('%Y%m%d%H%M')}-{province}-教育考试院",
                 'url': f'https://www.{province}jyksy.cn/',
                 'selector': '.news-list li, .article-list li, .list-item, .news-item',
                 'interval': 45,
                 'priority': 2,
                 'status': 1,
-                'ai_enhanced': True,
+                'ai_enhanced': False,
                 'match_score': 0.8,
                 'personalized': True
             })
@@ -232,25 +229,15 @@ async def analyze_demand(
         # 限制返回数量
         relevant_links = relevant_links[:10]
         
-        # 清理旧的爬虫配置
-        from core.crawler_manager import clear_all_crawler_configs
-        clear_all_crawler_configs()
-        
-        # 添加新的爬虫配置到数据库
-        from core.crawler_manager import _add_crawler_config_to_db
-        for config in crawler_configs:
-            _add_crawler_config_to_db(config)
-        
         return JSONResponse(
             status_code=200,
             content={
                 "success": True,
                 "code": 200,
-                "message": "需求分析成功，已生成爬虫配置",
+                "message": "需求分析成功，已生成相关链接",
                 "data": {
                     "links": relevant_links,
-                    "demand_analysis": demand_analysis,
-                    "crawler_configs": crawler_configs
+                    "demand_analysis": demand_analysis
                 }
             }
         )

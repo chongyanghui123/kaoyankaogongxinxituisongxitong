@@ -30,7 +30,7 @@
       <div class="student-classification">
         <h4>按学生分类</h4>
         <el-table :data="filteredStudentCrawlers" style="width: 100%">
-          <el-table-column prop="user_id" label="用户ID" width="80" />
+          <el-table-column type="index" label="序号" width="80" :index="(index) => index + 1" />
           <el-table-column prop="username" label="用户名" />
           <el-table-column prop="email" label="邮箱" />
           <el-table-column prop="user_type" label="用户类型" width="100" />

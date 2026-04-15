@@ -40,6 +40,10 @@
             <el-icon><ShoppingCart /></el-icon>
             <span>产品管理</span>
           </el-menu-item>
+          <el-menu-item index="/admin/payments">
+            <el-icon><CreditCard /></el-icon>
+            <span>支付管理</span>
+          </el-menu-item>
           <el-menu-item index="/admin/system">
             <el-icon><Setting /></el-icon>
             <span>系统配置</span>
@@ -76,6 +80,9 @@
           <!-- 产品管理 -->
           <ProductManagement v-if="activeIndex === '/admin/products'" />
           
+          <!-- 支付管理 -->
+          <PaymentManagement v-if="activeIndex === '/admin/payments'" />
+          
           <!-- 系统配置 -->
           <SystemConfigManagement v-if="activeIndex === '/admin/system'" />
           
@@ -102,7 +109,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowDown, Search, User, Refresh, ShoppingCart, Setting, Document, DataAnalysis, Paperclip } from '@element-plus/icons-vue'
+import { ArrowDown, Search, User, Refresh, ShoppingCart, Setting, Document, DataAnalysis, Paperclip, CreditCard } from '@element-plus/icons-vue'
 import axios from 'axios'
 
 // 导入模块化组件
@@ -111,17 +118,22 @@ import CrawlerManagement from '../components/admin/CrawlerManagement.vue'
 import KaoyanInfoManagement from '../components/admin/KaoyanInfoManagement.vue'
 import KaogongInfoManagement from '../components/admin/KaogongInfoManagement.vue'
 import ProductManagement from '../components/admin/ProductManagement.vue'
+import PaymentManagement from '../components/admin/PaymentManagement.vue'
 import SystemConfigManagement from '../components/admin/SystemConfigManagement.vue'
 import SystemOverview from '../components/admin/SystemOverview.vue'
 
 
 // const router = useRouter()
-const activeIndex = ref('/admin')
+// 从本地存储中读取保存的活跃标签页，默认为用户管理
+const savedTab = localStorage.getItem('activeAdminTab')
+const activeIndex = ref(savedTab || '/admin')
 const userInfo = ref({})
 
 // 处理菜单选择
 const handleSelect = (key) => {
   activeIndex.value = key
+  // 保存到本地存储
+  localStorage.setItem('activeAdminTab', key)
 }
 
 // 导航到指定路径
@@ -140,7 +152,15 @@ const logout = () => {
 // 获取用户信息
 const getUserInfo = async () => {
   try {
-    userInfo.value = JSON.parse(localStorage.getItem('userInfo') || '{}')
+    try {
+      const userInfoStr = localStorage.getItem('userInfo')
+      userInfo.value = userInfoStr && userInfoStr !== 'undefined' && userInfoStr !== 'null' 
+        ? JSON.parse(userInfoStr) 
+        : {}
+    } catch (error) {
+      console.error('解析用户信息失败:', error)
+      userInfo.value = {}
+    }
   } catch (error) {
     console.error('获取用户信息失败:', error)
   }
@@ -148,6 +168,11 @@ const getUserInfo = async () => {
 
 onMounted(() => {
   getUserInfo()
+  // 从本地存储中读取保存的活跃标签页
+  const savedTab = localStorage.getItem('activeAdminTab')
+  if (savedTab) {
+    activeIndex.value = savedTab
+  }
 })
 </script>
 

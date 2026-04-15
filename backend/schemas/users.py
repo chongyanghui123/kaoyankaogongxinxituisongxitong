@@ -29,6 +29,10 @@ class UserResponse(UserBase):
     created_at: datetime
     updated_at: datetime
     user_type: Optional[str] = None  # 新增字段：用户类型
+    is_vip: bool = False  # 新增字段：是否VIP
+    vip_type: int = 0  # 新增字段：VIP类型
+    vip_start_time: Optional[datetime] = None  # 新增字段：VIP开始时间
+    vip_end_time: Optional[datetime] = None  # 新增字段：服务到期时间
     
     class Config:
         orm_mode = True

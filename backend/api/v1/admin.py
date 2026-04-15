@@ -5,7 +5,7 @@ from datetime import datetime
 
 from core.database import get_db, get_db_kaoyan, get_db_kaogong
 from core.security import get_current_admin
-from core.crawler_manager import generate_dynamic_crawler_configs
+
 from models.users import User, Order, Product, SystemConfig, PushTemplate, PushLog, UserSubscription, UserKeyword, UserReadInfo, UserFavorite
 from models.kaoyan import KaoyanInfo, KaoyanCrawlerConfig, KaoyanCrawlerLog
 from models.kaogong import KaogongInfo, KaogongCrawlerConfig, KaogongCrawlerLog
@@ -25,6 +25,8 @@ async def get_users(
     limit: int = Query(1000, ge=1, le=1000),
     is_admin: Optional[bool] = Query(None),
     is_active: Optional[bool] = Query(None),
+    keyword: Optional[str] = Query(None, description="搜索关键词（用户名、邮箱、手机号）"),
+    user_type: Optional[str] = Query(None, description="用户类型筛选"),
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin)
 ):
@@ -36,9 +38,41 @@ async def get_users(
     if is_active is not None:
         query = query.filter(User.is_active == is_active)
     
+    # 关键词搜索
+    if keyword:
+        query = query.filter(
+            (User.username.contains(keyword)) |
+            (User.email.contains(keyword)) |
+            (User.phone.contains(keyword))
+        )
+    
+    # 用户类型筛选
+    if user_type and user_type != "":
+        # 根据用户类型查询对应的订阅类型
+        from sqlalchemy import or_
+        if user_type == "考研":
+            query = query.join(UserSubscription, User.id == UserSubscription.user_id)\
+                .filter(UserSubscription.subscribe_type == 1, UserSubscription.status == 1)
+        elif user_type == "考公":
+            query = query.join(UserSubscription, User.id == UserSubscription.user_id)\
+                .filter(UserSubscription.subscribe_type == 2, UserSubscription.status == 1)
+        elif user_type == "双赛道":
+            query = query.join(UserSubscription, User.id == UserSubscription.user_id)\
+                .filter(UserSubscription.subscribe_type == 3, UserSubscription.status == 1)
+        elif user_type == "未订阅":
+            # 查询没有有效订阅的用户
+            from sqlalchemy import not_
+            query = query.filter(
+                not_(User.id.in_(
+                    db.query(UserSubscription.user_id)\
+                        .filter(UserSubscription.status == 1)\
+                        .distinct()
+                ))
+            )
+    
     users = query.offset(skip).limit(limit).all()
     
-    # 为每个用户添加类型信息
+    # 为每个用户添加类型信息和VIP信息
     for user in users:
         # 查询用户的订阅配置
         subscription = db.query(UserSubscription).filter(
@@ -55,8 +89,91 @@ async def get_users(
                 user.user_type = "双赛道"
         else:
             user.user_type = "未订阅"
+        
+        # 确保VIP相关字段正确设置
+        if hasattr(user, 'is_vip'):
+            user.is_vip = user.is_vip
+        else:
+            user.is_vip = False
+            
+        if hasattr(user, 'vip_type'):
+            user.vip_type = user.vip_type
+        else:
+            user.vip_type = 0
+            
+        if hasattr(user, 'vip_start_time'):
+            user.vip_start_time = user.vip_start_time
+        else:
+            user.vip_start_time = None
+            
+        if hasattr(user, 'vip_end_time'):
+            user.vip_end_time = user.vip_end_time
+        else:
+            user.vip_end_time = None
     
     return users
+
+
+@router.get("/orders")
+async def get_all_orders(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(1000, ge=1, le=1000),
+    payment_status: Optional[int] = Query(None),
+    keyword: Optional[str] = Query(None, description="搜索关键词（订单号、用户名、邮箱）"),
+    user_id: Optional[int] = Query(None, description="用户ID筛选"),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """获取所有订单列表（管理员）"""
+    query = db.query(Order)
+    
+    if payment_status is not None:
+        query = query.filter(Order.payment_status == payment_status)
+    
+    # 关键词搜索
+    if keyword:
+        from sqlalchemy.orm import aliased
+        UserAlias = aliased(User)
+        query = query.join(UserAlias, Order.user_id == UserAlias.id)\
+            .filter(
+                (Order.order_no.contains(keyword)) |
+                (UserAlias.username.contains(keyword)) |
+                (UserAlias.email.contains(keyword))
+            )
+    
+    # 用户ID筛选
+    if user_id:
+        query = query.filter(Order.user_id == user_id)
+    
+    orders = query.offset(skip).limit(limit).all()
+    
+    # 返回订单信息，包含用户信息
+    order_list = []
+    for order in orders:
+        user = db.query(User).filter(User.id == order.user_id).first()
+        order_info = {
+            "id": order.id,
+            "order_no": order.order_no,
+            "user_id": order.user_id,
+            "username": user.username if user else "未知用户",
+            "email": user.email if user else "未知邮箱",
+            "product_id": order.product_id,
+            "product_name": order.product_name,
+            "price": order.price,
+            "quantity": order.quantity,
+            "total_amount": order.total_amount,
+            "payment_method": order.payment_method,
+            "payment_status": order.payment_status,
+            "created_at": order.created_at,
+            "updated_at": order.updated_at,
+            "payment_time": order.payment_time  # 添加支付时间字段
+        }
+        order_list.append(order_info)
+    
+    # 获取总记录数
+    total_count = query.count()
+    
+    return {"success": True, "code": 200, "message": "获取订单列表成功", "data": order_list, "total": total_count}
 
 
 @router.get("/users/{user_id}", response_model=UserResponse)
@@ -85,6 +202,12 @@ async def get_user(
             user.user_type = "双赛道"
     else:
         user.user_type = "未订阅"
+    
+    # 添加VIP相关信息
+    user.is_vip = user.is_vip
+    user.vip_type = user.vip_type
+    user.vip_start_time = user.vip_start_time
+    user.vip_end_time = user.vip_end_time
     
     return user
 
@@ -166,6 +289,12 @@ async def update_user(
     else:
         user.user_type = "未订阅"
     
+    # 添加VIP相关信息
+    user.is_vip = user.is_vip
+    user.vip_type = user.vip_type
+    user.vip_start_time = user.vip_start_time
+    user.vip_end_time = user.vip_end_time
+    
     return user
 
 
@@ -208,9 +337,8 @@ async def delete_user(
             db.delete(favorite)
         
         # 删除用户的订单
-        orders = db.query(Order).filter(Order.user_id == user_id).all()
-        for order in orders:
-            db.delete(order)
+        # 使用简单的删除方式，避免查询不存在的字段
+        db.query(Order).filter(Order.user_id == user_id).delete()
         
         # 删除用户的推送日志
         push_logs = db.query(PushLog).filter(PushLog.user_id == user_id).all()
@@ -244,37 +372,69 @@ async def get_user_requirements(
         if not user:
             raise HTTPException(status_code=404, detail="用户不存在")
         
-        # 获取用户的订阅配置
-        subscription = db.query(UserSubscription).filter(
-            UserSubscription.user_id == user_id,
-            UserSubscription.status == 1
-        ).first()
-        
+        # 初始化需求结果
         requirements = {
             'kaoyan': {},
             'kaogong': {}
         }
         
-        if subscription and subscription.config_json:
-            config_json = subscription.config_json
-            # 如果config_json是字符串，解析它
-            if isinstance(config_json, str):
-                import json
-                config_json = json.loads(config_json)
-            
-            # 直接返回数据库中的数据
-        if 'kaoyan' in config_json:
-            kaoyan_config = config_json['kaoyan']
-            # 确保keywords是列表
-            if 'keywords' in kaoyan_config and not isinstance(kaoyan_config['keywords'], list):
-                kaoyan_config['keywords'] = []
-            requirements['kaoyan'] = kaoyan_config
-        if 'kaogong' in config_json:
-            kaogong_config = config_json['kaogong']
-            # 确保keywords是列表
-            if 'keywords' in kaogong_config and not isinstance(kaogong_config['keywords'], list):
-                kaogong_config['keywords'] = []
-            requirements['kaogong'] = kaogong_config
+        # 获取用户的订阅配置
+        from core.logger import get_logger
+        logger = get_logger(__name__)
+        logger.info(f"获取用户订阅配置: user_id={user_id}")
+        subscription = db.query(UserSubscription).filter(
+            UserSubscription.user_id == user_id,
+            UserSubscription.status == 1
+        ).first()
+        logger.info(f"subscription: {subscription}")
+        
+        # 处理订阅配置
+        if subscription:
+            # 确保subscription.config_json不是None
+            from core.logger import get_logger
+            logger = get_logger(__name__)
+            logger.info(f"subscription: {subscription}")
+            logger.info(f"hasattr(subscription, 'config_json'): {hasattr(subscription, 'config_json')}")
+            if hasattr(subscription, 'config_json'):
+                config_json = subscription.config_json
+                logger.info(f"config_json: {config_json}")
+                logger.info(f"type(config_json): {type(config_json)}")
+                # 确保config_json不是None
+                if config_json is not None:
+                    # 如果config_json是字符串，解析它
+                    if isinstance(config_json, str):
+                        try:
+                            import json
+                            config_json = json.loads(config_json)
+                            # 确保解析后不是None
+                            if config_json is None:
+                                config_json = {}
+                        except:
+                            config_json = {}
+                    # 确保config_json是字典
+                    if isinstance(config_json, dict):
+                        logger.info(f"config_json is dict: {config_json}")
+                        # 处理考研需求 - 支持两种数据结构
+                        if 'kaoyan' in config_json:
+                            kaoyan_config = config_json['kaoyan']
+                            logger.info(f"kaoyan_config: {kaoyan_config}")
+                            logger.info(f"type(kaoyan_config): {type(kaoyan_config)}")
+                            if kaoyan_config is not None and isinstance(kaoyan_config, dict):
+                                requirements['kaoyan'] = kaoyan_config
+                                logger.info(f"requirements['kaoyan']: {requirements['kaoyan']}")
+                        elif 'kaoyan_requirements' in config_json:
+                            kaoyan_config = config_json['kaoyan_requirements']
+                            if kaoyan_config is not None and isinstance(kaoyan_config, dict):
+                                requirements['kaoyan'] = kaoyan_config
+                        # 处理考公需求 - 支持两种数据结构
+                        if 'kaogong' in config_json:
+                            kaogong_config = config_json['kaogong']
+                            if kaogong_config is not None and isinstance(kaogong_config, dict):
+                                requirements['kaogong'] = kaogong_config
+                        elif 'kaogong_requirements' in config_json:
+                            kaogong_config = config_json['kaogong_requirements']
+                            if kaogong_config is not None and isinstance(kaogong_config, dict):
+                                requirements['kaogong'] = kaogong_config
         
         # 获取用户的关键词
         keywords = db.query(UserKeyword).filter(
@@ -282,11 +442,13 @@ async def get_user_requirements(
             UserKeyword.is_active == True
         ).all()
         
+        # 处理关键词 - 只在订阅配置中没有关键词时添加
         for kw in keywords:
             category = 'kaoyan' if kw.category == 1 else 'kaogong'
-            if 'keywords' not in requirements[category]:
-                requirements[category]['keywords'] = []
-            requirements[category]['keywords'].append(kw.keyword)
+            if 'keywords' not in requirements[category] or not requirements[category]['keywords']:
+                if 'keywords' not in requirements[category]:
+                    requirements[category]['keywords'] = []
+                requirements[category]['keywords'].append(kw.keyword)
         
         return requirements
     except Exception as e:
@@ -440,65 +602,70 @@ async def get_kaogong_info(
 
 @router.get("/stats", response_model=SystemStatsResponse)
 async def get_system_stats(
-    db_common: Session = Depends(get_db),
-    db_kaoyan: Session = Depends(get_db_kaoyan),
-    db_kaogong: Session = Depends(get_db_kaogong),
+    db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin)
 ):
     """获取系统统计信息（管理员）"""
-    # 计算用户数
-    user_count = db_common.query(User).count()
+    from core.database import get_db_kaoyan, get_db_kaogong
     
-    # 计算考研信息数
-    kaoyan_count = db_kaoyan.query(KaoyanInfo).count()
+    # 手动获取其他数据库会话
+    db_kaoyan = next(get_db_kaoyan())
+    db_kaogong = next(get_db_kaogong())
     
-    # 计算考公信息数
-    kaogong_count = db_kaogong.query(KaogongInfo).count()
-    
-    # 计算订单数
-    order_count = db_common.query(Order).count()
-    
-    # 计算推送数
-    push_count = db_common.query(PushLog).count()
-    
-    # 计算用户类型分布
-    user_type_distribution = {
-        "未订阅": 0,
-        "考研": 0,
-        "考公": 0,
-        "双赛道": 0
-    }
-    
-    # 获取所有用户
-    users = db_common.query(User).all()
-    
-    for user in users:
-        # 获取用户的订阅配置（状态为1的有效订阅）
-        subscription = db_common.query(UserSubscription).filter(
-            UserSubscription.user_id == user.id,
-            UserSubscription.status == 1
-        ).first()
+    try:
+        # 计算用户数
+        user_count = db.query(User).count()
         
-        user_type = "未订阅"
-        if subscription:
-            if subscription.subscribe_type == 1:
-                user_type = "考研"
-            elif subscription.subscribe_type == 2:
-                user_type = "考公"
-            elif subscription.subscribe_type == 3:
-                user_type = "双赛道"
+        # 计算考研信息数
+        kaoyan_count = db_kaoyan.query(KaoyanInfo).count()
         
-        user_type_distribution[user_type] += 1
-    
-    return {
-        "user_count": user_count,
-        "kaoyan_count": kaoyan_count,
-        "kaogong_count": kaogong_count,
-        "order_count": order_count,
-        "push_count": push_count,
-        "user_type_distribution": user_type_distribution,
-        "timestamp": datetime.utcnow()
-    }
+        # 计算考公信息数
+        kaogong_count = db_kaogong.query(KaogongInfo).count()
+        
+        # 计算订单数
+        order_count = db.query(Order).count()
+        
+        # 计算推送数
+        push_count = db.query(PushLog).count()
+        
+        # 计算用户类型分布
+        user_type_distribution = {
+            "考研": 0,
+            "考公": 0,
+            "双赛道": 0
+        }
+        
+        # 获取所有用户
+        users = db.query(User).all()
+        
+        for user in users:
+            # 获取用户的订阅配置（状态为1的有效订阅）
+            subscription = db.query(UserSubscription).filter(
+                UserSubscription.user_id == user.id,
+                UserSubscription.status == 1
+            ).first()
+            
+            if subscription:
+                if subscription.subscribe_type == 1:
+                    user_type_distribution["考研"] += 1
+                elif subscription.subscribe_type == 2:
+                    user_type_distribution["考公"] += 1
+                elif subscription.subscribe_type == 3:
+                    user_type_distribution["双赛道"] += 1
+        
+        return {
+            "user_count": user_count,
+            "kaoyan_count": kaoyan_count,
+            "kaogong_count": kaogong_count,
+            "order_count": order_count,
+            "push_count": push_count,
+            "user_type_distribution": user_type_distribution,
+            "timestamp": datetime.utcnow()
+        }
+    finally:
+        # 关闭手动创建的会话
+        db_kaoyan.close()
+        db_kaogong.close()
 
 
 @router.get("/configs", response_model=List[SystemConfigResponse])
@@ -582,10 +749,10 @@ async def get_student_crawlers(
         for sub in subscriptions:
             logger.info(f"  订阅 ID: {sub.id}, 类型: {sub.subscribe_type}, 状态: {sub.status}")
         
-        # 收集用户的爬虫配置 - 只返回 AI 生成的链接，在 AI 没有生成链接之前，不显示任何链接
+        # 收集用户的爬虫配置
         user_crawlers = []
         
-        # 从数据库中获取 AI 生成的爬虫配置
+        # 从数据库中获取爬虫配置
         from models.kaoyan import KaoyanCrawlerConfig
         from models.kaogong import KaogongCrawlerConfig
         

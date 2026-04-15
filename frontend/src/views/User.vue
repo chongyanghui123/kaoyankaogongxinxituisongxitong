@@ -550,7 +550,15 @@ const saveKaogongRequirement = async () => {
 const getUserInfo = async () => {
   try {
     // 模拟数据，实际应该调用API
-    userInfo.value = JSON.parse(localStorage.getItem('userInfo') || '{}')
+    try {
+      const userInfoStr = localStorage.getItem('userInfo')
+      userInfo.value = userInfoStr && userInfoStr !== 'undefined' && userInfoStr !== 'null' 
+        ? JSON.parse(userInfoStr) 
+        : {}
+    } catch (error) {
+      console.error('解析用户信息失败:', error)
+      userInfo.value = {}
+    }
     userForm.username = userInfo.value.username || ''
     userForm.email = userInfo.value.email || ''
     userForm.phone = userInfo.value.phone || ''

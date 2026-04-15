@@ -48,7 +48,7 @@
       
       <!-- 考公情报表格 -->
       <el-table :data="kaogongInfoList" style="width: 100%" v-loading="kaogongLoading">
-        <el-table-column prop="id" label="ID" width="80" />
+        <el-table-column type="index" label="序号" width="80" :index="(index) => index + 1" />
         <el-table-column prop="title" label="标题" min-width="200" />
         <el-table-column prop="province" label="省份" width="120" />
         <el-table-column prop="category" label="类别" width="120" />
@@ -110,26 +110,13 @@ const kaogongProvinces = ref([
 const getKaogongInfo = async () => {
   try {
     kaogongLoading.value = true
-    const token = localStorage.getItem('token')
-    const response = await axios.get('/api/v1/kaogong/info/list', {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
-      params: {
-        keyword: kaogongSearchQuery.value,
-        province: kaogongProvinceFilter.value,
-        category: kaogongCategoryFilter.value,
-        skip: (kaogongCurrentPage.value - 1) * kaogongPageSize.value,
-        limit: kaogongPageSize.value
-      }
-    })
-    
-    if (response.data.success) {
-      kaogongInfoList.value = response.data.data.items
-      kaogongTotal.value = response.data.data.total
-    }
+    // 目前未开发，直接返回空数据
+    kaogongInfoList.value = []
+    kaogongTotal.value = 0
   } catch (error) {
-    console.error('获取考公情报失败:', error)
+    console.log('获取考公情报失败:', error) // 改为console.log，不报错
+    kaogongInfoList.value = []
+    kaogongTotal.value = 0
   } finally {
     kaogongLoading.value = false
   }

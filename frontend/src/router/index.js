@@ -3,7 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 const routes = [
   {
     path: '/',
-    redirect: '/admin'
+    redirect: '/kaoyan-student-form'
   },
   {
     path: '/login',
@@ -39,6 +39,16 @@ const routes = [
     meta: {
       title: '考公学生信息录入'
     }
+  },
+  {
+    path: '/payment',
+    name: 'PaymentPage',
+    component: () => import('../views/PaymentPage.vue'),
+    meta: {
+      title: '订单支付',
+      requiresAuth: false,
+      requiresAdmin: false
+    }
   }
 ]
 
@@ -48,7 +58,7 @@ const router = createRouter({
 })
 
 // 路由守卫
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, from) => {
   // 设置页面标题
   document.title = to.meta.title || '管理后台'
   
@@ -56,17 +66,22 @@ router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('token')
   
   if (to.meta.requiresAuth && !token) {
-    next('/login')
+    return '/login'
   } else if (to.meta.requiresAdmin) {
     // 检查是否为管理员
-    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
-    if (!userInfo.is_admin) {
-      next('/login')
-    } else {
-      next()
+    try {
+      const userInfoStr = localStorage.getItem('userInfo')
+      const userInfo = userInfoStr && userInfoStr !== 'undefined' && userInfoStr !== 'null' 
+        ? JSON.parse(userInfoStr) 
+        : {}
+      
+      if (!userInfo.is_admin) {
+        return '/login'
+      }
+    } catch (error) {
+      console.error('解析用户信息失败:', error)
+      return '/login'
     }
-  } else {
-    next()
   }
 })
 

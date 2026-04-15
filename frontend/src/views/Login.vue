@@ -12,12 +12,7 @@
         <el-form-item>
           <el-button type="primary" @click="login" :loading="loading" style="width: 100%">登录</el-button>
         </el-form-item>
-        <el-form-item>
-          <div class="login-footer">
-            <span>还没有账号？</span>
-            <el-button type="text" @click="navigateTo('/register')">立即注册</el-button>
-          </div>
-        </el-form-item>
+
       </el-form>
     </div>
   </div>
@@ -78,7 +73,8 @@ const login = async () => {
         }))
         
         ElMessage.success('登录成功')
-        router.push('/')
+        // 登录成功后跳转到管理后台
+        router.push('/admin')
       } catch (error) {
         console.error('登录失败:', error)
         console.error('错误信息:', error.message)

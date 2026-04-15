@@ -68,7 +68,7 @@
       <template #header>
         <div class="card-header">
           <h3>用户类型分布</h3>
-          <el-button type="text" size="small" @click="refreshData">刷新</el-button>
+          <el-button link size="small" @click="refreshData">刷新</el-button>
         </div>
       </template>
       
@@ -96,7 +96,6 @@ const stats = ref({
   push_count: 0,
   timestamp: '',
   user_type_distribution: {
-    "未订阅": 0,
     "考研": 0,
     "考公": 0,
     "双赛道": 0
@@ -171,7 +170,6 @@ const updateChart = () => {
   if (!chartInstance || !stats.value.user_type_distribution) return
   
   const data = [
-    { value: stats.value.user_type_distribution["未订阅"] || 0, name: "未订阅" },
     { value: stats.value.user_type_distribution["考研"] || 0, name: "考研" },
     { value: stats.value.user_type_distribution["考公"] || 0, name: "考公" },
     { value: stats.value.user_type_distribution["双赛道"] || 0, name: "双赛道" }

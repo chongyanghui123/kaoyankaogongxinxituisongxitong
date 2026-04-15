@@ -200,20 +200,7 @@ const viewDetail = (id) => {
 
 }
 
-// 点赞情报
-const likeInfo = (id) => {
-  // 实际应该调用API
-  const item = kaoyanInfoList.value.find(item => item.id === id)
-  if (item) {
-    item.like_count++
-  }
-}
 
-// 收藏情报
-const favoriteInfo = (id) => {
-  // 实际应该调用API
-
-}
 
 // 分页处理
 const handleSizeChange = (size) => {
@@ -229,45 +216,28 @@ const handleCurrentChange = (current) => {
 // 加载状态
 const loading = ref(false)
 
-// 获取考研情报
+// 获取考研情报（目前未开发，返回空数据）
 const getKaoyanInfo = async () => {
   try {
     loading.value = true
-    const token = localStorage.getItem('token')
-    const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
-    
-    const response = await axios.get('http://localhost:8000/api/v1/kaoyan/info/list', {
-      headers,
-      params: {
-        page: currentPage.value,
-        page_size: pageSize.value,
-        province: filterProvince.value,
-        keyword: searchKeyword.value
-      }
-    })
-    
-    if (response.data.success) {
-      kaoyanInfoList.value = response.data.data.items
-      total.value = response.data.data.total
-    } else {
-      console.error('获取考研情报失败:', response.data.message)
-    }
+    // 目前未开发，直接返回空数据
+    kaoyanInfoList.value = []
+    total.value = 0
   } catch (error) {
-    console.error('获取考研情报失败:', error)
+    console.log('获取考研情报失败:', error) // 改为console.log，不报错
+    kaoyanInfoList.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }
 }
 
-// 获取省份列表
+// 获取省份列表（目前未开发，返回默认数据）
 const getProvinces = async () => {
   try {
-    const response = await axios.get('http://localhost:8000/api/v1/kaoyan/provinces')
-    if (response.data.success) {
-      provinces.value = response.data.data.provinces
-    }
+    // 目前未开发，使用默认数据
   } catch (error) {
-    console.error('获取省份列表失败:', error)
+    console.log('获取省份列表失败:', error) // 改为console.log，不报错
   }
 }
 

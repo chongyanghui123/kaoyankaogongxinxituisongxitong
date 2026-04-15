@@ -16,6 +16,8 @@
           active-text-color="#ffd04b"
         >
           <el-menu-item index="/">首页</el-menu-item>
+          <el-menu-item index="/kaoyan-student-form">考研学生信息</el-menu-item>
+          <el-menu-item index="/kaogong-student-form">考公学生信息</el-menu-item>
           <el-menu-item index="/kaoyan">考研情报</el-menu-item>
           <el-menu-item index="/kaogong">考公情报</el-menu-item>
           <el-menu-item v-if="!isLoggedIn" index="/login">登录</el-menu-item>
