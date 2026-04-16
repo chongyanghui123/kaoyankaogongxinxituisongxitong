@@ -48,7 +48,11 @@
         <el-table-column prop="username" label="用户名" />
         <el-table-column prop="email" label="邮箱" />
         <el-table-column prop="phone" label="手机号" />
-        <el-table-column prop="user_type" label="用户类型" />
+        <el-table-column label="用户类型">
+          <template #default="scope">
+            {{ scope.row.is_admin ? '' : scope.row.user_type }}
+          </template>
+        </el-table-column>
         <el-table-column prop="is_admin" label="管理员" width="100">
           <template #default="scope">
             <el-tag :type="scope.row.is_admin ? 'danger' : 'info'">
@@ -357,7 +361,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import axios from 'axios'
-import { ElMessage, ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElSwitch, ElDialog, ElButton, ElTable, ElTableColumn, ElTag, ElTabs, ElTabPane, ElDescriptions, ElDescriptionsItem, ElSelectV2, ElRadio, ElRadioGroup } from 'element-plus'
+import { ElMessage, ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElSwitch, ElDialog, ElButton, ElTable, ElTableColumn, ElTag, ElTabs, ElTabPane, ElDescriptions, ElDescriptionsItem, ElSelectV2, ElRadio, ElRadioGroup, ElMessageBox } from 'element-plus'
 
 // 用户管理相关
 const users = ref([])
@@ -488,7 +492,12 @@ const getUsers = async () => {
       },
       params
     })
-    users.value = response.data
+    // 将管理员用户放在最顶端
+    users.value = response.data.sort((a, b) => {
+      if (a.is_admin && !b.is_admin) return -1
+      if (!a.is_admin && b.is_admin) return 1
+      return 0
+    })
   } catch (error) {
     console.error('获取用户列表失败:', error)
   }
@@ -581,6 +590,18 @@ const saveUser = async () => {
 // 删除用户
 const deleteUser = async (userId) => {
   try {
+    // 显示确认对话框
+    await ElMessageBox.confirm(
+      '确定要删除该用户吗？此操作不可恢复。',
+      '删除用户',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    // 用户确认删除
     const token = localStorage.getItem('token')
     await axios.delete(`/api/v1/admin/users/${userId}`, {
       headers: {
@@ -591,8 +612,11 @@ const deleteUser = async (userId) => {
     // 刷新用户列表
     getUsers()
   } catch (error) {
-    console.error('删除用户失败:', error)
-    ElMessage.error('删除用户失败，请稍后重试')
+    // 如果用户取消删除，不显示错误信息
+    if (!error.canceled) {
+      console.error('删除用户失败:', error)
+      ElMessage.error('删除用户失败，请稍后重试')
+    }
   }
 }
 

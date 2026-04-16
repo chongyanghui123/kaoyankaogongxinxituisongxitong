@@ -500,59 +500,25 @@ const handleTimeout = () => {
 // 检查并处理待创建的用户数据
 const processPendingUserData = async () => {
   const pendingUserData = localStorage.getItem('pendingUserData')
-  const existingToken = localStorage.getItem('token')
-  const existingUserInfo = localStorage.getItem('userInfo')
   
   if (pendingUserData) {
     try {
       const userData = JSON.parse(pendingUserData)
       
-      // 判断当前用户是否是管理员
-      let isAdmin = false
-      if (existingUserInfo) {
-        try {
-          const userInfo = JSON.parse(existingUserInfo)
-          isAdmin = userInfo.is_admin || false
-        } catch (e) {
-          console.error('解析用户信息失败:', e)
+      // 任何人都可以创建订单，直接调用注册接口
+      const registerResponse = await axios.post('/api/v1/auth/register', userData, {
+        headers: {
+          'X-Admin-Create': 'false'
         }
-      }
+      })
       
-      // 如果是管理员用户且有 pendingUserData，说明是在为新用户创建订单
-      if (isAdmin) {
-        // 调用用户创建接口
-        const registerResponse = await axios.post('/api/v1/auth/register', userData, {
-          headers: {
-            'X-Admin-Create': 'true'
-          }
-        })
-        
-        if (registerResponse.data && registerResponse.data.success) {
-          // 不清除pendingUserData，因为createOrder函数还需要从中获取用户需求信息
-          return {
-            userCreated: true,
-            userId: registerResponse.data.data.user_id,
-            username: registerResponse.data.data.username,
-            isNewUser: true
-          }
-        }
-      } else {
-        // 非管理员用户（普通用户）可以直接创建订单，不需要登录
-        // 但是我们需要先创建用户，然后再创建订单
-        const registerResponse = await axios.post('/api/v1/auth/register', userData, {
-          headers: {
-            'X-Admin-Create': 'false'
-          }
-        })
-        
-        if (registerResponse.data && registerResponse.data.success) {
-          // 不清除pendingUserData，因为createOrder函数还需要从中获取用户需求信息
-          return {
-            userCreated: true,
-            userId: registerResponse.data.data.user_id,
-            username: registerResponse.data.data.username,
-            isNewUser: true
-          }
+      if (registerResponse.data && registerResponse.data.success) {
+        // 不清除pendingUserData，因为createOrder函数还需要从中获取用户需求信息
+        return {
+          userCreated: true,
+          userId: registerResponse.data.data.user_id,
+          username: registerResponse.data.data.username,
+          isNewUser: true
         }
       }
     } catch (error) {
@@ -599,8 +565,8 @@ const createOrder = async () => {
     
     // 准备订单创建数据
     const orderData = {
-      product_id: productId.value,
-      payment_method: selectedPaymentMethod.value,
+      product_id: parseInt(productId.value),
+      payment_method: parseInt(selectedPaymentMethod.value),
       user_requirements: userRequirements
     }
     
@@ -609,14 +575,8 @@ const createOrder = async () => {
       orderData.user_id = processResult.userId
     }
     
-    // 发送订单创建请求，只有在有token的情况下才添加Authorization头
-    const config = token ? {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    } : {}
-    
-    const response = await axios.post('/api/v1/payments/orders', orderData, config)
+    // 发送订单创建请求，不需要Authorization头
+    const response = await axios.post('/api/v1/payments/orders', orderData)
     
     if (response.data && response.data.success) {
       Object.assign(orderInfo, response.data.data)
