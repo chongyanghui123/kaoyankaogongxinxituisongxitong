@@ -613,7 +613,7 @@ const deleteUser = async (userId) => {
     getUsers()
   } catch (error) {
     // 如果用户取消删除，不显示错误信息
-    if (!error.canceled) {
+    if (error !== 'cancel') {
       console.error('删除用户失败:', error)
       ElMessage.error('删除用户失败，请稍后重试')
     }

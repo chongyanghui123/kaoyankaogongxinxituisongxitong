@@ -23,7 +23,7 @@ class KaoyanInfo(BaseKaoyan):
     url = Column(String(500), unique=True, nullable=False, comment="原文链接")
     tags = Column(String(255), nullable=True, comment="标签(逗号分隔)")
     urgency_level = Column(Integer, default=0, comment="紧急度: 0-普通, 1-重要, 2-紧急, 3-非常紧急")
-    category = Column(Integer, default=0, comment="分类: 0-普通通知, 1-调剂, 2-扩招, 3-复试线, 4-招生简章, 5-时间节点")
+    category = Column(Integer, default=0, comment="分类: 0-招生简章, 1-考试大纲, 2-成绩查询, 3-复试通知, 4-录取通知, 5-普通通知")
     province = Column(String(50), nullable=True, comment="省份")
     school = Column(String(100), nullable=True, comment="院校")
     major = Column(String(100), nullable=True, comment="专业")
@@ -34,6 +34,7 @@ class KaoyanInfo(BaseKaoyan):
     is_excellent = Column(Boolean, default=False, comment="是否加精: 1-是, 0-否")
     view_count = Column(Integer, default=0, comment="浏览次数")
     like_count = Column(Integer, default=0, comment="点赞次数")
+    is_processed = Column(Boolean, default=False, comment="是否处理: 1-是, 0-否")
     created_at = Column(DateTime, default=datetime.now, comment="创建时间")
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
     
@@ -55,12 +56,12 @@ class KaoyanInfo(BaseKaoyan):
     def category_text(self):
         """获取分类文本"""
         category_map = {
-            0: "普通通知",
-            1: "调剂",
-            2: "扩招",
-            3: "复试线",
-            4: "招生简章",
-            5: "时间节点"
+            0: "招生简章",
+            1: "考试大纲",
+            2: "成绩查询",
+            3: "复试通知",
+            4: "录取通知",
+            5: "普通通知"
         }
         return category_map.get(self.category, "普通通知")
     

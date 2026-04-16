@@ -47,6 +47,7 @@ class PushLogCreate(PushLogBase):
 
 class PushLogResponse(PushLogBase):
     id: int
+    is_processed: bool
     created_at: datetime
     
     class Config:

@@ -5,7 +5,7 @@
 """
 
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -17,9 +17,46 @@ from core.database import get_db_kaogong, get_db_common
 from core.security import get_current_user
 from core.logger import log_user_action, log_error
 from models.kaogong import KaogongInfo
-from models.users import UserReadInfo, UserFavorite
+from models.users import UserReadInfo, UserFavorite, PushLog, User, UserSubscription, UserKeyword
+from api.v1.sync_helpers import sync_get_user_requirements
 
 router = APIRouter()
+
+def get_info_user_requirements(info_id: int, category: int, db_common: Session):
+    """获取情报对应的用户需求信息"""
+    try:
+        # 获取推送过该情报的用户ID
+        push_logs = db_common.query(PushLog).filter(
+            PushLog.info_id == info_id,
+            PushLog.category == category
+        ).all()
+        
+        user_ids = [log.user_id for log in push_logs]
+        user_ids = list(set(user_ids))  # 去重
+        
+        # 获取这些用户的需求信息
+        user_requirements = []
+        
+        for user_id in user_ids:
+            user = db_common.query(User).filter(User.id == user_id).first()
+            if user:
+                # 使用admin.py中的get_user_requirements函数获取用户需求
+                try:
+                    requirements = sync_get_user_requirements(user_id, db_common, user)
+                    user_requirements.append({
+                        'user_id': user_id,
+                        'username': user.username,
+                        'email': user.email,
+                        'requirements': requirements
+                    })
+                except Exception as e:
+                    log_error(f"获取用户{user_id}需求信息失败: {str(e)}")
+                    continue
+        
+        return user_requirements
+    except Exception as e:
+        log_error(f"获取情报{info_id}用户需求信息失败: {str(e)}")
+        return []
 
 class KaogongInfoResponse(BaseModel):
     """考公信息响应模型"""
@@ -49,9 +86,11 @@ class KaogongInfoResponse(BaseModel):
     is_excellent: bool
     view_count: int
     like_count: int
+    is_processed: bool
     created_at: str
     is_read: bool = False
     is_favorite: bool = False
+    user_requirements: Optional[List[Dict]] = []
 
 class KaogongInfoListResponse(BaseModel):
     """考公信息列表响应模型"""
@@ -139,6 +178,9 @@ async def get_kaogong_info_list(
         # 构建响应
         items = []
         for info in info_list:
+            # 获取用户需求信息
+            user_requirements = get_info_user_requirements(info.id, 2, db_common)
+            
             items.append(KaogongInfoResponse(
                 id=info.id,
                 title=info.title,
@@ -166,9 +208,11 @@ async def get_kaogong_info_list(
                 is_excellent=info.is_excellent,
                 view_count=info.view_count,
                 like_count=info.like_count,
+                is_processed=info.is_processed,
                 created_at=info.created_at.isoformat(),
                 is_read=info.id in user_read_ids,
-                is_favorite=info.id in user_favorite_ids
+                is_favorite=info.id in user_favorite_ids,
+                user_requirements=user_requirements
             ))
         
         return KaogongInfoListResponse(total=total, items=items)
@@ -231,6 +275,9 @@ async def get_kaogong_info_detail(
             ).first()
             is_favorite = favorite is not None
         
+        # 获取用户需求信息
+        user_requirements = get_info_user_requirements(info.id, 2, db_common)
+        
         return KaogongInfoResponse(
             id=info.id,
             title=info.title,
@@ -258,9 +305,11 @@ async def get_kaogong_info_detail(
             is_excellent=info.is_excellent,
             view_count=info.view_count,
             like_count=info.like_count,
+            is_processed=info.is_processed,
             created_at=info.created_at.isoformat(),
             is_read=True,
-            is_favorite=is_favorite
+            is_favorite=is_favorite,
+            user_requirements=user_requirements
         )
     except HTTPException:
         raise
@@ -363,6 +412,9 @@ async def get_hot_kaogong_info(
         # 构建响应
         items = []
         for info in hot_info:
+            # 获取用户需求信息
+            user_requirements = get_info_user_requirements(info.id, 2, db_common)
+            
             items.append(KaogongInfoResponse(
                 id=info.id,
                 title=info.title,
@@ -390,9 +442,11 @@ async def get_hot_kaogong_info(
                 is_excellent=info.is_excellent,
                 view_count=info.view_count,
                 like_count=info.like_count,
+                is_processed=info.is_processed,
                 created_at=info.created_at.isoformat(),
                 is_read=info.id in user_read_ids,
-                is_favorite=info.id in user_favorite_ids
+                is_favorite=info.id in user_favorite_ids,
+                user_requirements=user_requirements
             ))
         
         return items
@@ -401,6 +455,40 @@ async def get_hot_kaogong_info(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="获取热门考公信息失败"
+        )
+
+class DeleteAllKaogongInfoRequest(BaseModel):
+    """删除所有考公信息请求模型"""
+    pass
+
+@router.delete("/delete-all", summary="删除所有考公信息")
+async def delete_all_kaogong_info(
+    request: DeleteAllKaogongInfoRequest,
+    current_user: Session = Depends(get_current_user),
+    db: Session = Depends(get_db_kaogong)
+):
+    """删除所有考公信息"""
+    try:
+        # 删除所有考公信息
+        db.query(KaogongInfo).delete()
+        db.commit()
+        
+        log_user_action(current_user.id, "delete_all_kaogong_info", "删除所有考公信息")
+        
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "所有考公信息删除成功",
+                "data": None
+            }
+        )
+    except Exception as e:
+        log_error(f"删除所有考公信息失败: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="删除所有考公信息失败，请稍后重试"
         )
 
 @router.get("/info/latest", response_model=List[KaogongInfoResponse], summary="获取最新考公信息")
@@ -441,6 +529,9 @@ async def get_latest_kaogong_info(
         # 构建响应
         items = []
         for info in latest_info:
+            # 获取用户需求信息
+            user_requirements = get_info_user_requirements(info.id, 2, db_common)
+            
             items.append(KaogongInfoResponse(
                 id=info.id,
                 title=info.title,
@@ -468,9 +559,11 @@ async def get_latest_kaogong_info(
                 is_excellent=info.is_excellent,
                 view_count=info.view_count,
                 like_count=info.like_count,
+                is_processed=info.is_processed,
                 created_at=info.created_at.isoformat(),
                 is_read=info.id in user_read_ids,
-                is_favorite=info.id in user_favorite_ids
+                is_favorite=info.id in user_favorite_ids,
+                user_requirements=user_requirements
             ))
         
         return items
@@ -587,6 +680,46 @@ async def get_kaogong_majors(
                 "message": "获取专业列表失败，请稍后重试",
                 "data": None
             }
+        )
+
+@router.delete("/info/{info_id}", summary="删除考公信息")
+async def delete_kaogong_info(
+    info_id: int,
+    current_user: Session = Depends(get_current_user),
+    db: Session = Depends(get_db_kaogong)
+):
+    """删除考公信息"""
+    try:
+        # 检查信息是否存在
+        info = db.query(KaogongInfo).filter(KaogongInfo.id == info_id).first()
+        if not info:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="信息不存在"
+            )
+        
+        # 删除信息
+        db.delete(info)
+        db.commit()
+        
+        log_user_action(current_user.id, "delete_kaogong_info", f"删除考公信息: ID={info_id}")
+        
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "删除成功",
+                "data": None
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        log_error(f"删除考公信息失败: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="删除失败，请稍后重试"
         )
 
 @router.get("/education", summary="获取考公学历要求列表")

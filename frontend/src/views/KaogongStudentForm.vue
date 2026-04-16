@@ -115,8 +115,8 @@
 
         <!-- 支付方式 -->
         <el-card class="form-section" header="支付方式" shadow="hover">
-          <el-form-item label="支付方式">
-            <el-radio-group v-model="paymentMethod">
+          <el-form-item label="支付方式" prop="paymentMethod" required>
+            <el-radio-group v-model="formData.paymentMethod">
               <el-radio value="1">微信支付</el-radio>
               <el-radio value="2">支付宝</el-radio>
             </el-radio-group>
@@ -150,7 +150,6 @@ const products = ref([])
 const productsLoading = ref(false)
 const selectedProductId = ref(null)
 const selectedProduct = ref(null)
-const paymentMethod = ref(1)
 
 // 获取产品列表
 const getProducts = async () => {
@@ -196,6 +195,7 @@ const formData = reactive({
   phone: '',
   gender: '男',
   birthdate: null,
+  paymentMethod: '1', // 添加支付方式字段到formData中
   kaogong: {
     provinces: [],
     position_types: [],
@@ -218,6 +218,9 @@ const rules = {
   phone: [
     { required: true, message: '请输入手机号', trigger: 'blur' },
     { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
+  ],
+  paymentMethod: [
+    { required: true, message: '请选择支付方式', trigger: 'change' }
   ]
 }
 
@@ -275,7 +278,7 @@ const submitForm = async () => {
           path: '/payment',
           query: {
             product_id: selectedProductId.value,
-            payment_method: paymentMethod.value
+            payment_method: formData.paymentMethod
           }
         })
       } catch (error) {
@@ -330,7 +333,7 @@ const handlePayment = async () => {
           path: '/payment',
           query: {
             product_id: selectedProductId.value,
-            payment_method: paymentMethod.value
+            payment_method: formData.paymentMethod
           }
         })
       } catch (error) {

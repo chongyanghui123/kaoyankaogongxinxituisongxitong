@@ -37,29 +37,82 @@
           <el-col :span="8">
             <el-select v-model="kaoyanCategoryFilter" placeholder="按类别筛选" clearable @change="getKaoyanInfo">
               <el-option label="全部" value="" />
-              <el-option label="招生简章" value="招生简章" />
-              <el-option label="考试大纲" value="考试大纲" />
-              <el-option label="成绩查询" value="成绩查询" />
-              <el-option label="复试通知" value="复试通知" />
-              <el-option label="录取通知" value="录取通知" />
+              <el-option label="招生简章" value="0" />
+              <el-option label="考试大纲" value="1" />
+              <el-option label="成绩查询" value="2" />
+              <el-option label="复试通知" value="3" />
+              <el-option label="录取通知" value="4" />
+              <el-option label="普通通知" value="5" />
             </el-select>
           </el-col>
         </el-row>
+        <div class="action-buttons">
+          <el-button type="danger" @click="deleteAllKaoyanInfo">全部删除</el-button>
+        </div>
       </div>
       
       <!-- 考研情报表格 -->
       <el-table :data="kaoyanInfoList" style="width: 100%" v-loading="kaoyanLoading">
         <el-table-column type="index" label="序号" width="80" :index="(index) => index + 1" />
         <el-table-column prop="title" label="标题" min-width="200" />
+        <el-table-column prop="category_text" label="类别" width="120" />
         <el-table-column prop="province" label="省份" width="120" />
-        <el-table-column prop="category" label="类别" width="120" />
-        <el-table-column prop="school" label="学校" />
+        <el-table-column prop="school" label="学校" width="200" />
+        <el-table-column label="用户需求" width="250">
+          <template #default="scope">
+            <div class="user-requirements">
+              <div v-if="(scope.row.user_requirements || []).length > 0">
+                <template v-for="(item, index) in (scope.row.user_requirements || []).slice(0, 3)" :key="index">
+                  <el-popover
+                    placement="top"
+                    width="400"
+                    trigger="hover"
+                    popper-class="requirements-popover"
+                  >
+                    <template #default>
+                      <div class="requirements-details">
+                        <h4>{{ item.username || '未知用户' }} ({{ item.email || '未知邮箱' }})</h4>
+                        <div v-if="item.requirements && item.requirements.kaoyan">
+                          <p><strong>考研需求:</strong></p>
+                          <p>关键词: {{ item.requirements.kaoyan.keywords || '无' }}</p>
+                          <p>省份: {{ item.requirements.kaoyan.provinces || '无' }}</p>
+                          <p>学校: {{ item.requirements.kaoyan.schools || '无' }}</p>
+                          <p>专业: {{ item.requirements.kaoyan.majors || '无' }}</p>
+                        </div>
+                      </div>
+                    </template>
+                    <template #reference>
+                      <el-tag size="small" style="margin-right: 5px; margin-bottom: 5px;">
+                        {{ item.username || '未知用户' }}
+                      </el-tag>
+                    </template>
+                  </el-popover>
+                </template>
+                <el-tag
+                  v-if="(scope.row.user_requirements || []).length > 3"
+                  size="small"
+                  type="info"
+                >
+                  +{{ (scope.row.user_requirements || []).length - 3 }}
+                </el-tag>
+              </div>
+              <span v-else>无</span>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="url" label="链接" min-width="200">
           <template #default="scope">
             <a :href="scope.row.url" target="_blank">{{ scope.row.url }}</a>
           </template>
         </el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="180" />
+        <el-table-column prop="is_processed" label="是否处理" width="120">
+          <template #default="scope">
+            <el-tag :type="scope.row.is_processed ? 'success' : 'danger'">
+              {{ scope.row.is_processed ? '已处理' : '未处理' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="120">
           <template #default="scope">
             <el-button type="danger" size="small" @click="deleteKaoyanInfo(scope.row.id)">删除</el-button>
@@ -86,7 +139,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 // 考研情报管理相关
 const kaoyanInfoList = ref([])
@@ -107,13 +160,39 @@ const kaoyanProvinces = ref([
   '新疆'
 ])
 
-// 获取考研情报列表（目前未开发，返回空数据）
+// 获取考研情报列表
 const getKaoyanInfo = async () => {
   try {
     kaoyanLoading.value = true
-    // 目前未开发，直接返回空数据
-    kaoyanInfoList.value = []
-    kaoyanTotal.value = 0
+    const token = localStorage.getItem('token')
+    const params = {
+      page: kaoyanCurrentPage.value,
+      page_size: kaoyanPageSize.value
+    }
+    if (kaoyanSearchQuery.value) {
+      params.keyword = kaoyanSearchQuery.value
+    }
+    if (kaoyanProvinceFilter.value) {
+      params.province = kaoyanProvinceFilter.value
+    }
+    if (kaoyanCategoryFilter.value !== '') {
+      params.category = Number(kaoyanCategoryFilter.value)
+    }
+    
+    const response = await axios.get('/api/v1/kaoyan/info/list', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      params
+    })
+    
+    if (response.data && response.data.total !== undefined) {
+      kaoyanInfoList.value = response.data.items || []
+      kaoyanTotal.value = response.data.total
+    } else {
+      kaoyanInfoList.value = []
+      kaoyanTotal.value = 0
+    }
   } catch (error) {
     console.log('获取考研情报失败:', error) // 改为console.log，不报错
     kaoyanInfoList.value = []
@@ -153,6 +232,36 @@ const deleteKaoyanInfo = async (id) => {
   }
 }
 
+// 删除所有考研情报
+const deleteAllKaoyanInfo = async () => {
+  try {
+    // 确认删除
+    const confirmed = await ElMessageBox.confirm('确定要删除所有考研情报吗？此操作不可恢复！', '删除确认', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    
+    if (confirmed) {
+      const token = localStorage.getItem('token')
+      await axios.delete('/api/v1/kaoyan/delete-all', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        data: {} // 发送空数据以满足 DELETE 请求的数据要求
+      })
+      ElMessage.success('所有考研情报删除成功')
+      // 刷新考研情报列表
+      getKaoyanInfo()
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除所有考研情报失败:', error)
+      ElMessage.error('删除所有考研情报失败，请稍后重试')
+    }
+  }
+}
+
 onMounted(() => {
   getKaoyanInfo()
 })
@@ -187,5 +296,27 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+}
+
+.user-requirements {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.requirements-details {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.requirements-details h4 {
+  margin: 0 0 10px 0;
+  color: #333;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.requirements-details p {
+  margin: 5px 0;
 }
 </style>

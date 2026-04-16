@@ -37,6 +37,7 @@ class KaogongInfoResponse(KaogongInfoBase):
     id: int
     read_count: int
     like_count: int
+    is_processed: bool
     created_at: datetime
     updated_at: datetime
     

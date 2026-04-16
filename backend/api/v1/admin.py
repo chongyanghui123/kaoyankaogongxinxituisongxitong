@@ -14,7 +14,7 @@ from schemas.kaoyan import KaoyanInfoResponse, KaoyanCrawlerConfigResponse
 from schemas.kaogong import KaogongInfoResponse, KaogongCrawlerConfigResponse
 from schemas.payments import OrderResponse, ProductResponse
 from schemas.push import PushTemplateResponse, PushLogResponse
-from schemas.system import SystemConfigResponse, SystemStatsResponse
+from schemas.system import SystemConfigResponse, SystemStatsResponse, SystemConfigBase, SystemConfigCreate, SystemConfigUpdate
 
 router = APIRouter(tags=["admin"])
 
@@ -721,6 +721,93 @@ async def get_system_config(
         created_at=config.created_at,
         updated_at=config.updated_at
     )
+
+
+@router.post("/configs", response_model=SystemConfigResponse)
+async def create_system_config(
+    config_create: SystemConfigBase = Body(...),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """创建系统配置（管理员）"""
+    # 检查键是否已存在
+    existing_config = db.query(SystemConfig).filter(SystemConfig.config_key == config_create.key).first()
+    if existing_config:
+        raise HTTPException(status_code=400, detail="配置键已存在")
+    
+    # 创建新配置
+    config = SystemConfig(
+        config_key=config_create.key,
+        config_value=config_create.value,
+        description=config_create.description,
+        status=1 if config_create.is_active else 0
+    )
+    db.add(config)
+    db.commit()
+    db.refresh(config)
+    
+    # 转换为 SystemConfigResponse 格式
+    return SystemConfigResponse(
+        id=config.id,
+        key=config.config_key,
+        value=config.config_value,
+        description=config.description,
+        is_active=config.status == 1,
+        created_at=config.created_at,
+        updated_at=config.updated_at
+    )
+
+
+@router.put("/configs/{config_id}", response_model=SystemConfigResponse)
+async def update_system_config(
+    config_id: int = Path(..., ge=1),
+    config_update: SystemConfigUpdate = Body(...),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """更新系统配置（管理员）"""
+    config = db.query(SystemConfig).filter(SystemConfig.id == config_id).first()
+    if not config:
+        raise HTTPException(status_code=404, detail="配置不存在")
+    
+    # 更新字段
+    if config_update.value:
+        config.config_value = config_update.value
+    if config_update.description:
+        config.description = config_update.description
+    if config_update.is_active is not None:
+        config.status = 1 if config_update.is_active else 0
+    
+    db.commit()
+    db.refresh(config)
+    
+    # 转换为 SystemConfigResponse 格式
+    return SystemConfigResponse(
+        id=config.id,
+        key=config.config_key,
+        value=config.config_value,
+        description=config.description,
+        is_active=config.status == 1,
+        created_at=config.created_at,
+        updated_at=config.updated_at
+    )
+
+
+@router.delete("/configs/{config_id}")
+async def delete_system_config(
+    config_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """删除系统配置（管理员）"""
+    config = db.query(SystemConfig).filter(SystemConfig.id == config_id).first()
+    if not config:
+        raise HTTPException(status_code=404, detail="配置不存在")
+    
+    db.delete(config)
+    db.commit()
+    
+    return {"message": "系统配置删除成功"}
 
 
 @router.get("/student-crawlers")

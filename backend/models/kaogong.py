@@ -23,7 +23,7 @@ class KaogongInfo(BaseKaogong):
     url = Column(String(500), unique=True, nullable=False, comment="原文链接")
     tags = Column(String(255), nullable=True, comment="标签(逗号分隔)")
     urgency_level = Column(Integer, default=0, comment="紧急度: 0-普通, 1-重要, 2-紧急, 3-非常紧急")
-    category = Column(Integer, default=0, comment="分类: 0-普通通知, 1-公告, 2-职位表, 3-报名, 4-缴费, 5-三不限, 6-应届生, 7-竞争比")
+    category = Column(Integer, default=0, comment="分类: 0-公务员, 1-事业单位, 2-教师, 3-医疗, 4-普通通知, 5-公告, 6-职位表, 7-报名")
     province = Column(String(50), nullable=True, comment="省份")
     position_type = Column(String(100), nullable=True, comment="岗位类别")
     major = Column(String(100), nullable=True, comment="专业")
@@ -36,6 +36,7 @@ class KaogongInfo(BaseKaogong):
     is_excellent = Column(Boolean, default=False, comment="是否加精: 1-是, 0-否")
     view_count = Column(Integer, default=0, comment="浏览次数")
     like_count = Column(Integer, default=0, comment="点赞次数")
+    is_processed = Column(Boolean, default=False, comment="是否处理: 1-是, 0-否")
     created_at = Column(DateTime, default=datetime.now, comment="创建时间")
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
     
@@ -57,16 +58,16 @@ class KaogongInfo(BaseKaogong):
     def category_text(self):
         """获取分类文本"""
         category_map = {
-            0: "普通通知",
-            1: "公告",
-            2: "职位表",
-            3: "报名",
-            4: "缴费",
-            5: "三不限",
-            6: "应届生",
-            7: "竞争比"
+            0: "公务员",
+            1: "事业单位",
+            2: "教师",
+            3: "医疗",
+            4: "普通通知",
+            5: "公告",
+            6: "职位表",
+            7: "报名"
         }
-        return category_map.get(self.category, "普通通知")
+        return category_map.get(self.category, "公务员")
     
     @property
     def is_fresh_graduate_text(self):

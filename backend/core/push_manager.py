@@ -141,11 +141,12 @@ def send_kaoyan_notifications(db, user, subscription):
         schools = config_json.get('schools', [])
         majors = config_json.get('majors', [])
         
-        # 获取最近24小时的考研信息
+        # 获取最近24小时未处理的考研信息
         cutoff_time = datetime.now() - timedelta(hours=24)
         recent_info = db.query(KaoyanInfo).filter(
             KaoyanInfo.publish_time >= cutoff_time,
-            KaoyanInfo.is_valid == True
+            KaoyanInfo.is_valid == True,
+            KaoyanInfo.is_processed == False
         ).all()
         
         # 筛选符合用户需求的信息
@@ -185,6 +186,7 @@ def send_kaoyan_notifications(db, user, subscription):
                     push_type=1,  # 微信模板消息
                     push_status=1,  # 成功
                     push_content=f"【考研情报】{info.title}\n{info.source}\n{info.publish_time.strftime('%Y-%m-%d %H:%M')}",
+                    is_processed=True,
                     push_time=datetime.now()
                 )
                 db.add(push_log)
@@ -197,6 +199,10 @@ def send_kaoyan_notifications(db, user, subscription):
                 
                 # 这里可以添加其他推送逻辑，比如发送短信等
                 logger.info(f"向用户 {user.username} 发送考研推送: {info.title}")
+        
+        # 标记所有处理过的信息为已处理
+        for info in relevant_info:
+            info.is_processed = True
         
         db.commit()
     except Exception as e:
@@ -219,11 +225,12 @@ def send_kaogong_notifications(db, user, subscription):
         position_types = config_json.get('position_types', [])
         majors = config_json.get('majors', [])
         
-        # 获取最近24小时的考公信息
+        # 获取最近24小时未处理的考公信息
         cutoff_time = datetime.now() - timedelta(hours=24)
         recent_info = db.query(KaogongInfo).filter(
             KaogongInfo.publish_time >= cutoff_time,
-            KaogongInfo.is_valid == True
+            KaogongInfo.is_valid == True,
+            KaogongInfo.is_processed == False
         ).all()
         
         # 筛选符合用户需求的信息
@@ -263,6 +270,7 @@ def send_kaogong_notifications(db, user, subscription):
                     push_type=1,  # 微信模板消息
                     push_status=1,  # 成功
                     push_content=f"【考公情报】{info.title}\n{info.source}\n{info.publish_time.strftime('%Y-%m-%d %H:%M')}",
+                    is_processed=True,
                     push_time=datetime.now()
                 )
                 db.add(push_log)
@@ -275,6 +283,10 @@ def send_kaogong_notifications(db, user, subscription):
                 
                 # 这里可以添加其他推送逻辑，比如发送短信等
                 logger.info(f"向用户 {user.username} 发送考公推送: {info.title}")
+        
+        # 标记所有处理过的信息为已处理
+        for info in relevant_info:
+            info.is_processed = True
         
         db.commit()
     except Exception as e:

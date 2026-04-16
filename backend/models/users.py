@@ -207,6 +207,7 @@ class PushLog(BaseCommon):
     push_status = Column(Integer, nullable=False, comment="推送状态: 1-成功, 0-失败")
     push_content = Column(Text, nullable=True, comment="推送内容")
     error_msg = Column(Text, nullable=True, comment="错误信息")
+    is_processed = Column(Boolean, default=False, comment="是否处理: 1-是, 0-否")
     push_time = Column(DateTime, default=datetime.now, comment="推送时间")
     
     def __repr__(self):
