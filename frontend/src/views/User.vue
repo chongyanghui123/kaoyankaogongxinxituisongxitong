@@ -270,6 +270,29 @@
                       </el-form-item>
                     </el-form>
                   </el-tab-pane>
+                  <!-- 推送设置 -->
+                  <el-tab-pane label="推送设置" name="push">
+                    <el-form :model="pushSettings" label-width="100px">
+                      <el-form-item label="推送频率">
+                        <el-select v-model="pushSettings.frequency" placeholder="选择推送频率">
+                          <el-option label="每小时" value="hourly" />
+                          <el-option label="每天" value="daily" />
+                          <el-option label="每周" value="weekly" />
+                        </el-select>
+                      </el-form-item>
+                      <el-form-item label="推送时间">
+                        <el-time-picker
+                          v-model="pushSettings.time"
+                          format="HH:mm"
+                          placeholder="选择推送时间"
+                          style="width: 100%"
+                        />
+                      </el-form-item>
+                      <el-form-item>
+                        <el-button type="primary" @click="savePushSettings">保存设置</el-button>
+                      </el-form-item>
+                    </el-form>
+                  </el-tab-pane>
                 </el-tabs>
               </el-card>
             </div>
@@ -441,6 +464,12 @@ const kaogongRequirement = reactive({
   educationLevels: []
 })
 
+// 推送设置
+const pushSettings = reactive({
+  frequency: 'daily',
+  time: null
+})
+
 // 处理菜单选择
 const handleSelect = (key) => {
   navigateTo(key)
@@ -544,6 +573,41 @@ const saveKaogongRequirement = async () => {
   // 实际应该调用API
 
   ElMessage.success('考公需求保存成功')
+}
+
+// 保存推送设置
+const savePushSettings = async () => {
+  try {
+    // 格式化时间
+    let timeStr = null
+    if (pushSettings.time) {
+      const hours = pushSettings.time.getHours().toString().padStart(2, '0')
+      const minutes = pushSettings.time.getMinutes().toString().padStart(2, '0')
+      timeStr = `${hours}:${minutes}`
+    }
+    
+    console.log('发送推送设置请求:', {
+      frequency: pushSettings.frequency,
+      time: timeStr
+    })
+    
+    const response = await axios.put('/api/v1/users/push-settings', {
+      frequency: pushSettings.frequency,
+      time: timeStr
+    })
+    
+    console.log('推送设置保存响应:', response.data)
+    
+    if (response.data.success) {
+      ElMessage.success('推送设置保存成功')
+    } else {
+      ElMessage.error(response.data.message || '保存失败')
+    }
+  } catch (error) {
+    console.error('保存推送设置失败:', error)
+    console.error('错误详情:', error.response ? error.response.data : error.message)
+    ElMessage.error('保存失败，请稍后重试')
+  }
 }
 
 // 获取用户信息
@@ -684,6 +748,26 @@ const getReadHistory = async () => {
   }
 }
 
+// 获取推送设置
+const getPushSettings = async () => {
+  try {
+    const response = await axios.get('/api/v1/users/push-settings')
+    if (response.data.success) {
+      const settings = response.data.data
+      pushSettings.frequency = settings.frequency || 'daily'
+      if (settings.time) {
+        // 转换时间格式
+        const [hours, minutes] = settings.time.split(':')
+        pushSettings.time = new Date()
+        pushSettings.time.setHours(parseInt(hours))
+        pushSettings.time.setMinutes(parseInt(minutes))
+      }
+    }
+  } catch (error) {
+    console.error('获取推送设置失败:', error)
+  }
+}
+
 onMounted(() => {
   getUserInfo()
   getSubscription()
@@ -691,6 +775,7 @@ onMounted(() => {
   getKeywords()
   getFavorites()
   getReadHistory()
+  getPushSettings()
 })
 </script>
 

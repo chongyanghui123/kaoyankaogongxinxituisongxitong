@@ -134,7 +134,6 @@ async def analyze_and_generate_crawler_configs(
                     'interval': 60,
                     'priority': 3,
                     'status': 1,
-                    'ai_enhanced': False,
                     'match_score': 0.9,
                     'personalized': True
                 })
@@ -156,7 +155,6 @@ async def analyze_and_generate_crawler_configs(
                 'interval': 45,
                 'priority': 2,
                 'status': 1,
-                'ai_enhanced': False,
                 'match_score': 0.8,
                 'personalized': True
             })
@@ -182,13 +180,12 @@ async def analyze_and_generate_crawler_configs(
             # 生成通用爬虫配置
             for link in general_links:
                 crawler_configs.append({
-                    'name': f"AI增强-{category}-{datetime.now().strftime('%Y%m%d%H%M')}-{link['title']}",
+                    'name': f"{category}-{datetime.now().strftime('%Y%m%d%H%M')}-{link['title']}",
                     'url': link['url'],
                     'selector': '.news-list li',
                     'interval': 30,
                     'priority': 2,
                     'status': 1,
-                    'ai_enhanced': True,
                     'match_score': link['relevance'],
                     'personalized': False
                 })
@@ -212,13 +209,12 @@ async def analyze_and_generate_crawler_configs(
             # 生成通用爬虫配置
             for link in general_links:
                 crawler_configs.append({
-                    'name': f"AI增强-{category}-{datetime.now().strftime('%Y%m%d%H%M')}-{link['title']}",
+                    'name': f"{category}-{datetime.now().strftime('%Y%m%d%H%M')}-{link['title']}",
                     'url': link['url'],
                     'selector': '.news-list li',
                     'interval': 30,
                     'priority': 2,
                     'status': 1,
-                    'ai_enhanced': True,
                     'match_score': link['relevance'],
                     'personalized': False
                 })
@@ -237,7 +233,7 @@ async def analyze_and_generate_crawler_configs(
                 "message": "需求分析成功，已生成相关链接",
                 "data": {
                     "links": relevant_links,
-                    "demand_analysis": demand_analysis
+                    "crawler_configs": crawler_configs
                 }
             }
         )

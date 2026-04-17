@@ -212,23 +212,32 @@
               </el-tag>
               <span v-if="!currentUserRequirements?.kaogong?.provinces || currentUserRequirements?.kaogong?.provinces.length === 0">无</span>
             </el-descriptions-item>
+            <el-descriptions-item label="关注专业">
+              {{ currentUserRequirements?.kaogong?.majors || '无' }}
+            </el-descriptions-item>
             <el-descriptions-item label="岗位类别">
               <el-tag v-for="type in (currentUserRequirements?.kaogong?.position_types || [])" :key="type" class="mr-2 mb-2">
                 {{ type }}
               </el-tag>
               <span v-if="!currentUserRequirements?.kaogong?.position_types || currentUserRequirements?.kaogong?.position_types.length === 0">无</span>
             </el-descriptions-item>
-            <el-descriptions-item label="专业">
-              {{ currentUserRequirements?.kaogong?.majors || '无' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="学历要求">
-              {{ currentUserRequirements?.kaogong?.education || '无' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="是否应届生">
-              {{ currentUserRequirements?.kaogong?.is_fresh_graduate || '无' }}
-            </el-descriptions-item>
             <el-descriptions-item label="关键词">
               {{ Array.isArray(currentUserRequirements?.kaogong?.keywords) ? currentUserRequirements.kaogong.keywords.join(', ') : (currentUserRequirements?.kaogong?.keywords || '无') }}
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-tab-pane>
+        <el-tab-pane label="推送设置" name="push">
+          <el-descriptions :column="1" border>
+            <el-descriptions-item label="推送频率">
+              {{ 
+                currentUserRequirements?.push?.frequency === 'hourly' ? '每小时' : 
+                currentUserRequirements?.push?.frequency === 'daily' ? '每天' : 
+                currentUserRequirements?.push?.frequency === 'weekly' ? '每周' : 
+                '无'
+              }}
+            </el-descriptions-item>
+            <el-descriptions-item label="推送时间">
+              {{ currentUserRequirements?.push?.time || '无' }}
             </el-descriptions-item>
           </el-descriptions>
         </el-tab-pane>
@@ -344,6 +353,30 @@
             </el-form-item>
             <el-form-item label="关键词">
               <el-input v-model="editUserRequirementsForm.kaogong.keywords" placeholder="请输入关键词，多个关键词用逗号分隔" />
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
+        <el-tab-pane label="推送设置" name="push">
+          <el-form :model="editUserRequirementsForm.push" label-width="120px">
+            <el-form-item label="推送频率">
+              <el-select
+                v-model="editUserRequirementsForm.push.frequency"
+                placeholder="请选择推送频率"
+                style="width: 100%"
+              >
+                <el-option label="每小时" value="hourly" />
+                <el-option label="每天" value="daily" />
+                <el-option label="每周" value="weekly" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="推送时间">
+              <el-time-picker
+                v-model="editUserRequirementsForm.push.time"
+                format="HH:mm"
+                value-format="HH:mm"
+                placeholder="选择推送时间"
+                style="width: 100%"
+              />
             </el-form-item>
           </el-form>
         </el-tab-pane>
@@ -469,6 +502,10 @@ const editUserRequirementsForm = reactive({
     education: '不限',
     is_fresh_graduate: '不限',
     keywords: ''
+  },
+  push: {
+    frequency: 'daily',
+    time: null
   }
 })
 
@@ -622,45 +659,54 @@ const deleteUser = async (userId) => {
 
 // 查看用户需求
 const viewUserRequirements = async (userId) => {
+  console.log('viewUserRequirements被调用，userId:', userId)
   // 找到用户
   const user = users.value.find(u => u.id === userId)
-  if (!user) return
+  if (!user) {
+    console.error('找不到用户，userId:', userId)
+    return
+  }
   
   currentUser.value = user
+  console.log('currentUser.value:', currentUser.value)
   
-  // 根据用户ID显示不同的需求数据
-  if (user.is_admin) {
-    // 管理员用户没有需求配置
-    ElMessage.info('管理员用户不需要配置需求')
-    return
-  } else {
-    try {
-      // 调用API获取用户需求（添加时间戳防止缓存）
-      const token = localStorage.getItem('token')
-      const response = await axios.get(`/api/v1/admin/users/${userId}/requirements?timestamp=${Date.now()}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      
-      currentUserRequirements.value = response.data
-      
-      // 根据用户类型设置默认标签页
-      if (user.user_type === '考研') {
-        userRequirementsActiveTab.value = 'kaoyan'
-      } else if (user.user_type === '考公') {
-        userRequirementsActiveTab.value = 'kaogong'
+  try {
+    // 调用API获取用户需求（添加时间戳防止缓存）
+    const token = localStorage.getItem('token')
+    console.log('token:', token)
+    console.log('API URL:', `/api/v1/admin/users/${userId}/requirements?timestamp=${Date.now()}`)
+    const response = await axios.get(`/api/v1/admin/users/${userId}/requirements?timestamp=${Date.now()}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
       }
-      
-      // 确保对话框已经关闭，然后再显示
-      userRequirementsDialogVisible.value = false
-      setTimeout(() => {
-        userRequirementsDialogVisible.value = true
-      }, 100)
-    } catch (error) {
-      console.error('获取用户需求失败:', error)
-      ElMessage.error('获取用户需求失败，请稍后重试')
+    })
+    
+    console.log('API返回的数据:', response.data)
+    console.log('API返回的推送设置:', response.data.push)
+    // 确保response.data是一个对象
+    if (!response.data) {
+      response.data = {}
     }
+    // 确保push属性存在
+    if (!response.data.push) {
+      response.data.push = {}
+    }
+    // 直接设置currentUserRequirements.value
+    currentUserRequirements.value = response.data
+    console.log('currentUserRequirements.value:', currentUserRequirements.value)
+    console.log('currentUserRequirements.value.push:', currentUserRequirements.value.push)
+    console.log('currentUserRequirements.value.push.frequency:', currentUserRequirements.value.push.frequency)
+    console.log('currentUserRequirements.value.push.time:', currentUserRequirements.value.push.time)
+    
+    // 不要根据用户类型设置默认标签页，保留之前的设置
+    // 这样在saveUserRequirements函数中设置的标签页就不会被覆盖
+    
+    // 直接显示对话框
+    userRequirementsDialogVisible.value = true
+  } catch (error) {
+    console.error('获取用户需求失败:', error)
+    console.error('错误详情:', error.response?.data)
+    ElMessage.error('获取用户需求失败，请稍后重试')
   }
 }
 
@@ -682,6 +728,10 @@ const openEditUserRequirements = () => {
     is_fresh_graduate: '不限',
     keywords: ''
   }
+  editUserRequirementsForm.push = {
+    frequency: 'daily',
+    time: null
+  }
   
   // 直接复制当前需求数据到编辑表单，不做任何转换
   if (currentUserRequirements.value) {
@@ -691,6 +741,9 @@ const openEditUserRequirements = () => {
     if (currentUserRequirements.value.kaogong) {
       editUserRequirementsForm.kaogong = { ...currentUserRequirements.value.kaogong }
     }
+    if (currentUserRequirements.value.push) {
+      editUserRequirementsForm.push = { ...currentUserRequirements.value.push }
+    }
   }
   
   // 根据用户类型设置默认标签页
@@ -698,6 +751,8 @@ const openEditUserRequirements = () => {
     editUserRequirementsActiveTab.value = 'kaoyan'
   } else if (currentUser.value?.user_type === '考公') {
     editUserRequirementsActiveTab.value = 'kaogong'
+  } else {
+    editUserRequirementsActiveTab.value = 'kaoyan'
   }
   
   // 显示编辑对话框
@@ -709,11 +764,18 @@ const saveUserRequirements = async () => {
   try {
     const token = localStorage.getItem('token')
     
-    // 直接发送编辑表单数据，不做任何转换
+    // 准备发送给后端的数据
     const data = { ...editUserRequirementsForm }
     
-    console.log('发送给后端的数据:', data)
+    // 确保push.time不为null
+    if (!data.push.time) {
+      data.push.time = ''
+    }
     
+    // 时间选择器已经使用value-format="HH:mm"，不需要再格式化
+    
+    console.log('currentUser.value:', currentUser.value)
+    console.log('currentUser.value.id:', currentUser.value.id)
     console.log('发送给后端的数据:', data)
     
     await axios.put(`/api/v1/admin/users/${currentUser.value.id}/requirements`, data, {
@@ -725,12 +787,14 @@ const saveUserRequirements = async () => {
     ElMessage.success('用户需求更新成功')
     editUserRequirementsDialogVisible.value = false
     
+    // 保存当前用户ID
+    const userId = currentUser.value.id
     // 等待对话框关闭后再重新获取数据并打开查看对话框
     setTimeout(async () => {
+      // 设置标签页为推送设置
+      userRequirementsActiveTab.value = 'push'
       // 重新获取用户需求并显示更新后的数据
-      await viewUserRequirements(currentUser.value.id)
-      // 打开查看需求对话框以显示更新后的数据
-      userRequirementsDialogVisible.value = true
+      await viewUserRequirements(userId)
     }, 300)
   } catch (error) {
     console.error('保存用户需求失败:', error)

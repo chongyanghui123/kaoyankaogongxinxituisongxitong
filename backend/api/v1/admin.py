@@ -902,6 +902,98 @@ async def get_student_crawlers(
     return student_crawlers_list
 
 
+@router.get("/student-websites")
+async def get_student_websites(
+    db: Session = Depends(get_db),
+    db_kaoyan: Session = Depends(get_db_kaoyan),
+    db_kaogong: Session = Depends(get_db_kaogong),
+    current_admin: User = Depends(get_current_admin)
+):
+    """获取按学生分类的网站数据（管理员）"""
+    from core.logger import get_logger
+    logger = get_logger(__name__)
+    
+    # 获取所有非admin用户
+    users = db.query(User).filter(User.is_admin == False).all()
+    
+    student_websites_list = []
+    
+    for user in users:
+        # 获取用户的订阅配置（不限制状态，只要存在就获取）
+        subscriptions = db.query(UserSubscription).filter(
+            UserSubscription.user_id == user.id
+        ).all()
+        
+        logger.info(f"用户 {user.id} ({user.username}) 的订阅数量: {len(subscriptions)}")
+        for sub in subscriptions:
+            logger.info(f"  订阅 ID: {sub.id}, 类型: {sub.subscribe_type}, 状态: {sub.status}")
+        
+        # 收集用户的网站配置
+        user_websites = []
+        
+        # 从数据库中获取爬虫配置（网站配置）
+        from models.kaoyan import KaoyanCrawlerConfig
+        from models.kaogong import KaogongCrawlerConfig
+        
+        # 获取考研网站配置（筛选属于该用户的）
+        kaoyan_configs = db_kaoyan.query(KaoyanCrawlerConfig).filter(
+            KaoyanCrawlerConfig.user_id == user.id
+        ).all()
+        
+        for config in kaoyan_configs:
+            website = {
+                'id': len(user_websites) + 1,
+                'name': config.name,
+                'url': config.url
+            }
+            user_websites.append(website)
+        
+        # 获取考公网站配置（筛选属于该用户的）
+        kaogong_configs = db_kaogong.query(KaogongCrawlerConfig).filter(
+            KaogongCrawlerConfig.user_id == user.id
+        ).all()
+        
+        for config in kaogong_configs:
+            website = {
+                'id': len(user_websites) + 1,
+                'name': config.name,
+                'url': config.url
+            }
+            user_websites.append(website)
+        
+        # 添加用户类型信息（和用户管理接口保持一致的逻辑）
+        user_type = "未订阅"
+        # 查询用户的订阅配置（只查询状态为1的）
+        subscription = db.query(UserSubscription).filter(
+            UserSubscription.user_id == user.id,
+            UserSubscription.status == 1
+        ).first()
+        
+        logger.info(f"用户 {user.id} ({user.username}) 的有效订阅: {subscription}")
+        
+        if subscription:
+            if subscription.subscribe_type == 1:
+                user_type = "考研"
+            elif subscription.subscribe_type == 2:
+                user_type = "考公"
+            elif subscription.subscribe_type == 3:
+                user_type = "双赛道"
+        
+        logger.info(f"用户 {user.id} ({user.username}) 的最终用户类型: {user_type}")
+        
+        # 添加学生网站数据
+        student_websites_list.append({
+            'user_id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'user_type': user_type,
+            'websites': user_websites,
+            'status': user.is_active
+        })
+    
+    return student_websites_list
+
+
 @router.get("/products", response_model=List[ProductResponse])
 async def get_products(
     skip: int = Query(0, ge=0),

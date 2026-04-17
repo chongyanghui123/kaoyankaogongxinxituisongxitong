@@ -1,12 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Path
 from sqlalchemy.orm import Session
-from typing import List, Optional
-from datetime import datetime
+from typing import List, Optional, Dict
+from datetime import datetime, timedelta
+from fastapi.responses import JSONResponse
 
-from core.database import get_db_common
+from core.database import get_db_common, get_db_kaoyan, get_db_kaogong
 from core.security import get_current_user, get_current_admin
-from core.push_manager import send_payment_users_notifications
-from models.users import PushTemplate, PushLog, User
+from core.logger import log_user_action, log_error
+from core.push_manager import send_email, send_payment_users_notifications, send_kaoyan_notifications, send_kaogong_notifications, send_expiry_notifications
+from models.users import PushTemplate, PushLog, User, UserSubscription, UserKeyword
+from models.kaoyan import KaoyanInfo
+from models.kaogong import KaogongInfo
 from schemas.push import PushTemplateCreate, PushTemplateUpdate, PushTemplateResponse, PushLogResponse, PushRequest
 
 router = APIRouter(tags=["push"])
@@ -176,3 +180,325 @@ async def send_to_payment_users(
         return {"message": "推送任务已启动，正在处理"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"推送失败: {str(e)}")
+
+
+@router.post("/trigger/kaoyan", summary="触发考研情报推送")
+async def trigger_kaoyan_push(
+    current_user: Session = Depends(get_current_admin),
+    db_kaoyan: Session = Depends(get_db_kaoyan),
+    db_common: Session = Depends(get_db_common)
+):
+    """触发考研情报推送"""
+    try:
+        # 获取所有活跃用户
+        active_users = db_common.query(User).filter(User.is_active == True).all()
+        
+        push_count = 0
+        for user in active_users:
+            # 检查用户的订阅类型
+            subscription = db_common.query(UserSubscription).filter(UserSubscription.user_id == user.id).first()
+            if subscription and (subscription.subscribe_type == 1 or subscription.subscribe_type == 3):
+                send_kaoyan_notifications(db_kaoyan, user, subscription)
+                push_count += 1
+        
+        log_user_action(current_user.id, "trigger_kaoyan_push", f"触发考研情报推送，涉及用户数: {push_count}")
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": f"推送任务已触发，涉及 {push_count} 个用户",
+                "data": None
+            }
+        )
+    except Exception as e:
+        log_error(f"触发考研情报推送失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="触发推送失败"
+        )
+
+
+@router.post("/trigger/kaogong", summary="触发考公情报推送")
+async def trigger_kaogong_push(
+    current_user: Session = Depends(get_current_admin),
+    db_kaogong: Session = Depends(get_db_kaogong),
+    db_common: Session = Depends(get_db_common)
+):
+    """触发考公情报推送"""
+    try:
+        # 获取所有活跃用户
+        active_users = db_common.query(User).filter(User.is_active == True).all()
+        
+        push_count = 0
+        for user in active_users:
+            # 检查用户的订阅类型
+            subscription = db_common.query(UserSubscription).filter(UserSubscription.user_id == user.id).first()
+            if subscription and (subscription.subscribe_type == 2 or subscription.subscribe_type == 3):
+                send_kaogong_notifications(db_kaogong, user, subscription)
+                push_count += 1
+        
+        log_user_action(current_user.id, "trigger_kaogong_push", f"触发考公情报推送，涉及用户数: {push_count}")
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": f"推送任务已触发，涉及 {push_count} 个用户",
+                "data": None
+            }
+        )
+    except Exception as e:
+        log_error(f"触发考公情报推送失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="触发推送失败"
+        )
+
+
+@router.post("/trigger/expiry", summary="触发到期提醒推送")
+async def trigger_expiry_push(
+    current_user: Session = Depends(get_current_admin)
+):
+    """触发到期提醒推送"""
+    try:
+        send_expiry_notifications()
+        
+        log_user_action(current_user.id, "trigger_expiry_push", "触发到期提醒推送")
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "到期提醒推送任务已触发",
+                "data": None
+            }
+        )
+    except Exception as e:
+        log_error(f"触发到期提醒推送失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="触发推送失败"
+        )
+
+
+@router.get("/history", summary="获取推送历史")
+async def get_push_history(
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    category: Optional[int] = Query(None, ge=1, le=3, description="分类: 1-考研, 2-考公, 3-系统通知"),
+    user_id: Optional[int] = Query(None, description="用户ID"),
+    push_type: Optional[int] = Query(None, ge=1, le=3, description="推送类型: 1-微信, 2-企业微信, 3-邮件"),
+    push_status: Optional[int] = Query(None, ge=0, le=1, description="推送状态: 0-失败, 1-成功"),
+    start_time: Optional[str] = Query(None, description="开始时间"),
+    end_time: Optional[str] = Query(None, description="结束时间"),
+    current_user: Session = Depends(get_current_admin),
+    db_common: Session = Depends(get_db_common)
+):
+    """获取推送历史"""
+    try:
+        # 构建查询
+        query = db_common.query(PushLog)
+        
+        # 过滤条件
+        if category:
+            query = query.filter(PushLog.category == category)
+        if user_id:
+            query = query.filter(PushLog.user_id == user_id)
+        if push_type:
+            query = query.filter(PushLog.push_type == push_type)
+        if push_status is not None:
+            query = query.filter(PushLog.push_status == push_status)
+        if start_time:
+            start_dt = datetime.fromisoformat(start_time)
+            query = query.filter(PushLog.push_time >= start_dt)
+        if end_time:
+            end_dt = datetime.fromisoformat(end_time)
+            query = query.filter(PushLog.push_time <= end_dt)
+        
+        # 计算总数
+        total = query.count()
+        
+        # 分页
+        offset = (page - 1) * page_size
+        push_logs = query.order_by(PushLog.push_time.desc()).offset(offset).limit(page_size).all()
+        
+        # 构建响应
+        items = []
+        for log in push_logs:
+            # 获取用户信息
+            user = db_common.query(User).filter(User.id == log.user_id).first()
+            user_info = {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email
+            } if user else None
+            
+            items.append({
+                "id": log.id,
+                "user_id": log.user_id,
+                "user_info": user_info,
+                "info_id": log.info_id,
+                "category": log.category,
+                "category_text": "考研" if log.category == 1 else "考公" if log.category == 2 else "系统通知",
+                "push_type": log.push_type,
+                "push_type_text": "微信" if log.push_type == 1 else "企业微信" if log.push_type == 2 else "邮件",
+                "push_status": log.push_status,
+                "push_status_text": "成功" if log.push_status == 1 else "失败",
+                "push_content": log.push_content,
+                "error_msg": log.error_msg,
+                "is_processed": log.is_processed,
+                "push_time": log.push_time.isoformat()
+            })
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "获取推送历史成功",
+                "data": {
+                    "total": total,
+                    "items": items
+                }
+            }
+        )
+    except Exception as e:
+        log_error(f"获取推送历史失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="获取推送历史失败"
+        )
+
+
+@router.get("/stats", summary="获取推送统计")
+async def get_push_stats(
+    current_user: Session = Depends(get_current_admin),
+    db_common: Session = Depends(get_db_common)
+):
+    """获取推送统计"""
+    try:
+        # 统计推送总数
+        total_push = db_common.query(PushLog).count()
+        
+        # 统计成功推送数
+        success_push = db_common.query(PushLog).filter(
+            PushLog.push_status == 1
+        ).count()
+        
+        # 统计失败推送数
+        failed_push = db_common.query(PushLog).filter(
+            PushLog.push_status == 0
+        ).count()
+        
+        # 统计最近7天推送数
+        seven_days_ago = datetime.now() - timedelta(days=7)
+        recent_push = db_common.query(PushLog).filter(
+            PushLog.push_time >= seven_days_ago
+        ).count()
+        
+        # 按类型统计
+        category_stats = [
+            {
+                "category": 1,
+                "category_text": "考研",
+                "count": db_common.query(PushLog).filter(PushLog.category == 1).count()
+            },
+            {
+                "category": 2,
+                "category_text": "考公",
+                "count": db_common.query(PushLog).filter(PushLog.category == 2).count()
+            },
+            {
+                "category": 3,
+                "category_text": "系统通知",
+                "count": db_common.query(PushLog).filter(PushLog.category == 3).count()
+            }
+        ]
+        
+        # 按推送渠道统计
+        channel_stats = [
+            {
+                "push_type": 1,
+                "push_type_text": "微信",
+                "count": db_common.query(PushLog).filter(PushLog.push_type == 1).count()
+            },
+            {
+                "push_type": 2,
+                "push_type_text": "企业微信",
+                "count": db_common.query(PushLog).filter(PushLog.push_type == 2).count()
+            },
+            {
+                "push_type": 3,
+                "push_type_text": "邮件",
+                "count": db_common.query(PushLog).filter(PushLog.push_type == 3).count()
+            }
+        ]
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "获取推送统计成功",
+                "data": {
+                    "total_push": total_push,
+                    "success_push": success_push,
+                    "failed_push": failed_push,
+                    "recent_push": recent_push,
+                    "success_rate": success_push / total_push * 100 if total_push > 0 else 0,
+                    "category_stats": category_stats,
+                    "channel_stats": channel_stats
+                }
+            }
+        )
+    except Exception as e:
+        log_error(f"获取推送统计失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="获取推送统计失败"
+        )
+
+
+@router.post("/test", summary="测试推送")
+async def test_push(
+    email: str = Query(..., description="测试邮箱"),
+    content: str = Query("这是一条测试推送消息", description="测试内容"),
+    current_user: Session = Depends(get_current_admin)
+):
+    """测试推送"""
+    try:
+        subject = "【双赛道情报通】测试推送"
+        success = send_email(email, subject, content)
+        
+        if success:
+            log_user_action(current_user.id, "test_push", f"测试推送至邮箱: {email}")
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "success": True,
+                    "code": 200,
+                    "message": f"测试推送已发送至 {email}",
+                    "data": None
+                }
+            )
+        else:
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "success": False,
+                    "code": 500,
+                    "message": "测试推送失败",
+                    "data": None
+                }
+            )
+    except Exception as e:
+        log_error(f"测试推送失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="测试推送失败"
+        )
+
