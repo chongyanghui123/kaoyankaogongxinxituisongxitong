@@ -55,7 +55,7 @@
         <el-table-column prop="title" label="标题" min-width="200" />
         <el-table-column prop="province" label="省份" width="120" />
         <el-table-column prop="category_text" label="类别" width="120" />
-        <el-table-column prop="position_type" label="岗位类型" />
+        <el-table-column prop="position_type" label="岗位类别" />
         <el-table-column label="用户需求" width="250">
           <template #default="scope">
             <div class="user-requirements">
@@ -74,9 +74,9 @@
                           <p><strong>考公需求:</strong></p>
                           <p>关键词: {{ item.requirements.kaogong.keywords || '无' }}</p>
                           <p>省份: {{ item.requirements.kaogong.provinces || '无' }}</p>
-                          <p>职位类型: {{ item.requirements.kaogong.positionTypes || '无' }}</p>
+                          <p>岗位类别: {{ item.requirements.kaogong.position_types || '无' }}</p>
                           <p>专业: {{ item.requirements.kaogong.majors || '无' }}</p>
-                          <p>学历要求: {{ item.requirements.kaogong.educationLevels || '无' }}</p>
+                          <p>学历要求: {{ item.requirements.kaogong.education || '无' }}</p>
                         </div>
                       </div>
                     </template>

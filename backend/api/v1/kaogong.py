@@ -25,7 +25,17 @@ router = APIRouter()
 def get_info_user_requirements(info_id: int, category: int, db_common: Session):
     """获取情报对应的用户需求信息"""
     try:
-        # 获取推送过该情报的用户ID
+        # 首先获取情报信息
+        from models.kaogong import KaogongInfo
+        from core.database import get_db_kaogong
+        db_kaogong = next(get_db_kaogong())
+        info = db_kaogong.query(KaogongInfo).filter(KaogongInfo.id == info_id).first()
+        db_kaogong.close()
+        
+        if not info:
+            return []
+        
+        # 1. 获取推送过该情报的用户ID
         push_logs = db_common.query(PushLog).filter(
             PushLog.info_id == info_id,
             PushLog.category == category
@@ -33,6 +43,66 @@ def get_info_user_requirements(info_id: int, category: int, db_common: Session):
         
         user_ids = [log.user_id for log in push_logs]
         user_ids = list(set(user_ids))  # 去重
+        
+        # 2. 获取所有考公订阅用户，检查他们的需求是否与当前情报匹配
+        subscriptions = db_common.query(UserSubscription).filter(
+            UserSubscription.subscribe_type.in_([2, 3]),  # 2-考公, 3-双赛道
+            UserSubscription.status == 1
+        ).all()
+        
+        for subscription in subscriptions:
+            user_id = subscription.user_id
+            if user_id not in user_ids:
+                # 检查用户需求是否与当前情报匹配
+                user = db_common.query(User).filter(User.id == user_id).first()
+                if user:
+                    requirements = sync_get_user_requirements(user_id, db_common, user)
+                    kaogong_requirements = requirements.get('kaogong', {})
+                    
+                    # 检查匹配条件
+                    match = True
+                    
+                    # 检查省份
+                    provinces = kaogong_requirements.get('provinces', [])
+                    if provinces and info.province not in provinces:
+                        match = False
+                    
+                    # 检查岗位类型
+                    position_types = kaogong_requirements.get('position_types', [])
+                    if position_types and info.position_type not in position_types:
+                        match = False
+                    
+                    # 检查专业
+                    majors = kaogong_requirements.get('majors', [])
+                    if majors and info.major not in majors:
+                        match = False
+                    
+                    # 检查学历
+                    education = kaogong_requirements.get('education', '')
+                    if education and education != info.education:
+                        match = False
+                    
+                    # 检查是否应届生
+                    is_fresh_graduate = kaogong_requirements.get('is_fresh_graduate', '')
+                    if is_fresh_graduate:
+                        if is_fresh_graduate == "是" and not info.is_fresh_graduate:
+                            match = False
+                        elif is_fresh_graduate == "否" and info.is_fresh_graduate:
+                            match = False
+                    
+                    # 检查关键词
+                    keywords = kaogong_requirements.get('keywords', [])
+                    if keywords:
+                        keyword_match = False
+                        for keyword in keywords:
+                            if keyword in (info.title or '') or keyword in (info.content or '') or keyword in (info.tags or ''):
+                                keyword_match = True
+                                break
+                        if not keyword_match:
+                            match = False
+                    
+                    if match:
+                        user_ids.append(user_id)
         
         # 获取这些用户的需求信息
         user_requirements = []

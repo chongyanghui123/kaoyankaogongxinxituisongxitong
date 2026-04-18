@@ -375,7 +375,8 @@ async def get_user_requirements(
         # 初始化需求结果
         requirements = {
             'kaoyan': {},
-            'kaogong': {}
+            'kaogong': {},
+            'push': {}
         }
         
         # 获取用户的订阅配置
@@ -435,6 +436,11 @@ async def get_user_requirements(
                             kaogong_config = config_json['kaogong_requirements']
                             if kaogong_config is not None and isinstance(kaogong_config, dict):
                                 requirements['kaogong'] = kaogong_config
+                        # 处理推送设置
+                        if 'push' in config_json:
+                            push_config = config_json['push']
+                            if push_config is not None and isinstance(push_config, dict):
+                                requirements['push'] = push_config
         
         # 获取用户的关键词
         keywords = db.query(UserKeyword).filter(

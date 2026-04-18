@@ -463,42 +463,130 @@ async def get_push_stats(
         )
 
 
-@router.post("/test", summary="测试推送")
-async def test_push(
-    email: str = Query(..., description="测试邮箱"),
-    content: str = Query("这是一条测试推送消息", description="测试内容"),
-    current_user: Session = Depends(get_current_admin)
+
+
+
+@router.get("/trend", summary="获取推送趋势")
+async def get_push_trend(
+    days: int = Query(7, ge=1, le=30, description="统计天数"),
+    current_user: Session = Depends(get_current_admin),
+    db_common: Session = Depends(get_db_common)
 ):
-    """测试推送"""
+    """获取推送趋势"""
     try:
-        subject = "【双赛道情报通】测试推送"
-        success = send_email(email, subject, content)
+        # 计算开始日期
+        start_date = datetime.now() - timedelta(days=days-1)
+        start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
         
-        if success:
-            log_user_action(current_user.id, "test_push", f"测试推送至邮箱: {email}")
-            return JSONResponse(
-                status_code=200,
-                content={
-                    "success": True,
-                    "code": 200,
-                    "message": f"测试推送已发送至 {email}",
-                    "data": None
-                }
-            )
-        else:
-            return JSONResponse(
-                status_code=500,
-                content={
-                    "success": False,
-                    "code": 500,
-                    "message": "测试推送失败",
-                    "data": None
-                }
-            )
+        # 生成日期列表
+        date_list = []
+        for i in range(days):
+            date = start_date + timedelta(days=i)
+            date_list.append(date)
+        
+        # 按日期统计推送数量
+        trend_data = []
+        for date in date_list:
+            next_date = date + timedelta(days=1)
+            push_count = db_common.query(PushLog).filter(
+                PushLog.push_time >= date,
+                PushLog.push_time < next_date
+            ).count()
+            trend_data.append({
+                "date": date.strftime("%m-%d"),
+                "count": push_count
+            })
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "获取推送趋势成功",
+                "data": trend_data
+            }
+        )
     except Exception as e:
-        log_error(f"测试推送失败: {str(e)}")
+        log_error(f"获取推送趋势失败: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail="测试推送失败"
+            detail="获取推送趋势失败"
         )
+
+
+@router.delete("/history/{history_id}", summary="删除单条推送记录")
+async def delete_push_history(
+    history_id: int = Path(..., ge=1, description="推送记录ID"),
+    current_user: Session = Depends(get_current_admin),
+    db_common: Session = Depends(get_db_common)
+):
+    """删除单条推送记录"""
+    try:
+        # 查找推送记录
+        push_log = db_common.query(PushLog).filter(PushLog.id == history_id).first()
+        if not push_log:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "success": False,
+                    "code": 404,
+                    "message": "推送记录不存在",
+                    "data": None
+                }
+            )
+        
+        # 删除推送记录
+        db_common.delete(push_log)
+        db_common.commit()
+        
+        log_user_action(current_user.id, "delete_push_history", f"删除推送记录 ID: {history_id}")
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "删除成功",
+                "data": None
+            }
+        )
+    except Exception as e:
+        log_error(f"删除推送记录失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="删除失败"
+        )
+
+
+@router.delete("/history", summary="删除全部推送记录")
+async def delete_all_push_history(
+    current_user: Session = Depends(get_current_admin),
+    db_common: Session = Depends(get_db_common)
+):
+    """删除全部推送记录"""
+    try:
+        # 删除所有推送记录
+        db_common.query(PushLog).delete()
+        db_common.commit()
+        
+        log_user_action(current_user.id, "delete_all_push_history", "删除全部推送记录")
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "全部删除成功",
+                "data": None
+            }
+        )
+    except Exception as e:
+        log_error(f"删除全部推送记录失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="删除失败"
+        )
+
+
+
 

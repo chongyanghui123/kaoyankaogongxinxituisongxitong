@@ -78,6 +78,21 @@
       </el-card>
     </div>
 
+    <!-- 推送趋势图表 -->
+    <div class="chart-grid">
+      <el-card class="chart-card">
+        <template #header>
+          <div class="card-header">
+            <h3>推送趋势</h3>
+            <el-button link size="small" @click="refreshData">刷新</el-button>
+          </div>
+        </template>
+        <div class="chart-container">
+          <div ref="trendChart" style="width: 100%; height: 300px;"></div>
+        </div>
+      </el-card>
+    </div>
+
     <!-- 推送操作 -->
     <el-card class="operation-card">
       <template #header>
@@ -93,6 +108,7 @@
           <el-button 
             type="primary" 
             @click="triggerPush('kaoyan')"
+            :loading="loading" 
             class="operation-button primary-button"
           >
             <el-icon class="mr-2"><Document /></el-icon>
@@ -101,6 +117,7 @@
           <el-button 
             type="success" 
             @click="triggerPush('kaogong')"
+            :loading="loading"
             class="operation-button success-button"
           >
             <el-icon class="mr-2"><Paperclip /></el-icon>
@@ -109,6 +126,7 @@
           <el-button 
             type="warning" 
             @click="triggerPush('expiry')"
+            :loading="loading"
             class="operation-button warning-button"
           >
             <el-icon class="mr-2"><AlarmClock /></el-icon>
@@ -117,22 +135,24 @@
         </div>
       </div>
 
+
+
       <!-- 自动推送设置 -->
       <div>
         <h4 class="section-title">自动推送设置</h4>
         <el-form :inline="true" class="schedule-form">
           <el-form-item label="推送频率">
-            <el-select v-model="pushFrequency" placeholder="选择推送频率" style="width: 200px">
+            <el-select v-model="pushFrequency" placeholder="选择推送频率" style="width: 200px" required>
               <el-option value="hourly" label="每小时"></el-option>
               <el-option value="daily" label="每天"></el-option>
               <el-option value="weekly" label="每周"></el-option>
             </el-select>
           </el-form-item>
           <el-form-item label="推送时间">
-            <el-time-picker v-model="pushTime" placeholder="选择推送时间" style="width: 200px"></el-time-picker>
+            <el-time-picker v-model="pushTime" placeholder="选择推送时间" style="width: 200px" required></el-time-picker>
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" @click="savePushSettings">
+            <el-button type="primary" @click="savePushSettings" :loading="loading">
               <el-icon class="mr-2"><Check /></el-icon>
               保存设置
             </el-button>
@@ -151,6 +171,16 @@
 
       <!-- 筛选条件 -->
       <el-form :inline="true" class="filter-form mb-4">
+        <el-form-item>
+          <el-button 
+            type="danger" 
+            plain 
+            @click="deleteAllPushHistory"
+            :loading="loading"
+          >
+            全部删除
+          </el-button>
+        </el-form-item>
         <el-form-item label="推送分类">
           <el-select v-model="filter.category" placeholder="所有分类" style="width: 120px" @change="fetchPushHistory">
             <el-option value="" label="所有分类"></el-option>
@@ -210,6 +240,18 @@
             {{ formatTime(scope.row.push_time) }}
           </template>
         </el-table-column>
+        <el-table-column label="操作" width="100">
+          <template #default="scope">
+            <el-button 
+              type="danger" 
+              size="small" 
+              @click="deletePushHistory(scope.row.id)"
+              :loading="loading"
+            >
+              删除
+            </el-button>
+          </template>
+        </el-table-column>
       </el-table>
 
       <!-- 分页 -->
@@ -230,8 +272,8 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { DataAnalysis, Check, Close, TrendCharts, Document, Paperclip, AlarmClock, Message as MessageIcon, Refresh } from '@element-plus/icons-vue'
-import { ElMessage, ElLoading } from 'element-plus'
+import { DataAnalysis, Check, Close, TrendCharts, Document, Paperclip, AlarmClock, Refresh } from '@element-plus/icons-vue'
+import { ElMessage, ElLoading, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
 
 const stats = ref({})
@@ -250,6 +292,7 @@ const pushFrequency = ref('daily')
 const pushTime = ref(new Date())
 const categoryChart = ref(null)
 const channelChart = ref(null)
+const trendChart = ref(null)
 const loading = ref(false)
 
 async function fetchStats() {
@@ -354,7 +397,7 @@ async function triggerPush(type) {
 
 async function savePushSettings() {
   try {
-    const loading = ElLoading.service({ fullscreen: true, text: '保存设置中...' })
+    loading.value = true
     const response = await fetch('/api/v1/push/settings', {
       method: 'POST',
       headers: {
@@ -376,9 +419,11 @@ async function savePushSettings() {
     console.error('保存推送设置失败:', error)
     ElMessage.error('保存推送设置失败: 网络错误')
   } finally {
-    ElLoading.service().close()
+    loading.value = false
   }
 }
+
+
 
 function handleSizeChange(val) {
   filter.value.page_size = val
@@ -409,6 +454,11 @@ function initCharts() {
   // 初始化渠道图表
   if (channelChart.value && !channelChart.value.chart) {
     channelChart.value.chart = echarts.init(channelChart.value)
+  }
+  
+  // 初始化趋势图表
+  if (trendChart.value && !trendChart.value.chart) {
+    trendChart.value.chart = echarts.init(trendChart.value)
   }
 }
 
@@ -496,6 +546,137 @@ function updateCharts() {
     }
     channelChart.value.chart.setOption(channelOption)
   }
+  
+  // 更新趋势图表
+  if (trendChart.value?.chart) {
+    // 从后端获取推送趋势数据
+    fetch('/api/v1/push/trend', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        const trendData = data.data
+        const dates = trendData.map(item => item.date)
+        const pushData = trendData.map(item => item.count)
+        
+        const trendOption = {
+          tooltip: {
+            trigger: 'axis',
+            axisPointer: {
+              type: 'cross'
+            }
+          },
+          grid: {
+            left: '3%',
+            right: '4%',
+            bottom: '3%',
+            containLabel: true
+          },
+          xAxis: {
+            type: 'category',
+            data: dates,
+            boundaryGap: false
+          },
+          yAxis: {
+            type: 'value',
+            minInterval: 1
+          },
+          series: [
+            {
+              name: '推送数量',
+              type: 'line',
+              data: pushData,
+              smooth: true,
+              itemStyle: {
+                color: '#1890ff'
+              },
+              areaStyle: {
+                color: {
+                  type: 'linear',
+                  x: 0,
+                  y: 0,
+                  x2: 0,
+                  y2: 1,
+                  colorStops: [{
+                    offset: 0, color: 'rgba(24, 144, 255, 0.3)'
+                  }, {
+                    offset: 1, color: 'rgba(24, 144, 255, 0.1)'
+                  }]
+                }
+              }
+            }
+          ]
+        }
+        trendChart.value.chart.setOption(trendOption)
+      }
+    })
+    .catch(error => {
+      console.error('获取推送趋势数据失败:', error)
+      // 使用默认数据
+      const dates = []
+      const now = new Date()
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(now)
+        date.setDate(date.getDate() - i)
+        dates.push(date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }))
+      }
+      
+      const pushData = [0, 0, 0, 0, 0, 0, 0]
+      
+      const trendOption = {
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: {
+            type: 'cross'
+          }
+        },
+        grid: {
+          left: '3%',
+          right: '4%',
+          bottom: '3%',
+          containLabel: true
+        },
+        xAxis: {
+          type: 'category',
+          data: dates,
+          boundaryGap: false
+        },
+        yAxis: {
+          type: 'value',
+          minInterval: 1
+        },
+        series: [
+          {
+            name: '推送数量',
+            type: 'line',
+            data: pushData,
+            smooth: true,
+            itemStyle: {
+              color: '#1890ff'
+            },
+            areaStyle: {
+              color: {
+                type: 'linear',
+                x: 0,
+                y: 0,
+                x2: 0,
+                y2: 1,
+                colorStops: [{
+                  offset: 0, color: 'rgba(24, 144, 255, 0.3)'
+                }, {
+                  offset: 1, color: 'rgba(24, 144, 255, 0.1)'
+                }]
+              }
+            }
+          }
+        ]
+      }
+      trendChart.value.chart.setOption(trendOption)
+    })
+  }
 }
 
 onMounted(() => {
@@ -504,12 +685,89 @@ onMounted(() => {
   fetchPushSettings()
 })
 
+async function deletePushHistory(id) {
+  try {
+    const { value: confirmDelete } = await ElMessageBox.confirm(
+      '确定要删除这条推送记录吗？',
+      '删除确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    if (confirmDelete) {
+      const response = await fetch(`/api/v1/push/history/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      })
+      const data = await response.json()
+      if (data.success) {
+        ElMessage.success('删除成功')
+        fetchPushHistory()
+        fetchStats()
+      } else {
+        ElMessage.error('删除失败: ' + (data.message || '未知错误'))
+      }
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除推送记录失败:', error)
+      ElMessage.error('删除失败: 网络错误')
+    }
+  }
+}
+
+async function deleteAllPushHistory() {
+  try {
+    const { value: confirmDelete } = await ElMessageBox.confirm(
+      '确定要删除所有推送记录吗？此操作不可恢复！',
+      '全部删除确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'danger'
+      }
+    )
+    
+    if (confirmDelete) {
+      const response = await fetch('/api/v1/push/history', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      })
+      const data = await response.json()
+      if (data.success) {
+        ElMessage.success('全部删除成功')
+        fetchPushHistory()
+        fetchStats()
+      } else {
+        ElMessage.error('删除失败: ' + (data.message || '未知错误'))
+      }
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除全部推送记录失败:', error)
+      ElMessage.error('删除失败: 网络错误')
+    }
+  }
+}
+
+
+
 onBeforeUnmount(() => {
   if (categoryChart.value?.chart) {
     categoryChart.value.chart.dispose()
   }
   if (channelChart.value?.chart) {
     channelChart.value.chart.dispose()
+  }
+  if (trendChart.value?.chart) {
+    trendChart.value.chart.dispose()
   }
 })
 </script>
@@ -639,6 +897,9 @@ onBeforeUnmount(() => {
 
 .filter-form {
   margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .user-info {
