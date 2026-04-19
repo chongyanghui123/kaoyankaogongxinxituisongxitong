@@ -1,0 +1,44 @@
+<!-- message.wxml -->
+<view class="container">
+  <!-- 消息分类 -->
+  <view class="message-tabs">
+    <view class="tab-item" bindtap="switchTab" data-tab="all" data-selected="{{activeTab === 'all'}}">
+      全部
+    </view>
+    <view class="tab-item" bindtap="switchTab" data-tab="system" data-selected="{{activeTab === 'system'}}">
+      系统通知
+    </view>
+    <view class="tab-item" bindtap="switchTab" data-tab="info" data-selected="{{activeTab === 'info'}}">
+      情报推送
+    </view>
+    <view class="tab-item" bindtap="switchTab" data-tab="expiry" data-selected="{{activeTab === 'expiry'}}">
+      到期提醒
+    </view>
+  </view>
+
+  <!-- 消息列表 -->
+  <view class="message-list">
+    <view class="message-item" wx:for="{{messages}}" wx:key="id" bindtap="markAsRead" data-id="{{item.id}}" data-read="{{item.read}}">
+      <view class="message-icon" wx:if="{{item.type === 'system'}}">📢</view>
+      <view class="message-icon" wx:elif="{{item.type === 'info'}}">📚</view>
+      <view class="message-icon" wx:else>⏰</view>
+      <view class="message-content">
+        <view class="message-title">{{item.title}}</view>
+        <view class="message-text">{{item.content}}</view>
+        <view class="message-time">{{item.time}}</view>
+      </view>
+      <view class="message-badge" wx:if="{{!item.read}}">●</view>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty" wx:if="{{messages.length === 0}}">
+    <view class="empty-icon">📭</view>
+    <view class="empty-text">暂无消息</view>
+  </view>
+
+  <!-- 加载更多 -->
+  <view class="loading" wx:if="{{messages.length > 0 && hasMore}}" bindtap="loadMore">
+    点击加载更多
+  </view>
+</view>

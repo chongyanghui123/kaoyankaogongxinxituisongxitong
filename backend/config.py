@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     SECRET_KEY: str = "your-secret-key-here-change-in-production"
     API_V1_STR: str = "/api/v1"
-    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000,http://127.0.0.1:8080,http://localhost:5175,http://127.0.0.1:5175,http://localhost:5173,http://127.0.0.1:5173"
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000,http://127.0.0.1:8080,http://localhost:5175,http://127.0.0.1:5175,http://localhost:5173,http://127.0.0.1:5173,https://servicewechat.com"
     
     @property
     def cors_origins_list(self) -> List[str]:

@@ -1,0 +1,69 @@
+<!-- subscription.wxml -->
+<view class="container">
+  <!-- 订阅状态 -->
+  <view class="status-card">
+    <view class="status-header">
+      <view class="status-title">当前订阅状态</view>
+      <view class="status-badge" wx:if="{{userInfo.is_vip_active}}">VIP会员</view>
+    </view>
+    <view class="status-content">
+      <view class="status-item">
+        <view class="status-label">订阅类型</view>
+        <view class="status-value">{{subscriptionType}}</view>
+      </view>
+      <view class="status-item">
+        <view class="status-label">有效期至</view>
+        <view class="status-value">{{userInfo.vip_end_time || '未订阅'}}</view>
+      </view>
+      <view class="status-item">
+        <view class="status-label">剩余天数</view>
+        <view class="status-value">{{remainingDays}}天</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 订阅套餐 -->
+  <view class="plan-section">
+    <view class="section-title">订阅套餐</view>
+    <view class="plan-list">
+      <view class="plan-item" wx:for="{{plans}}" wx:key="id" bindtap="selectPlan" data-id="{{item.id}}" data-selected="{{selectedPlan === item.id}}">
+        <view class="plan-header">
+          <view class="plan-name">{{item.name}}</view>
+          <view class="plan-price">{{item.price}}元/{{item.period}}</view>
+        </view>
+        <view class="plan-features">
+          <view class="feature-item" wx:for="{{item.features}}" wx:key="index">{{item}}</view>
+        </view>
+        <view class="plan-select" wx:if="{{selectedPlan === item.id}}">✓</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 支付按钮 -->
+  <button class="pay-btn" bindtap="pay">立即支付</button>
+
+  <!-- 支付弹窗 -->
+  <view class="pay-modal" wx:if="{{showPayModal}}">
+    <view class="modal-content">
+      <view class="modal-header">
+        <view class="modal-title">选择支付方式</view>
+        <view class="modal-close" bindtap="closePayModal">×</view>
+      </view>
+      <view class="modal-body">
+        <view class="pay-option" bindtap="selectPayMethod" data-method="wechat">
+          <view class="pay-icon">💳</view>
+          <view class="pay-name">微信支付</view>
+          <view class="pay-select" wx:if="{{selectedPayMethod === 'wechat'}}">✓</view>
+        </view>
+        <view class="pay-option" bindtap="selectPayMethod" data-method="alipay">
+          <view class="pay-icon">💚</view>
+          <view class="pay-name">支付宝</view>
+          <view class="pay-select" wx:if="{{selectedPayMethod === 'alipay'}}">✓</view>
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="confirm-btn" bindtap="confirmPay">确认支付</button>
+      </view>
+    </view>
+  </view>
+</view>

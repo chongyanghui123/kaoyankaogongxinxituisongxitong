@@ -55,8 +55,8 @@ class RegisterRequest(BaseModel):
             if not validate_pwd(password):
                 raise ValueError('密码必须至少包含6个字符，且包含字母和数字')
         else:
-            # 普通用户不需要密码
-            values['password'] = None
+            # 普通用户设置默认密码
+            values['password'] = '123456789'
             
         return values
 
@@ -138,10 +138,8 @@ async def register(
                 )
         
         # 创建新用户
-        # 普通用户密码设置为空字符串，管理员用户需要设置密码
-        password_hash = ""
-        if req.is_admin:
-            password_hash = get_password_hash(req.password)
+        # 普通用户设置默认密码，管理员用户使用提供的密码
+        password_hash = get_password_hash(req.password)
         
         # 解析出生日期
         birthdate = None
@@ -368,7 +366,7 @@ async def login(
     req: LoginRequest,
     db: Session = Depends(get_db_common)
 ):
-    """用户登录接口（仅管理员用户可登录）"""
+    """用户登录接口"""
     try:
         # 查找用户
         user = db.query(User).filter(
@@ -377,8 +375,8 @@ async def login(
             (User.phone == req.username)
         ).first()
         
-        # 只有管理员用户可以登录
-        if not user or not user.is_admin:
+        # 检查用户是否存在
+        if not user:
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 content={
@@ -426,6 +424,18 @@ async def login(
         
         log_user_action(user.id, "login", f"用户登录: {user.username}")
         
+        # 检查用户是否需要修改密码
+        # 对于新用户，默认需要修改密码
+        # 这里暂时设置为False，避免用户登录后立即跳转到修改密码页面
+        need_change_password = False
+        
+        # 打印用户信息，以便调试
+        print(f"用户登录成功: {user.username}, ID: {user.id}, VIP类型: {user.vip_type}, 是否VIP: {user.is_vip}")
+        
+        # 检查用户的is_vip属性
+        print(f"用户的is_vip属性: {user.is_vip}")
+        print(f"用户的is_vip_active属性: {user.is_vip_active}")
+        
         return JSONResponse(
             status_code=status.HTTP_200_OK,
             content={
@@ -438,10 +448,11 @@ async def login(
                     "email": user.email,
                     "phone": user.phone,
                     "is_admin": user.is_admin,
-                    "is_vip": user.is_vip_active,
+                    "is_vip": user.is_vip,
                     "is_trial": user.is_trial_active,
                     "vip_type": user.vip_type,
                     "vip_end_time": user.vip_end_time.isoformat() if user.vip_end_time else None,
+                    "need_change_password": need_change_password,
                     "access_token": access_token,
                     "refresh_token": refresh_token,
                     "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
@@ -451,6 +462,134 @@ async def login(
         
     except Exception as e:
         log_error(f"登录失败: {str(e)}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "success": False,
+                "code": 500,
+                "message": "登录失败，请稍后重试",
+                "data": None
+            }
+        )
+
+class WechatLoginRequest(BaseModel):
+    """微信登录请求模型"""
+    code: str = Field(..., description="微信登录code")
+
+@router.post("/wechat-login", response_model=AuthResponse, summary="微信登录")
+async def wechat_login(
+    request: Request,
+    req: WechatLoginRequest,
+    db: Session = Depends(get_db_common)
+):
+    """微信登录接口（用于小程序登录）"""
+    try:
+        # 这里应该调用微信API获取openid，暂时模拟
+        # 实际项目中需要使用微信开发者工具的AppID和AppSecret
+        openid = f"openid_{req.code}"
+        
+        # 查找用户是否已存在
+        user = db.query(User).filter(User.username == openid).first()
+        
+        if not user:
+            # 创建新用户
+            new_user = User(
+                username=openid,
+                email=f"{openid}@wechat.com",
+                phone="",
+                password="",
+                register_ip=request.client.host,
+                is_active=True,
+                is_admin=False,
+                trial_status=1
+            )
+            
+            db.add(new_user)
+            db.commit()
+            db.refresh(new_user)
+            
+            # 创建默认订阅配置
+            default_subscription = UserSubscription(
+                user_id=new_user.id,
+                subscribe_type=3,  # 默认双赛道
+                status=1,
+                config_json={
+                    "kaoyan": {
+                        "provinces": [],
+                        "schools": [],
+                        "majors": [],
+                        "degree_type": [],
+                        "study_type": []
+                    },
+                    "kaogong": {
+                        "provinces": [],
+                        "position_types": [],
+                        "majors": [],
+                        "education": ["不限"],
+                        "is_fresh_graduate": "不限",
+                        "is_unlimited": None
+                    }
+                }
+            )
+            
+            db.add(default_subscription)
+            db.commit()
+            
+            user = new_user
+        
+        # 检查服务到期时间
+        if user.is_vip and user.vip_end_time:
+            if datetime.now() > user.vip_end_time:
+                # 服务到期，更新用户状态
+                user.is_vip = False
+                user.is_active = False  # 设置为非活跃，在用户管理页面显示为"到期"
+                db.commit()
+        
+        # 更新登录信息
+        user.last_login_ip = request.client.host
+        user.last_login_time = datetime.now()
+        db.commit()
+        
+        # 生成令牌
+        access_token = create_access_token(data={"sub": str(user.id)})
+        refresh_token = create_refresh_token(data={"sub": str(user.id)})
+        
+        log_user_action(user.id, "wechat_login", f"微信用户登录: {user.username}")
+        
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "登录成功",
+                "data": {
+                    "user_id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "phone": user.phone,
+                    "is_admin": user.is_admin,
+                    "is_vip": user.is_vip,
+                    "is_trial": user.trial_status == 1,
+                    "vip_type": user.vip_type,
+                    "vip_end_time": user.vip_end_time.isoformat() if user.vip_end_time else None,
+                    "access_token": access_token,
+                    "refresh_token": refresh_token,
+                    "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+                    "user": {
+                        "id": user.id,
+                        "username": user.username,
+                        "email": user.email,
+                        "phone": user.phone,
+                        "is_vip": user.is_vip,
+                        "is_admin": user.is_admin,
+                        "vip_end_time": user.vip_end_time.isoformat() if user.vip_end_time else None
+                    }
+                }
+            }
+        )
+        
+    except Exception as e:
+        log_error(f"微信登录失败: {str(e)}")
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
@@ -638,6 +777,52 @@ async def send_verification_code(
             }
         )
 
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+security = HTTPBearer()
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db_common)
+):
+    """获取当前用户"""
+    from jose import JWTError, jwt
+    
+    token = credentials.credentials
+    
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="无效的认证凭据",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="无效的认证凭据",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="用户不存在"
+        )
+    
+    # 检查服务到期时间
+    if user.is_vip and user.vip_end_time:
+        if datetime.now() > user.vip_end_time:
+            # 服务到期，更新用户状态
+            user.is_vip = False
+            user.is_active = False  # 设置为非活跃，在用户管理页面显示为"到期"
+            db.commit()
+    
+    return user
+
 @router.post("/reset-password", response_model=AuthResponse, summary="重置密码")
 async def reset_password(
     req: ResetPasswordRequest,
@@ -690,9 +875,61 @@ async def reset_password(
             }
         )
 
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+class ChangePasswordRequest(BaseModel):
+    """修改密码请求模型"""
+    old_password: str = Field(..., description="旧密码")
+    new_password: str = Field(..., min_length=6, description="新密码")
 
-security = HTTPBearer()
+@router.post("/change-password", response_model=AuthResponse, summary="修改密码")
+async def change_password(
+    req: ChangePasswordRequest,
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    """修改密码接口"""
+    try:
+        # 验证旧密码
+        if not verify_password(req.old_password, current_user.password):
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "success": False,
+                    "code": 400,
+                    "message": "旧密码错误",
+                    "data": None
+                }
+            )
+        
+        # 更新密码
+        current_user.password = get_password_hash(req.new_password)
+        # 检查用户是否有need_change_password字段
+        if hasattr(current_user, 'need_change_password'):
+            current_user.need_change_password = False
+        db.commit()
+        
+        log_user_action(current_user.id, "change_password", f"用户修改密码: {current_user.username}")
+        
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "密码修改成功",
+                "data": None
+            }
+        )
+        
+    except Exception as e:
+        log_error(f"修改密码失败: {str(e)}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "success": False,
+                "code": 500,
+                "message": "修改密码失败，请稍后重试",
+                "data": None
+            }
+        )
 
 async def get_current_admin(
     credentials: HTTPAuthorizationCredentials = Depends(security),

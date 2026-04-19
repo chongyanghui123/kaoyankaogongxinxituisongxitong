@@ -1,0 +1,239 @@
+/* subscription.wxss */
+
+/* 订阅状态卡片 */
+.status-card {
+  background-color: #ffffff;
+  border-radius: 8rpx;
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+}
+
+.status-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.status-title {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #333333;
+}
+
+.status-badge {
+  background-color: #f6ffed;
+  color: #52c41a;
+  padding: 8rpx 16rpx;
+  border-radius: 16rpx;
+  font-size: 18rpx;
+  font-weight: 500;
+}
+
+.status-content {
+  border-top: 1rpx solid #f0f0f0;
+  padding-top: 16rpx;
+}
+
+.status-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.status-item:last-child {
+  margin-bottom: 0;
+}
+
+.status-label {
+  font-size: 20rpx;
+  color: #666666;
+}
+
+.status-value {
+  font-size: 20rpx;
+  color: #333333;
+  font-weight: 500;
+}
+
+/* 订阅套餐 */
+.plan-section {
+  margin-bottom: 24rpx;
+}
+
+.section-title {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #333333;
+  margin-bottom: 16rpx;
+}
+
+.plan-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.plan-item {
+  position: relative;
+  background-color: #ffffff;
+  border-radius: 8rpx;
+  padding: 20rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+  border: 2rpx solid transparent;
+}
+
+.plan-item[data-selected="true"] {
+  border-color: #1890ff;
+  background-color: #f0f7ff;
+}
+
+.plan-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.plan-name {
+  font-size: 20rpx;
+  font-weight: 600;
+  color: #333333;
+}
+
+.plan-price {
+  font-size: 20rpx;
+  font-weight: 600;
+  color: #ff4d4f;
+}
+
+.plan-features {
+  margin-bottom: 12rpx;
+}
+
+.feature-item {
+  font-size: 18rpx;
+  color: #666666;
+  margin-bottom: 12rpx;
+  display: flex;
+  align-items: center;
+}
+
+.feature-item::before {
+  content: "•";
+  color: #1890ff;
+  margin-right: 8rpx;
+}
+
+.plan-select {
+  position: absolute;
+  top: 16rpx;
+  right: 16rpx;
+  font-size: 24rpx;
+  color: #1890ff;
+  font-weight: 600;
+}
+
+/* 支付按钮 */
+.pay-btn {
+  background-color: #1890ff;
+  color: #ffffff;
+  border: none;
+  border-radius: 8rpx;
+  padding: 20rpx;
+  font-size: 20rpx;
+  font-weight: 500;
+  margin-top: 24rpx;
+}
+
+/* 支付弹窗 */
+.pay-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.modal-content {
+  background-color: #ffffff;
+  border-radius: 8rpx;
+  width: 80%;
+  max-width: 400rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.modal-title {
+  font-size: 16rpx;
+  font-weight: 600;
+  color: #333333;
+}
+
+.modal-close {
+  font-size: 24rpx;
+  color: #999999;
+  cursor: pointer;
+}
+
+.modal-body {
+  padding: 20rpx;
+}
+
+.pay-option {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.pay-option:last-child {
+  border-bottom: none;
+}
+
+.pay-icon {
+  font-size: 32rpx;
+  margin-right: 16rpx;
+}
+
+.pay-name {
+  flex: 1;
+  font-size: 16rpx;
+  color: #333333;
+}
+
+.pay-select {
+  font-size: 20rpx;
+  color: #1890ff;
+  font-weight: 600;
+}
+
+.modal-footer {
+  padding: 20rpx;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.confirm-btn {
+  background-color: #1890ff;
+  color: #ffffff;
+  border: none;
+  border-radius: 4rpx;
+  padding: 12rpx;
+  font-size: 16rpx;
+  font-weight: 500;
+  width: 100%;
+}

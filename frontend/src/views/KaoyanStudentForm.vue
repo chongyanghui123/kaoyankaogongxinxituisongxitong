@@ -387,7 +387,7 @@ const handlePayment = async () => {
           username: formData.real_name,
           email: formData.email,
           phone: formData.phone,
-          password: '123456', // 为用户自动生成一个默认密码
+          password: '123456789', // 为用户自动生成一个默认密码
           real_name: formData.real_name,
           gender: formData.gender,
           birthdate: formData.birthdate ? formData.birthdate.toISOString().split('T')[0] : null,

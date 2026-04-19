@@ -1,0 +1,39 @@
+<!-- info.wxml -->
+<view class="container">
+  <!-- 筛选条件 -->
+  <view class="filter">
+    <view class="filter-item" bindtap="showTimePicker">
+      <text class="filter-label">时间</text>
+      <text class="filter-value">{{currentTime}}</text>
+      <text class="filter-arrow">▼</text>
+    </view>
+  </view>
+
+  <!-- 情报列表 -->
+  <view class="info-list">
+    <view class="info-item" wx:for="{{infoList}}" wx:key="id" bindtap="navigateToDetail" data-id="{{item.id}}">
+      <view class="info-title">{{item.title}}</view>
+      <view class="info-content">{{item.content}}</view>
+      <view class="info-meta">
+        <text class="info-type">{{item.type}}</text>
+        <text class="info-time">{{item.time}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 加载更多 -->
+  <view class="load-more">
+    <view class="loading" wx:if="{{loading}}">加载中...</view>
+    <view class="loading" wx:elif="{{!hasMore}}">没有更多数据了</view>
+    <view class="loading" wx:else bindtap="loadMore">点击加载更多</view>
+  </view>
+
+
+
+  <!-- 时间选择器 -->
+  <picker-view wx:if="{{showTimePicker}}" class="picker-view" value="{{timeIndex}}" bindchange="bindTimeChange">
+    <picker-view-column>
+      <view wx:for="{{timeList}}" wx:key="value" class="picker-item">{{item.label}}</view>
+    </picker-view-column>
+  </picker-view>
+</view>

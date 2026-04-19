@@ -1,0 +1,67 @@
+<!-- admin.wxml -->
+<view class="container">
+  <!-- 管理员功能导航 -->
+  <view class="admin-nav">
+    <view class="nav-item" bindtap="navigateToUserManagement">
+      <view class="nav-icon">👥</view>
+      <view class="nav-text">用户管理</view>
+    </view>
+    <view class="nav-item" bindtap="navigateToInfoManagement">
+      <view class="nav-icon">📚</view>
+      <view class="nav-text">情报管理</view>
+    </view>
+    <view class="nav-item" bindtap="navigateToPushManagement">
+      <view class="nav-icon">📢</view>
+      <view class="nav-text">推送管理</view>
+    </view>
+    <view class="nav-item" bindtap="navigateToSystemSettings">
+      <view class="nav-icon">⚙️</view>
+      <view class="nav-text">系统设置</view>
+    </view>
+  </view>
+
+  <!-- 系统概览 -->
+  <view class="overview-section">
+    <view class="section-title">系统概览</view>
+    <view class="overview-cards">
+      <view class="overview-card">
+        <view class="card-icon">👥</view>
+        <view class="card-content">
+          <view class="card-value">{{stats.userCount}}</view>
+          <view class="card-label">用户总数</view>
+        </view>
+      </view>
+      <view class="overview-card">
+        <view class="card-icon">💎</view>
+        <view class="card-content">
+          <view class="card-value">{{stats.vipCount}}</view>
+          <view class="card-label">VIP用户</view>
+        </view>
+      </view>
+      <view class="overview-card">
+        <view class="card-icon">📚</view>
+        <view class="card-content">
+          <view class="card-value">{{stats.infoCount}}</view>
+          <view class="card-label">情报总数</view>
+        </view>
+      </view>
+      <view class="overview-card">
+        <view class="card-icon">📢</view>
+        <view class="card-content">
+          <view class="card-value">{{stats.pushCount}}</view>
+          <view class="card-label">推送次数</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 手动触发推送 -->
+  <view class="push-section">
+    <view class="section-title">手动触发推送</view>
+    <view class="push-buttons">
+      <button class="push-btn" bindtap="triggerKaoyanPush">触发考研情报推送</button>
+      <button class="push-btn" bindtap="triggerKaogongPush">触发考公情报推送</button>
+      <button class="push-btn" bindtap="triggerExpiryPush">触发到期提醒推送</button>
+    </view>
+  </view>
+</view>

@@ -144,7 +144,7 @@ def get_current_active_vip(
         )
         
     # 检查VIP是否过期
-    if current_user.vip_end_time < datetime.now():
+    if current_user.vip_end_time and current_user.vip_end_time < datetime.now():
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="VIP已过期"

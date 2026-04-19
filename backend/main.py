@@ -167,6 +167,10 @@ async def app_info():
         }
     }
 
+# 导入消息和情报路由
+from api.v1.message import router as message_router
+from api.v1.info import router as info_router
+
 # 注册路由
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["认证"])
 app.include_router(users_router, prefix="/api/v1/users", tags=["用户"])
@@ -175,6 +179,8 @@ app.include_router(kaogong_router, prefix="/api/v1/kaogong", tags=["考公"])
 app.include_router(crawlers_router, prefix="/api/v1/crawlers", tags=["爬虫"])
 app.include_router(payments_router, prefix="/api/v1/payments", tags=["支付"])
 app.include_router(push_router, prefix="/api/v1/push", tags=["推送"])
+app.include_router(message_router, prefix="/api/v1/message", tags=["消息"])
+app.include_router(info_router, prefix="/api/v1/info", tags=["情报"])
 app.include_router(admin_router, prefix="/api/v1/admin", tags=["管理后台"])
 app.include_router(school_management_router, prefix="/api/v1/school-management", tags=["学校管理"])
 app.include_router(utils_router, prefix="/api/v1/utils", tags=["工具"])

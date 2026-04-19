@@ -70,11 +70,12 @@ async def create_order(
             if not user_phone:
                 user_phone = f"138{int(time.time() * 1000) % 10000000}"
             
+            from core.security import get_password_hash
             new_user = User(
                 username=user_username,
                 email=user_email,
                 phone=user_phone,
-                password="",  # 普通用户不需要密码，设置为空字符串
+                password=get_password_hash("123456789"),  # 为用户设置默认密码
                 is_admin=False,
                 is_active=True,
                 is_vip=False
@@ -105,11 +106,12 @@ async def create_order(
             if "real_name" in order.user_requirements:
                 user_username = order.user_requirements["real_name"]
         
+        from core.security import get_password_hash
         new_user = User(
             username=user_username,
             email=user_email,
             phone=user_phone,
-            password="",  # 普通用户不需要密码，设置为空字符串
+            password=get_password_hash("123456789"),  # 为用户设置默认密码
             is_admin=False,
             is_active=True,
             is_vip=False

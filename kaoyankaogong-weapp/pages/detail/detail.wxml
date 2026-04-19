@@ -1,0 +1,40 @@
+<!-- detail.wxml -->
+<view class="container">
+  <!-- 情报详情 -->
+  <view class="detail-card">
+    <view class="detail-title">{{info.title}}</view>
+    <view class="detail-meta">
+      <text class="detail-type">{{info.type}}</text>
+      <text class="detail-time">{{info.time}}</text>
+    </view>
+    <view class="detail-content">{{info.content}}</view>
+    <view class="detail-source">来源：{{info.source}}</view>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="action-buttons">
+    <view class="action-button" bindtap="collectInfo">
+      <view class="action-icon">{{isCollected ? '★' : '☆'}}</view>
+      <view class="action-text">收藏</view>
+    </view>
+    <view class="action-button" bindtap="shareInfo">
+      <view class="action-icon">🔗</view>
+      <view class="action-text">分享</view>
+    </view>
+    <view class="action-button" bindtap="copyLink">
+      <view class="action-icon">📋</view>
+      <view class="action-text">复制链接</view>
+    </view>
+  </view>
+
+  <!-- 相关情报 -->
+  <view class="related-section">
+    <view class="section-title">相关情报</view>
+    <view class="related-list">
+      <view class="related-item" wx:for="{{relatedInfo}}" wx:key="id" bindtap="navigateToDetail" data-id="{{item.id}}">
+        <view class="related-title">{{item.title}}</view>
+        <view class="related-time">{{item.time}}</view>
+      </view>
+    </view>
+  </view>
+</view>
