@@ -9,7 +9,7 @@ from core.database import get_db_kaoyan, get_db_kaogong, get_db_common
 from core.security import get_current_user
 from models.kaoyan import KaoyanInfo
 from models.kaogong import KaogongInfo
-from models.users import User
+from models.users import User, UserSubscription, UserKeyword
 from schemas.kaoyan import KaoyanInfoResponse
 from schemas.kaogong import KaogongInfoResponse
 
@@ -24,9 +24,10 @@ async def get_info_list(
     page_size: int = Query(10, ge=1, le=100, description="每页数量"),
     db_kaoyan: Session = Depends(get_db_kaoyan),
     db_kaogong: Session = Depends(get_db_kaogong),
+    db_common: Session = Depends(get_db_common),
     current_user: User = Depends(get_current_user)
 ):
-    """获取情报列表（根据用户类型）"""
+    """获取情报列表（根据用户需求）"""
     try:
         all_info = []
         
@@ -45,42 +46,122 @@ async def get_info_list(
         # 1-考研VIP, 2-考公VIP, 3-双赛道VIP
         vip_type = current_user.vip_type
         
+        # 获取用户的订阅配置
+        subscription = db_common.query(UserSubscription).filter(
+            UserSubscription.user_id == current_user.id
+        ).first()
+        
+        # 获取用户的关键词
+        kaoyan_keywords = [kw.keyword for kw in db_common.query(UserKeyword).filter(
+            UserKeyword.user_id == current_user.id,
+            UserKeyword.category == 1,
+            UserKeyword.is_active == True
+        ).all()]
+        
+        kaogong_keywords = [kw.keyword for kw in db_common.query(UserKeyword).filter(
+            UserKeyword.user_id == current_user.id,
+            UserKeyword.category == 2,
+            UserKeyword.is_active == True
+        ).all()]
+        
+        # 从订阅配置中获取用户关注的省份、学校、专业等
+        config_json = subscription.config_json if subscription else {}
+        kaoyan_config = config_json.get('kaoyan', {})
+        kaoyan_provinces = kaoyan_config.get('provinces', [])
+        kaoyan_schools = kaoyan_config.get('schools', [])
+        if isinstance(kaoyan_schools, str):
+            kaoyan_schools = [kaoyan_schools]
+        kaoyan_majors = kaoyan_config.get('majors', [])
+        if isinstance(kaoyan_majors, str):
+            kaoyan_majors = [kaoyan_majors]
+        
+        kaogong_config = config_json.get('kaogong', {})
+        kaogong_provinces = kaogong_config.get('provinces', [])
+        kaogong_position_types = kaogong_config.get('position_types', [])
+        kaogong_majors = kaogong_config.get('majors', [])
+        if isinstance(kaogong_majors, str):
+            kaogong_majors = [kaogong_majors]
+        
         # 获取考研情报
         if vip_type in [1, 3]:
+            # 获取所有考研情报
             kaoyan_query = db_kaoyan.query(KaoyanInfo)
             if start_time:
                 kaoyan_query = kaoyan_query.filter(KaoyanInfo.publish_time >= start_time)
             if search:
                 kaoyan_query = kaoyan_query.filter(KaoyanInfo.title.contains(search) | KaoyanInfo.content.contains(search))
-            kaoyan_info = kaoyan_query.order_by(KaoyanInfo.publish_time.desc()).all()
             
-            for info in kaoyan_info:
+            # 筛选符合用户需求的情报
+            relevant_kaoyan_info = []
+            for info in kaoyan_query.all():
+                # 检查省份
+                if kaoyan_provinces and info.province and info.province not in kaoyan_provinces:
+                    continue
+                # 检查学校
+                if kaoyan_schools and info.school and info.school not in kaoyan_schools:
+                    continue
+                # 检查专业
+                if kaoyan_majors and info.major and info.major not in kaoyan_majors:
+                    continue
+                # 检查关键词
+                if kaoyan_keywords:
+                    info_text = f"{info.title} {info.content or ''}"
+                    if not any(keyword in info_text for keyword in kaoyan_keywords):
+                        continue
+                relevant_kaoyan_info.append(info)
+            
+            # 按发布时间倒序排序
+            relevant_kaoyan_info.sort(key=lambda x: x.publish_time, reverse=True)
+            
+            for info in relevant_kaoyan_info:
                 all_info.append({
                     "id": info.id,
                     "title": info.title,
                     "content": info.content,
                     "type": "考研",
-                    "time": info.publish_time.isoformat(),
+                    "time": info.publish_time.strftime("%Y-%m-%d %H:%M:%S"),
                     "source": info.source,
                     "url": info.url
                 })
         
         # 获取考公情报
         if vip_type in [2, 3]:
+            # 获取所有考公情报
             kaogong_query = db_kaogong.query(KaogongInfo)
             if start_time:
                 kaogong_query = kaogong_query.filter(KaogongInfo.publish_time >= start_time)
             if search:
                 kaogong_query = kaogong_query.filter(KaogongInfo.title.contains(search) | KaogongInfo.content.contains(search))
-            kaogong_info = kaogong_query.order_by(KaogongInfo.publish_time.desc()).all()
             
-            for info in kaogong_info:
+            # 筛选符合用户需求的情报
+            relevant_kaogong_info = []
+            for info in kaogong_query.all():
+                # 检查省份
+                if kaogong_provinces and info.province and info.province not in kaogong_provinces:
+                    continue
+                # 检查岗位类别
+                if kaogong_position_types and info.position_type and info.position_type not in kaogong_position_types:
+                    continue
+                # 检查专业
+                if kaogong_majors and info.major and info.major not in kaogong_majors:
+                    continue
+                # 检查关键词
+                if kaogong_keywords:
+                    info_text = f"{info.title} {info.content or ''}"
+                    if not any(keyword in info_text for keyword in kaogong_keywords):
+                        continue
+                relevant_kaogong_info.append(info)
+            
+            # 按发布时间倒序排序
+            relevant_kaogong_info.sort(key=lambda x: x.publish_time, reverse=True)
+            
+            for info in relevant_kaogong_info:
                 all_info.append({
                     "id": info.id,
                     "title": info.title,
                     "content": info.content,
                     "type": "考公",
-                    "time": info.publish_time.isoformat(),
+                    "time": info.publish_time.strftime("%Y-%m-%d %H:%M:%S"),
                     "source": info.source,
                     "url": info.url
                 })
@@ -146,9 +227,10 @@ async def get_latest_info(
     limit: int = Query(10, ge=1, le=50, description="数量"),
     db_kaoyan: Session = Depends(get_db_kaoyan),
     db_kaogong: Session = Depends(get_db_kaogong),
+    db_common: Session = Depends(get_db_common),
     current_user: User = Depends(get_current_user)
 ):
-    """获取最新情报（根据用户类型）"""
+    """获取最新情报（根据用户需求）"""
     try:
         all_info = []
         
@@ -160,42 +242,126 @@ async def get_latest_info(
         today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         today_end = datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999)
         
+        # 获取用户的订阅配置
+        subscription = db_common.query(UserSubscription).filter(
+            UserSubscription.user_id == current_user.id
+        ).first()
+        
+        # 获取用户的关键词
+        kaoyan_keywords = [kw.keyword for kw in db_common.query(UserKeyword).filter(
+            UserKeyword.user_id == current_user.id,
+            UserKeyword.category == 1,
+            UserKeyword.is_active == True
+        ).all()]
+        
+        kaogong_keywords = [kw.keyword for kw in db_common.query(UserKeyword).filter(
+            UserKeyword.user_id == current_user.id,
+            UserKeyword.category == 2,
+            UserKeyword.is_active == True
+        ).all()]
+        
+        # 从订阅配置中获取用户关注的省份、学校、专业等
+        config_json = subscription.config_json if subscription else {}
+        kaoyan_config = config_json.get('kaoyan', {})
+        kaoyan_provinces = kaoyan_config.get('provinces', [])
+        kaoyan_schools = kaoyan_config.get('schools', [])
+        if isinstance(kaoyan_schools, str):
+            kaoyan_schools = [kaoyan_schools]
+        kaoyan_majors = kaoyan_config.get('majors', [])
+        if isinstance(kaoyan_majors, str):
+            kaoyan_majors = [kaoyan_majors]
+        
+        kaogong_config = config_json.get('kaogong', {})
+        kaogong_provinces = kaogong_config.get('provinces', [])
+        kaogong_position_types = kaogong_config.get('position_types', [])
+        kaogong_majors = kaogong_config.get('majors', [])
+        if isinstance(kaogong_majors, str):
+            kaogong_majors = [kaogong_majors]
+        
         # 获取考研情报
         if vip_type in [1, 3]:
-            kaoyan_info = db_kaoyan.query(KaoyanInfo).filter(
+            # 获取所有当天考研情报
+            kaoyan_query = db_kaoyan.query(KaoyanInfo).filter(
                 KaoyanInfo.is_valid == True,
                 KaoyanInfo.publish_time >= today_start,
                 KaoyanInfo.publish_time <= today_end
-            ).order_by(
-                desc(KaoyanInfo.publish_time)
-            ).limit(limit // 2 if vip_type == 3 else limit).all()
+            )
             
-            for info in kaoyan_info:
+            # 筛选符合用户需求的情报
+            relevant_kaoyan_info = []
+            for info in kaoyan_query.all():
+                # 检查省份
+                if kaoyan_provinces and info.province and info.province not in kaoyan_provinces:
+                    continue
+                # 检查学校
+                if kaoyan_schools and info.school and info.school not in kaoyan_schools:
+                    continue
+                # 检查专业
+                if kaoyan_majors and info.major and info.major not in kaoyan_majors:
+                    continue
+                # 检查关键词
+                if kaoyan_keywords:
+                    info_text = f"{info.title} {info.content or ''}"
+                    if not any(keyword in info_text for keyword in kaoyan_keywords):
+                        continue
+                relevant_kaoyan_info.append(info)
+            
+            # 按发布时间倒序排序
+            relevant_kaoyan_info.sort(key=lambda x: x.publish_time, reverse=True)
+            
+            # 限制数量
+            relevant_kaoyan_info = relevant_kaoyan_info[:limit // 2 if vip_type == 3 else limit]
+            
+            for info in relevant_kaoyan_info:
                 all_info.append({
                     "id": info.id,
                     "title": info.title,
                     "type": "考研",
-                    "time": info.publish_time.isoformat(),
+                    "time": info.publish_time.strftime("%Y-%m-%d %H:%M:%S"),
                     "source": info.source,
                     "url": info.url
                 })
         
         # 获取考公情报
         if vip_type in [2, 3]:
-            kaogong_info = db_kaogong.query(KaogongInfo).filter(
+            # 获取所有当天考公情报
+            kaogong_query = db_kaogong.query(KaogongInfo).filter(
                 KaogongInfo.is_valid == True,
                 KaogongInfo.publish_time >= today_start,
                 KaogongInfo.publish_time <= today_end
-            ).order_by(
-                desc(KaogongInfo.publish_time)
-            ).limit(limit // 2 if vip_type == 3 else limit).all()
+            )
             
-            for info in kaogong_info:
+            # 筛选符合用户需求的情报
+            relevant_kaogong_info = []
+            for info in kaogong_query.all():
+                # 检查省份
+                if kaogong_provinces and info.province and info.province not in kaogong_provinces:
+                    continue
+                # 检查岗位类别
+                if kaogong_position_types and info.position_type and info.position_type not in kaogong_position_types:
+                    continue
+                # 检查专业
+                if kaogong_majors and info.major and info.major not in kaogong_majors:
+                    continue
+                # 检查关键词
+                if kaogong_keywords:
+                    info_text = f"{info.title} {info.content or ''}"
+                    if not any(keyword in info_text for keyword in kaogong_keywords):
+                        continue
+                relevant_kaogong_info.append(info)
+            
+            # 按发布时间倒序排序
+            relevant_kaogong_info.sort(key=lambda x: x.publish_time, reverse=True)
+            
+            # 限制数量
+            relevant_kaogong_info = relevant_kaogong_info[:limit // 2 if vip_type == 3 else limit]
+            
+            for info in relevant_kaogong_info:
                 all_info.append({
                     "id": info.id,
                     "title": info.title,
                     "type": "考公",
-                    "time": info.publish_time.isoformat(),
+                    "time": info.publish_time.strftime("%Y-%m-%d %H:%M:%S"),
                     "source": info.source,
                     "url": info.url
                 })
@@ -227,9 +393,10 @@ async def get_history_info(
     limit: int = Query(10, ge=1, le=50, description="数量"),
     db_kaoyan: Session = Depends(get_db_kaoyan),
     db_kaogong: Session = Depends(get_db_kaogong),
+    db_common: Session = Depends(get_db_common),
     current_user: User = Depends(get_current_user)
 ):
-    """获取历史情报（根据用户类型）"""
+    """获取历史情报（根据用户需求）"""
     try:
         all_info = []
         
@@ -240,40 +407,124 @@ async def get_history_info(
         # 1-考研VIP, 2-考公VIP, 3-双赛道VIP
         vip_type = current_user.vip_type
         
+        # 获取用户的订阅配置
+        subscription = db_common.query(UserSubscription).filter(
+            UserSubscription.user_id == current_user.id
+        ).first()
+        
+        # 获取用户的关键词
+        kaoyan_keywords = [kw.keyword for kw in db_common.query(UserKeyword).filter(
+            UserKeyword.user_id == current_user.id,
+            UserKeyword.category == 1,
+            UserKeyword.is_active == True
+        ).all()]
+        
+        kaogong_keywords = [kw.keyword for kw in db_common.query(UserKeyword).filter(
+            UserKeyword.user_id == current_user.id,
+            UserKeyword.category == 2,
+            UserKeyword.is_active == True
+        ).all()]
+        
+        # 从订阅配置中获取用户关注的省份、学校、专业等
+        config_json = subscription.config_json if subscription else {}
+        kaoyan_config = config_json.get('kaoyan', {})
+        kaoyan_provinces = kaoyan_config.get('provinces', [])
+        kaoyan_schools = kaoyan_config.get('schools', [])
+        if isinstance(kaoyan_schools, str):
+            kaoyan_schools = [kaoyan_schools]
+        kaoyan_majors = kaoyan_config.get('majors', [])
+        if isinstance(kaoyan_majors, str):
+            kaoyan_majors = [kaoyan_majors]
+        
+        kaogong_config = config_json.get('kaogong', {})
+        kaogong_provinces = kaogong_config.get('provinces', [])
+        kaogong_position_types = kaogong_config.get('position_types', [])
+        kaogong_majors = kaogong_config.get('majors', [])
+        if isinstance(kaogong_majors, str):
+            kaogong_majors = [kaogong_majors]
+        
         # 获取历史考研情报
         if vip_type in [1, 3]:
-            kaoyan_info = db_kaoyan.query(KaoyanInfo).filter(
+            # 获取所有历史考研情报
+            kaoyan_query = db_kaoyan.query(KaoyanInfo).filter(
                 KaoyanInfo.is_valid == True,
                 KaoyanInfo.publish_time < today_start
-            ).order_by(
-                desc(KaoyanInfo.publish_time)
-            ).limit(limit // 2 if vip_type == 3 else limit).all()
+            )
             
-            for info in kaoyan_info:
+            # 筛选符合用户需求的情报
+            relevant_kaoyan_info = []
+            for info in kaoyan_query.all():
+                # 检查省份
+                if kaoyan_provinces and info.province and info.province not in kaoyan_provinces:
+                    continue
+                # 检查学校
+                if kaoyan_schools and info.school and info.school not in kaoyan_schools:
+                    continue
+                # 检查专业
+                if kaoyan_majors and info.major and info.major not in kaoyan_majors:
+                    continue
+                # 检查关键词
+                if kaoyan_keywords:
+                    info_text = f"{info.title} {info.content or ''}"
+                    if not any(keyword in info_text for keyword in kaoyan_keywords):
+                        continue
+                relevant_kaoyan_info.append(info)
+            
+            # 按发布时间倒序排序
+            relevant_kaoyan_info.sort(key=lambda x: x.publish_time, reverse=True)
+            
+            # 限制数量
+            relevant_kaoyan_info = relevant_kaoyan_info[:limit // 2 if vip_type == 3 else limit]
+            
+            for info in relevant_kaoyan_info:
                 all_info.append({
                     "id": info.id,
                     "title": info.title,
                     "type": "考研",
-                    "time": info.publish_time.isoformat(),
+                    "time": info.publish_time.strftime("%Y-%m-%d %H:%M:%S"),
                     "source": info.source,
                     "url": info.url
                 })
         
         # 获取历史考公情报
         if vip_type in [2, 3]:
-            kaogong_info = db_kaogong.query(KaogongInfo).filter(
+            # 获取所有历史考公情报
+            kaogong_query = db_kaogong.query(KaogongInfo).filter(
                 KaogongInfo.is_valid == True,
                 KaogongInfo.publish_time < today_start
-            ).order_by(
-                desc(KaogongInfo.publish_time)
-            ).limit(limit // 2 if vip_type == 3 else limit).all()
+            )
             
-            for info in kaogong_info:
+            # 筛选符合用户需求的情报
+            relevant_kaogong_info = []
+            for info in kaogong_query.all():
+                # 检查省份
+                if kaogong_provinces and info.province and info.province not in kaogong_provinces:
+                    continue
+                # 检查岗位类别
+                if kaogong_position_types and info.position_type and info.position_type not in kaogong_position_types:
+                    continue
+                # 检查专业
+                if kaogong_majors and info.major and info.major not in kaogong_majors:
+                    continue
+                # 检查关键词
+                if kaogong_keywords:
+                    info_text = f"{info.title} {info.content or ''}"
+                    if not any(keyword in info_text for keyword in kaogong_keywords):
+                        continue
+                relevant_kaogong_info.append(info)
+            
+            # 按发布时间倒序排序
+            relevant_kaogong_info.sort(key=lambda x: x.publish_time, reverse=True)
+            
+            # 限制数量
+            relevant_kaogong_info = relevant_kaogong_info[:limit // 2 if vip_type == 3 else limit]
+            
+            for info in relevant_kaogong_info:
                 all_info.append({
                     "id": info.id,
                     "title": info.title,
                     "type": "考公",
-                    "time": info.publish_time.isoformat(),
+                    "time": info.publish_time.strftime("%Y-%m-%d %H:%M:%S"),
                     "source": info.source,
                     "url": info.url
                 })

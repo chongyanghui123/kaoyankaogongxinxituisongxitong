@@ -11,7 +11,7 @@
  Target Server Version : 90600 (9.6.0)
  File Encoding         : 65001
 
- Date: 12/04/2026 23:29:53
+ Date: 20/04/2026 19:42:47
 */
 
 SET NAMES utf8mb4;
@@ -23,9 +23,9 @@ SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS `kaogong_crawler_config`;
 CREATE TABLE `kaogong_crawler_config` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '配置ID',
-  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '配置名称',
-  `url` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '监控网址',
-  `selector` text COLLATE utf8mb4_unicode_ci COMMENT '页面选择器',
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '配置名称',
+  `url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '监控网址',
+  `selector` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '页面选择器',
   `parse_rules` json DEFAULT NULL COMMENT '解析规则',
   `interval` int DEFAULT '10' COMMENT '抓取间隔(分钟)',
   `status` tinyint DEFAULT '1' COMMENT '状态: 1-启用, 0-禁用',
@@ -54,10 +54,10 @@ DROP TABLE IF EXISTS `kaogong_crawler_logs`;
 CREATE TABLE `kaogong_crawler_logs` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '日志ID',
   `config_id` bigint unsigned NOT NULL COMMENT '配置ID',
-  `url` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '抓取网址',
+  `url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '抓取网址',
   `status` tinyint NOT NULL COMMENT '状态: 1-成功, 0-失败',
   `info_count` int DEFAULT '0' COMMENT '抓取信息数量',
-  `error_msg` text COLLATE utf8mb4_unicode_ci COMMENT '错误信息',
+  `error_msg` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '错误信息',
   `crawl_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '抓取时间',
   PRIMARY KEY (`id`),
   KEY `idx_config_id` (`config_id`),
@@ -1294,19 +1294,19 @@ COMMIT;
 DROP TABLE IF EXISTS `kaogong_info`;
 CREATE TABLE `kaogong_info` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '信息ID',
-  `title` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '标题',
-  `source` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '来源',
-  `source_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '来源链接',
+  `title` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '标题',
+  `source` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '来源',
+  `source_url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '来源链接',
   `publish_time` datetime NOT NULL COMMENT '发布时间',
-  `content` longtext COLLATE utf8mb4_unicode_ci COMMENT '内容',
-  `url` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '原文链接',
-  `tags` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '标签(逗号分隔)',
+  `content` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '内容',
+  `url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '原文链接',
+  `tags` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '标签(逗号分隔)',
   `urgency_level` tinyint DEFAULT '0' COMMENT '紧急度: 0-普通, 1-重要, 2-紧急, 3-非常紧急',
   `category` tinyint DEFAULT '0' COMMENT '分类: 0-普通通知, 1-公告, 2-职位表, 3-报名, 4-缴费, 5-三不限, 6-应届生, 7-竞争比',
-  `province` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '省份',
-  `position_type` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '岗位类别',
-  `major` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '专业',
-  `education` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '学历要求',
+  `province` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '省份',
+  `position_type` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '岗位类别',
+  `major` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '专业',
+  `education` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '学历要求',
   `is_fresh_graduate` tinyint DEFAULT NULL COMMENT '是否应届生岗: 1-是, 0-否',
   `is_unlimited` tinyint DEFAULT NULL COMMENT '是否三不限: 1-是, 0-否',
   `competition_ratio` decimal(10,2) DEFAULT NULL COMMENT '竞争比',
@@ -1317,6 +1317,7 @@ CREATE TABLE `kaogong_info` (
   `like_count` int DEFAULT '0' COMMENT '点赞次数',
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_processed` tinyint(1) DEFAULT '0' COMMENT '是否处理: 1-是, 0-否',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_url` (`url`),
   KEY `idx_publish_time` (`publish_time`),
@@ -1325,7 +1326,7 @@ CREATE TABLE `kaogong_info` (
   KEY `idx_province` (`province`),
   KEY `idx_position_type` (`position_type`),
   KEY `idx_major` (`major`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='考公信息表';
+) ENGINE=InnoDB AUTO_INCREMENT=334 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='考公信息表';
 
 -- ----------------------------
 -- Records of kaogong_info

@@ -11,7 +11,7 @@
  Target Server Version : 90600 (9.6.0)
  File Encoding         : 65001
 
- Date: 12/04/2026 23:29:59
+ Date: 20/04/2026 19:43:02
 */
 
 SET NAMES utf8mb4;
@@ -23,9 +23,9 @@ SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS `kaoyan_crawler_config`;
 CREATE TABLE `kaoyan_crawler_config` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '配置ID',
-  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '配置名称',
-  `url` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '监控网址',
-  `selector` text COLLATE utf8mb4_unicode_ci COMMENT '页面选择器',
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '配置名称',
+  `url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '监控网址',
+  `selector` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '页面选择器',
   `parse_rules` json DEFAULT NULL COMMENT '解析规则',
   `interval` int DEFAULT '10' COMMENT '抓取间隔(分钟)',
   `status` tinyint DEFAULT '1' COMMENT '状态: 1-启用, 0-禁用',
@@ -54,10 +54,10 @@ DROP TABLE IF EXISTS `kaoyan_crawler_logs`;
 CREATE TABLE `kaoyan_crawler_logs` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '日志ID',
   `config_id` bigint unsigned NOT NULL COMMENT '配置ID',
-  `url` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '抓取网址',
+  `url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '抓取网址',
   `status` tinyint NOT NULL COMMENT '状态: 1-成功, 0-失败',
   `info_count` int DEFAULT '0' COMMENT '抓取信息数量',
-  `error_msg` text COLLATE utf8mb4_unicode_ci COMMENT '错误信息',
+  `error_msg` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '错误信息',
   `crawl_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '抓取时间',
   PRIMARY KEY (`id`),
   KEY `idx_config_id` (`config_id`),
@@ -585,18 +585,18 @@ COMMIT;
 DROP TABLE IF EXISTS `kaoyan_info`;
 CREATE TABLE `kaoyan_info` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '信息ID',
-  `title` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '标题',
-  `source` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '来源',
-  `source_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '来源链接',
+  `title` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '标题',
+  `source` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '来源',
+  `source_url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '来源链接',
   `publish_time` datetime NOT NULL COMMENT '发布时间',
-  `content` longtext COLLATE utf8mb4_unicode_ci COMMENT '内容',
-  `url` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '原文链接',
-  `tags` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '标签(逗号分隔)',
+  `content` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '内容',
+  `url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '原文链接',
+  `tags` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '标签(逗号分隔)',
   `urgency_level` tinyint DEFAULT '0' COMMENT '紧急度: 0-普通, 1-重要, 2-紧急, 3-非常紧急',
   `category` tinyint DEFAULT '0' COMMENT '分类: 0-普通通知, 1-调剂, 2-扩招, 3-复试线, 4-招生简章, 5-时间节点',
-  `province` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '省份',
-  `school` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '院校',
-  `major` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '专业',
+  `province` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '省份',
+  `school` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '院校',
+  `major` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '专业',
   `degree_type` tinyint DEFAULT NULL COMMENT '学位类型: 1-学硕, 2-专硕',
   `study_type` tinyint DEFAULT NULL COMMENT '学习方式: 1-全日制, 2-非全日制',
   `is_valid` tinyint DEFAULT '1' COMMENT '是否有效: 1-有效, 0-无效',
@@ -606,6 +606,7 @@ CREATE TABLE `kaoyan_info` (
   `like_count` int DEFAULT '0' COMMENT '点赞次数',
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_processed` tinyint(1) DEFAULT '0' COMMENT '是否处理: 1-是, 0-否',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_url` (`url`),
   KEY `idx_publish_time` (`publish_time`),
@@ -614,12 +615,20 @@ CREATE TABLE `kaoyan_info` (
   KEY `idx_province` (`province`),
   KEY `idx_school` (`school`),
   KEY `idx_major` (`major`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='考研信息表';
+) ENGINE=InnoDB AUTO_INCREMENT=357 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='考研信息表';
 
 -- ----------------------------
 -- Records of kaoyan_info
 -- ----------------------------
 BEGIN;
+INSERT INTO `kaoyan_info` (`id`, `title`, `source`, `source_url`, `publish_time`, `content`, `url`, `tags`, `urgency_level`, `category`, `province`, `school`, `major`, `degree_type`, `study_type`, `is_valid`, `is_top`, `is_excellent`, `view_count`, `like_count`, `created_at`, `updated_at`, `is_processed`) VALUES (349, '内蒙古大学2024年会计专业硕士考试大纲', '内蒙古大学研究生院', NULL, '2026-04-19 09:56:17', '内蒙古大学2024年会计专业硕士考试大纲已经发布，包含统计学科目的详细要求。', 'https://www.imu.edu.cn/graduates/2024/kaoyan_dagang.html', NULL, 2, 1, '内蒙古', '内蒙古大学', '会计', NULL, NULL, 1, 0, 0, 0, 0, '2026-04-20 09:56:17', '2026-04-20 09:56:17', 0);
+INSERT INTO `kaoyan_info` (`id`, `title`, `source`, `source_url`, `publish_time`, `content`, `url`, `tags`, `urgency_level`, `category`, `province`, `school`, `major`, `degree_type`, `study_type`, `is_valid`, `is_top`, `is_excellent`, `view_count`, `like_count`, `created_at`, `updated_at`, `is_processed`) VALUES (350, '内蒙古大学会计专业2024年考研统计学科目复习指南', '内蒙古大学会计学院', NULL, '2026-04-18 09:56:17', '内蒙古大学会计专业2024年考研统计学科目复习指南，包含考试重点和复习方法。', 'https://www.imu.edu.cn/accounting/2024/kaoyan_review.html', NULL, 1, 1, '内蒙古', '内蒙古大学', '会计', NULL, NULL, 1, 0, 0, 0, 0, '2026-04-20 09:56:17', '2026-04-20 09:56:17', 0);
+INSERT INTO `kaoyan_info` (`id`, `title`, `source`, `source_url`, `publish_time`, `content`, `url`, `tags`, `urgency_level`, `category`, `province`, `school`, `major`, `degree_type`, `study_type`, `is_valid`, `is_top`, `is_excellent`, `view_count`, `like_count`, `created_at`, `updated_at`, `is_processed`) VALUES (351, '2024年内蒙古大学会计硕士统计学科目考试大纲解读', '内蒙古大学研究生院', NULL, '2026-04-17 09:56:17', '2024年内蒙古大学会计硕士统计学科目考试大纲解读，帮助考生更好地准备考试。', 'https://www.imu.edu.cn/graduates/2024/kaoyan_dagang_jiedu.html', NULL, 2, 1, '内蒙古', '内蒙古大学', '会计', NULL, NULL, 1, 0, 0, 0, 0, '2026-04-20 09:56:17', '2026-04-20 09:56:17', 0);
+INSERT INTO `kaoyan_info` (`id`, `title`, `source`, `source_url`, `publish_time`, `content`, `url`, `tags`, `urgency_level`, `category`, `province`, `school`, `major`, `degree_type`, `study_type`, `is_valid`, `is_top`, `is_excellent`, `view_count`, `like_count`, `created_at`, `updated_at`, `is_processed`) VALUES (352, '内蒙古大学2024年会计专业考研统计学科目题型分析', '内蒙古大学会计学院', NULL, '2026-04-16 09:56:17', '内蒙古大学2024年会计专业考研统计学科目题型分析，帮助考生了解考试形式。', 'https://www.imu.edu.cn/accounting/2024/kaoyan_tixing.html', NULL, 1, 1, '内蒙古', '内蒙古大学', '会计', NULL, NULL, 1, 0, 0, 0, 0, '2026-04-20 09:56:17', '2026-04-20 09:56:17', 0);
+INSERT INTO `kaoyan_info` (`id`, `title`, `source`, `source_url`, `publish_time`, `content`, `url`, `tags`, `urgency_level`, `category`, `province`, `school`, `major`, `degree_type`, `study_type`, `is_valid`, `is_top`, `is_excellent`, `view_count`, `like_count`, `created_at`, `updated_at`, `is_processed`) VALUES (353, '2024年内蒙古大学会计硕士统计学科目复习资料推荐', '内蒙古大学研究生院', NULL, '2026-04-15 09:56:17', '2024年内蒙古大学会计硕士统计学科目复习资料推荐，包含参考书籍和复习资料。', 'https://www.imu.edu.cn/graduates/2024/kaoyan_ziliao.html', NULL, 1, 1, '内蒙古', '内蒙古大学', '会计', NULL, NULL, 1, 0, 0, 0, 0, '2026-04-20 09:56:17', '2026-04-20 09:56:17', 0);
+INSERT INTO `kaoyan_info` (`id`, `title`, `source`, `source_url`, `publish_time`, `content`, `url`, `tags`, `urgency_level`, `category`, `province`, `school`, `major`, `degree_type`, `study_type`, `is_valid`, `is_top`, `is_excellent`, `view_count`, `like_count`, `created_at`, `updated_at`, `is_processed`) VALUES (354, '内蒙古大学2024年会计专业硕士考试大纲更新', '内蒙古大学研究生院', 'https://www.imu.edu.cn', '2026-04-20 10:32:33', '内蒙古大学2024年会计专业硕士考试大纲已经更新，包含统计学科目的详细要求。', 'https://www.imu.edu.cn/kaoyan', '考研,会计,统计', 3, 1, '内蒙古', '内蒙古大学', '会计', 1, 1, 1, 0, 0, 0, 0, '2026-04-20 10:32:33', '2026-04-20 10:36:00', 1);
+INSERT INTO `kaoyan_info` (`id`, `title`, `source`, `source_url`, `publish_time`, `content`, `url`, `tags`, `urgency_level`, `category`, `province`, `school`, `major`, `degree_type`, `study_type`, `is_valid`, `is_top`, `is_excellent`, `view_count`, `like_count`, `created_at`, `updated_at`, `is_processed`) VALUES (355, '内蒙古大学2024年会计专业考研统计学科目复习指南', '内蒙古大学会计学院', 'https://www.imu.edu.cn/accounting', '2026-04-20 10:32:33', '内蒙古大学2024年会计专业考研统计学科目复习指南，包含考试重点和复习方法。', 'https://www.imu.edu.cn/accounting/kaoyan', '考研,会计,统计', 2, 2, '内蒙古', '内蒙古大学', '会计', 1, 1, 1, 0, 0, 0, 0, '2026-04-20 10:32:33', '2026-04-20 10:36:00', 1);
+INSERT INTO `kaoyan_info` (`id`, `title`, `source`, `source_url`, `publish_time`, `content`, `url`, `tags`, `urgency_level`, `category`, `province`, `school`, `major`, `degree_type`, `study_type`, `is_valid`, `is_top`, `is_excellent`, `view_count`, `like_count`, `created_at`, `updated_at`, `is_processed`) VALUES (356, '2024年内蒙古大学会计硕士统计学科目考试大纲解读', '内蒙古大学研究生院', 'https://www.imu.edu.cn', '2026-04-20 10:32:33', '2024年内蒙古大学会计硕士统计学科目考试大纲解读，帮助考生更好地准备考试。', 'https://www.imu.edu.cn/kaoyan/d解读', '考研,会计,统计', 2, 3, '内蒙古', '内蒙古大学', '会计', 1, 1, 1, 0, 0, 0, 0, '2026-04-20 10:32:33', '2026-04-20 10:36:00', 1);
 COMMIT;
 
 SET FOREIGN_KEY_CHECKS = 1;

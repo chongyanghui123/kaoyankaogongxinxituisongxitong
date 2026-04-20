@@ -37,6 +37,22 @@ Page({
     console.log('情报列表页显示');
   },
   
+  // 格式化时间
+  formatTime(timeStr) {
+    console.log('格式化时间前:', timeStr);
+    // 处理 ISO 格式的时间字符串
+    if (timeStr && typeof timeStr === 'string') {
+      // 替换 'T' 为空格
+      timeStr = timeStr.replace('T', ' ');
+      // 移除毫秒部分
+      if (timeStr.includes('.')) {
+        timeStr = timeStr.split('.')[0];
+      }
+    }
+    console.log('格式化时间后:', timeStr);
+    return timeStr;
+  },
+
   // 获取数据
   async fetchData() {
     try {
@@ -81,7 +97,10 @@ Page({
       });
       
       if (response.success) {
-        const newData = response.data.items;
+        const newData = response.data.items.map(item => ({
+          ...item,
+          time: this.formatTime(item.time)
+        }));
         const hasMore = response.data.total > this.data.infoList.length + newData.length;
         
         this.setData({

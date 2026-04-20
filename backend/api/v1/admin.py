@@ -336,9 +336,8 @@ async def delete_user(
         for favorite in favorites:
             db.delete(favorite)
         
-        # 删除用户的订单
-        # 使用简单的删除方式，避免查询不存在的字段
-        db.query(Order).filter(Order.user_id == user_id).delete()
+        # 保留用户的订单信息
+        # 不删除订单，以便后续查询和统计
         
         # 删除用户的推送日志
         push_logs = db.query(PushLog).filter(PushLog.user_id == user_id).all()

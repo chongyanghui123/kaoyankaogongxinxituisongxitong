@@ -70,6 +70,10 @@
                   <el-icon><Document /></el-icon>
                   <span>阅读历史</span>
                 </el-menu-item>
+                <el-menu-item index="materials">
+                  <el-icon><Download /></el-icon>
+                  <span>学习资料</span>
+                </el-menu-item>
               </el-menu>
             </el-card>
           </el-col>
@@ -377,6 +381,11 @@
                 </el-table>
               </el-card>
             </div>
+
+            <!-- 学习资料 -->
+            <div v-if="activeMenu === 'materials'" class="user-content">
+              <learning-material-download />
+            </div>
           </el-col>
         </el-row>
       </div>
@@ -396,8 +405,9 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { User, Ticket, Search, Collection, Document, ArrowDown, Setting } from '@element-plus/icons-vue'
+import { User, Ticket, Search, Collection, Document, ArrowDown, Setting, Download } from '@element-plus/icons-vue'
 import axios from 'axios'
+import LearningMaterialDownload from '../components/LearningMaterialDownload.vue'
 
 const router = useRouter()
 const activeIndex = ref('/user')

@@ -1,0 +1,169 @@
+/* personal-center.wxss */
+.container {
+  flex: 1;
+  background-color: #f5f5f5;
+  min-height: 100vh;
+}
+
+/* 页面标题 */
+.page-header {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 24rpx;
+  background-color: #ffffff;
+  border-bottom: 1rpx solid #f0f0f0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.back-btn {
+  width: 44rpx;
+  height: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32rpx;
+  color: #333333;
+}
+
+.page-title {
+  flex: 1;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333333;
+  text-align: center;
+  margin-right: 44rpx;
+}
+
+/* 用户信息展示 */
+.user-info-section {
+  margin-top: 16rpx;
+  background-color: #ffffff;
+  padding: 20rpx 0;
+}
+
+.section-title {
+  font-size: 18rpx;
+  color: #999999;
+  margin-bottom: 12rpx;
+  padding: 0 24rpx;
+}
+
+.info-item {
+  display: flex;
+  padding: 16rpx 24rpx;
+  align-items: center;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.info-item:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  font-size: 22rpx;
+  color: #666666;
+  width: 140rpx;
+}
+
+.info-value {
+  flex: 1;
+  font-size: 22rpx;
+  color: #333333;
+  text-align: right;
+}
+
+/* 头像样式 */
+.avatar-img {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* VIP状态样式 */
+.vip-status {
+  color: #ff6b6b;
+  font-weight: 600;
+}
+
+/* 需求信息展示 */
+.requirements-section {
+  margin-top: 16rpx;
+  background-color: #ffffff;
+  padding: 20rpx 0;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.requirements-section .section-title {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #333333;
+  margin-bottom: 12rpx;
+  padding: 0 24rpx;
+}
+
+.requirements-section .info-item {
+  display: flex;
+  padding: 16rpx 24rpx;
+  align-items: center;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.requirements-section .info-item:last-child {
+  border-bottom: none;
+}
+
+.requirements-section .info-label {
+  font-size: 22rpx;
+  color: #666666;
+  width: 160rpx;
+}
+
+.requirements-section .info-value {
+  flex: 1;
+  font-size: 22rpx;
+  color: #333333;
+  text-align: right;
+}
+
+/* 修改需求按钮 */
+.edit-btn-section {
+  padding: 40rpx 24rpx;
+}
+
+.edit-btn {
+  width: 100%;
+  height: 80rpx;
+  font-size: 28rpx;
+  background-color: #409eff;
+  color: #ffffff;
+  border-radius: 8rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.edit-btn:active {
+  background-color: #66b1ff;
+}
+
+/* 加载状态 */
+.loading-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100rpx 0;
+}
+
+.loading-icon {
+  font-size: 64rpx;
+  margin-bottom: 20rpx;
+}
+
+.loading-text {
+  font-size: 24rpx;
+  color: #999999;
+}

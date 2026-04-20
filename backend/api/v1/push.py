@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, Dict
 from datetime import datetime, timedelta
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from core.database import get_db_common, get_db_kaoyan, get_db_kaogong
 from core.security import get_current_user, get_current_admin
@@ -14,6 +15,106 @@ from models.kaogong import KaogongInfo
 from schemas.push import PushTemplateCreate, PushTemplateUpdate, PushTemplateResponse, PushLogResponse, PushRequest
 
 router = APIRouter(tags=["push"])
+
+# 推送设置请求模型
+class PushSettingsRequest(BaseModel):
+    frequency: str
+    time: Optional[str] = None
+
+# 推送设置响应模型
+class PushSettingsResponse(BaseModel):
+    frequency: str
+    time: Optional[str] = None
+
+@router.get("/settings", summary="获取推送设置", response_model=PushSettingsResponse)
+async def get_push_settings(
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_admin)
+):
+    """获取推送设置"""
+    try:
+        from models.users import SystemConfig
+        
+        # 获取系统配置
+        config = db.query(SystemConfig).filter(SystemConfig.config_key == "push_settings").first()
+        
+        if config:
+            settings = eval(config.config_value)
+            return PushSettingsResponse(
+                frequency=settings.get("frequency", "daily"),
+                time=settings.get("time", "09:00")
+            )
+        else:
+            # 默认设置
+            return PushSettingsResponse(
+                frequency="daily",
+                time="09:00"
+            )
+            
+    except Exception as e:
+        log_error(f"获取推送设置失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="获取推送设置失败"
+        )
+
+@router.post("/settings", summary="保存推送设置")
+async def save_push_settings(
+    request: PushSettingsRequest,
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_admin)
+):
+    """保存推送设置"""
+    try:
+        from models.users import SystemConfig
+        
+        # 检查系统配置是否存在
+        config = db.query(SystemConfig).filter(SystemConfig.config_key == "push_settings").first()
+        
+        # 格式化时间
+        time_str = request.time
+        if time_str and isinstance(time_str, datetime):
+            time_str = time_str.strftime("%H:%M")
+        
+        settings = {
+            "frequency": request.frequency,
+            "time": time_str
+        }
+        
+        if config:
+            config.config_value = str(settings)
+        else:
+            config = SystemConfig(
+                config_key="push_settings",
+                config_value=str(settings),
+                config_type=3,  # JSON类型
+                description="推送设置",
+                is_system=True,
+                status=1
+            )
+            db.add(config)
+            
+        db.commit()
+        db.refresh(config)
+        
+        log_user_action(current_user.id, "save_push_settings", f"保存推送设置: {str(settings)}")
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "保存推送设置成功",
+                "data": settings
+            }
+        )
+        
+    except Exception as e:
+        log_error(f"保存推送设置失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="保存推送设置失败"
+        )
 
 
 @router.post("/send", response_model=PushLogResponse)

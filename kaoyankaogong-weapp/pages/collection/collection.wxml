@@ -1,2 +1,92 @@
 <!--pages/collection/collection.wxml-->
-<text>pages/collection/collection.wxml</text>
+<view class="container">
+  <!-- 导航栏 -->
+  <view class="nav-bar">
+    <view class="nav-title">我的收藏</view>
+  </view>
+
+  <!-- 内容区域 -->
+  <view class="content">
+    <view class="collection-list">
+      <view class="collection-item" 
+            wx:for="{{favorites}}" 
+            wx:key="id">
+        <view class="item-content" 
+              bindtap="goToDetail" 
+              data-info-id="{{item.info_id}}" 
+              data-category="{{item.category}}"
+              data-type="{{item.type}}">
+          <view class="item-title">{{item.title}}</view>
+          <view class="item-meta">
+            <text class="item-date">{{item.created_at}}</text>
+            <text class="item-tag">{{item.type === 'material' ? '学习资料' : (item.category === 1 ? '考研' : '考公')}}</text>
+          </view>
+        </view>
+        <view class="item-actions">
+          <button class="delete-btn" 
+                  catchtap="deleteFavorite" 
+                  data-info-id="{{item.info_id}}" 
+                  data-category="{{item.category}}"
+                  data-type="{{item.type}}">
+            删除
+          </button>
+        </view>
+      </view>
+    </view>
+    
+    <!-- 加载状态 -->
+    <view class="loading" wx:if="{{loading}}">加载中...</view>
+    
+    <!-- 没有更多数据 -->
+    <view class="no-more" wx:if="{{!hasMore && favorites.length > 0}}">
+      没有更多了
+    </view>
+    
+    <!-- 空状态 -->
+    <view class="empty" wx:if="{{!loading && favorites.length === 0}}">
+      <view class="empty-icon">📚</view>
+      <view class="empty-text">暂无收藏</view>
+      <view class="empty-desc">快去浏览感兴趣的内容并添加收藏吧</view>
+    </view>
+  </view>
+
+  <!-- 学习资料详情 -->
+  <view class="material-detail" wx:if="{{showDetail}}">
+    <view class="detail-header">
+      <view class="detail-title">{{currentMaterial.title}}</view>
+      <view class="detail-close" bindtap="closeDetail">×</view>
+    </view>
+    <view class="detail-content">
+      <view class="material-meta">
+        <view class="material-type">{{currentMaterial.type === 1 ? '考研' : '考公'}}</view>
+        <view class="material-category">{{currentMaterial.category_name}}</view>
+        <view class="material-subject">{{currentMaterial.subject}}</view>
+      </view>
+      <view class="material-description">{{currentMaterial.description}}</view>
+      <view class="material-info">
+        <view class="file-size">{{formatFileSize(currentMaterial.file_size)}}</view>
+        <view class="download-count">{{currentMaterial.download_count}}次下载</view>
+        <view class="material-rating">
+          <text class="star" wx:for="{{5}}" wx:key="index">
+            {{index < Math.floor(currentMaterial.rating) ? '★' : '☆'}}
+          </text>
+          <view class="rating-text">{{currentMaterial.rating}}分</view>
+        </view>
+      </view>
+      <view class="material-actions">
+        <button class="download-btn" bindtap="downloadMaterial" data-id="{{currentMaterial.id}}">
+          下载
+        </button>
+        <button class="rate-btn" bindtap="rateMaterial" data-id="{{currentMaterial.id}}">
+          评分
+        </button>
+        <button class="favorite-btn {{userFavorites[currentMaterial.id] ? 'active' : ''}}" bindtap="handleFavorite" data-id="{{currentMaterial.id}}">
+          {{userFavorites[currentMaterial.id] ? '已收藏' : '收藏'}}
+        </button>
+        <button class="comment-btn" bindtap="showCommentDialog" data-id="{{currentMaterial.id}}">
+          评论
+        </button>
+      </view>
+    </view>
+  </view>
+</view>

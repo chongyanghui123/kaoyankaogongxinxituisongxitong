@@ -6,7 +6,7 @@
 
 from datetime import datetime
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, Field, validator
@@ -91,25 +91,114 @@ class UserStatsResponse(BaseModel):
     total_keywords: int
     subscription_status: dict
 
-@router.get("/profile", response_model=UserProfileResponse, summary="获取用户信息")
+@router.get("/profile", summary="获取用户信息")
 async def get_profile(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db_common)
 ):
-    """获取当前用户信息"""
+    """获取当前用户信息，包括订阅配置"""
     try:
-        return UserProfileResponse(
-            user_id=current_user.id,
-            username=current_user.username,
-            email=current_user.email,
-            phone=current_user.phone,
-            avatar=current_user.avatar,
-            real_name=current_user.real_name,
-            is_admin=current_user.is_admin,
-            is_vip=current_user.is_vip_active,
-            is_trial=current_user.is_trial_active,
-            vip_type=current_user.vip_type,
-            vip_end_time=current_user.vip_end_time.isoformat() if current_user.vip_end_time else None,
-            created_at=current_user.created_at.isoformat()
+        # 解析类型值
+        def parse_requirement_value(value):
+            if isinstance(value, list):
+                return value
+            elif isinstance(value, str):
+                # 处理字符串格式的数组，如 "['公务员']" 或 "["公务员"]"
+                value = value.strip()
+                if value.startswith('[') and value.endswith(']'):
+                    # 移除首尾的括号
+                    value = value[1:-1]
+                    # 分割字符串
+                    items = []
+                    if value:
+                        # 处理带引号的字符串
+                        if value.startswith("'") and value.endswith("'") or value.startswith('"') and value.endswith('"'):
+                            # 单个带引号的字符串
+                            items = [value[1:-1].strip()]
+                        else:
+                            # 多个字符串，用逗号分隔
+                            items = [item.strip().strip("'\"") for item in value.split(',') if item.strip()]
+                    return items
+                else:
+                    return [value] if value else []
+            else:
+                return []
+        
+        # 获取用户订阅配置
+        subscription = db.query(UserSubscription).filter(
+            UserSubscription.user_id == current_user.id
+        ).first()
+        
+        kaoyan_requirements = {}
+        kaogong_requirements = {}
+        
+        if subscription and subscription.config_json:
+            kaoyan_requirements = subscription.config_json.get("kaoyan", {})
+            kaogong_requirements = subscription.config_json.get("kaogong", {})
+        
+        # 确保字段名与前端一致
+        # 处理kaoyan_requirements为None的情况
+        if kaoyan_requirements is None:
+            kaoyan_requirements = {}
+            
+        standardized_kaoyan_requirements = {
+            "province": ", ".join([str(p) for p in (kaoyan_requirements.get("provinces", []) or [kaoyan_requirements.get("province", "")]) if p]),
+            "school": kaoyan_requirements.get("schools", "") or kaoyan_requirements.get("school", ""),
+            "major": kaoyan_requirements.get("majors", "") or kaoyan_requirements.get("major", ""),
+            "type": ", ".join([str(t) for t in (
+                kaoyan_requirements.get("types", []) or parse_requirement_value(kaoyan_requirements.get("type", ""))
+            ) if t and str(t).strip()]),
+            "keywords": kaoyan_requirements.get("keywords", "")
+        }
+        
+        # 处理kaogong_requirements为None的情况
+        if kaogong_requirements is None:
+            kaogong_requirements = {}
+            
+        standardized_kaogong_requirements = {
+            "province": ", ".join([str(p) for p in (kaogong_requirements.get("provinces", []) or [kaogong_requirements.get("province", "")]) if p]),
+            "major": kaogong_requirements.get("majors", "") or kaogong_requirements.get("major", ""),
+            "type": ", ".join([str(t) for t in (
+                kaogong_requirements.get("position_types", []) 
+                or kaogong_requirements.get("types", []) 
+                or parse_requirement_value(kaogong_requirements.get("type", ""))
+            ) if t and str(t).strip()]),
+            "keywords": kaogong_requirements.get("keywords", "")
+        }
+        
+        # 如果是考公用户，确保返回考公需求信息，即使是空的
+        if current_user.vip_type == 2 or current_user.vip_type == 3:
+            # 检查是否有考公需求信息，如果没有，返回默认值
+            if not standardized_kaogong_requirements.get("province") and \
+               not standardized_kaogong_requirements.get("major") and \
+               not standardized_kaogong_requirements.get("type") and \
+               not standardized_kaogong_requirements.get("keywords"):
+                # 这里可以根据需要设置默认值，或者保持原样
+                pass
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "获取用户信息成功",
+                "data": {
+                    "user_id": current_user.id,
+                    "username": current_user.username,
+                    "email": current_user.email,
+                    "phone": current_user.phone,
+                    "avatar": current_user.avatar,
+                    "real_name": current_user.real_name,
+                    "is_admin": current_user.is_admin,
+                    "is_vip": current_user.is_vip_active,
+                    "is_trial": current_user.is_trial_active,
+                    "vip_type": current_user.vip_type,
+                    "vip_end_time": current_user.vip_end_time.isoformat() if current_user.vip_end_time else None,
+                    "created_at": current_user.created_at.isoformat(),
+                    "kaoyan_requirements": standardized_kaoyan_requirements,
+                    "kaogong_requirements": standardized_kaogong_requirements
+                }
+            }
         )
     except Exception as e:
         log_error(f"获取用户信息失败: {str(e)}")
@@ -495,30 +584,90 @@ async def get_read_info(
             detail="获取已读信息失败"
         )
 
-@router.get("/favorites", response_model=List[FavoriteResponse], summary="获取收藏信息")
+@router.get("/favorites", summary="获取收藏信息")
 async def get_favorites(
-    category: Optional[int] = None,
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(10, ge=1, le=100, description="每页数量"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db_common)
 ):
-    """获取用户收藏信息列表"""
+    """获取用户收藏信息列表（根据用户类型自动判断）"""
     try:
+        # 确定用户类型
+        user_type = None
+        if current_user.vip_type == 1:  # 考研VIP
+            user_type = 1
+        elif current_user.vip_type == 2:  # 考公VIP
+            user_type = 2
+        else:
+            # 非VIP用户或双赛道用户，检查订阅类型
+            user_subscription = db.query(UserSubscription).filter(
+                UserSubscription.user_id == current_user.id
+            ).first()
+            
+            if user_subscription:
+                user_type = user_subscription.subscribe_type
+            else:
+                user_type = 3  # 默认双赛道
+        
+        # 构建查询
         query = db.query(UserFavorite).filter(UserFavorite.user_id == current_user.id)
         
-        if category:
-            query = query.filter(UserFavorite.category == category)
+        # 根据用户类型过滤收藏内容
+        if user_type == 1:  # 考研用户只显示考研收藏
+            query = query.filter(UserFavorite.category == 1)
+        elif user_type == 2:  # 考公用户只显示考公收藏
+            query = query.filter(UserFavorite.category == 2)
+        # 双赛道用户显示所有收藏
         
-        favorites = query.order_by(UserFavorite.created_at.desc()).all()
+        # 计算总数
+        total = query.count()
         
-        return [
-            FavoriteResponse(
-                id=fav.id,
-                info_id=fav.info_id,
-                category=fav.category,
-                created_at=fav.created_at.isoformat()
-            )
-            for fav in favorites
-        ]
+        # 分页查询
+        offset = (page - 1) * page_size
+        favorites = query.order_by(UserFavorite.created_at.desc()).offset(offset).limit(page_size).all()
+        
+        # 获取收藏内容的详情
+        from models.kaoyan import KaoyanInfo
+        from models.kaogong import KaogongInfo
+        
+        result = []
+        for fav in favorites:
+            favorite_data = {
+                "id": fav.id,
+                "info_id": fav.info_id,
+                "category": fav.category,
+                "created_at": fav.created_at.isoformat()
+            }
+            
+            # 根据分类获取内容详情
+            if fav.category == 1:  # 考研
+                info = db.query(KaoyanInfo).filter(KaoyanInfo.id == fav.info_id).first()
+                if info:
+                    favorite_data["title"] = info.title
+                    favorite_data["summary"] = info.summary
+                    favorite_data["publish_time"] = info.publish_time.isoformat()
+            elif fav.category == 2:  # 考公
+                info = db.query(KaogongInfo).filter(KaogongInfo.id == fav.info_id).first()
+                if info:
+                    favorite_data["title"] = info.title
+                    favorite_data["summary"] = info.summary
+                    favorite_data["publish_time"] = info.publish_time.isoformat()
+            
+            result.append(favorite_data)
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "获取收藏信息成功",
+                "data": {
+                    "total": total,
+                    "items": result
+                }
+            }
+        )
     except Exception as e:
         log_error(f"获取收藏信息失败: {str(e)}")
         raise HTTPException(

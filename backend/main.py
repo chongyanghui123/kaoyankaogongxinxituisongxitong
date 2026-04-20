@@ -47,6 +47,7 @@ from api.v1.push import router as push_router
 from api.v1.admin import router as admin_router
 from api.v1.utils import router as utils_router
 from api.v1.school_management import router as school_management_router
+from api.v1.learning_materials import router as learning_materials_router
 
 # 初始化日志
 setup_logging()
@@ -74,6 +75,12 @@ app.add_middleware(
 import os
 static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+# 挂载上传文件目录
+upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
+if not os.path.exists(upload_dir):
+    os.makedirs(upload_dir)
+app.mount("/uploads", StaticFiles(directory=upload_dir), name="uploads")
 
 # 异常处理
 @app.exception_handler(Exception)
@@ -183,6 +190,7 @@ app.include_router(message_router, prefix="/api/v1/message", tags=["消息"])
 app.include_router(info_router, prefix="/api/v1/info", tags=["情报"])
 app.include_router(admin_router, prefix="/api/v1/admin", tags=["管理后台"])
 app.include_router(school_management_router, prefix="/api/v1/school-management", tags=["学校管理"])
+app.include_router(learning_materials_router, prefix="/api/v1/learning_materials", tags=["学习资料"])
 app.include_router(utils_router, prefix="/api/v1/utils", tags=["工具"])
 
 # 启动事件
@@ -201,9 +209,58 @@ async def startup_event():
             from models.users import User, UserSubscription, UserKeyword, UserReadInfo, UserFavorite, Order, Product, SystemConfig, PushTemplate, PushLog  # 导入用户相关模型
             from models.kaoyan import KaoyanInfo, KaoyanCrawlerConfig, KaoyanCrawlerLog  # 导入考研相关模型
             from models.kaogong import KaogongInfo, KaogongCrawlerConfig, KaogongCrawlerLog  # 导入考公相关模型
+            from models.learning_materials import MaterialCategory, LearningMaterial, UserDownload, MaterialRating, MaterialComment  # 导入学习资料相关模型
             BaseCommon.metadata.create_all(bind=common_db_engine)
             BaseKaoyan.metadata.create_all(bind=kaoyan_db_engine)
             BaseKaogong.metadata.create_all(bind=kaogong_db_engine)
+            
+            # 初始化资料分类数据
+            try:
+                from sqlalchemy.orm import Session
+                from models.learning_materials import MaterialCategory
+                db = Session(bind=common_db_engine)
+                
+                # 检查是否已有分类数据
+                existing_categories = db.query(MaterialCategory).count()
+                if existing_categories == 0:
+                    # 考研分类
+                    kaoyan_categories = [
+                        {"name": "考研政治", "type": 1, "description": "考研政治相关资料"},
+                        {"name": "考研英语", "type": 1, "description": "考研英语相关资料"},
+                        {"name": "考研数学", "type": 1, "description": "考研数学相关资料"},
+                        {"name": "考研专业课", "type": 1, "description": "考研专业课相关资料"},
+                        {"name": "考研复试", "type": 1, "description": "考研复试相关资料"}
+                    ]
+                    
+                    # 考公分类
+                    kaogong_categories = [
+                        {"name": "行测", "type": 2, "description": "公务员考试行测相关资料"},
+                        {"name": "申论", "type": 2, "description": "公务员考试申论相关资料"},
+                        {"name": "面试", "type": 2, "description": "公务员考试面试相关资料"},
+                        {"name": "公共基础知识", "type": 2, "description": "公共基础知识相关资料"}
+                    ]
+                    
+                    # 通用分类
+                    common_categories = [
+                        {"name": "学习方法", "type": 3, "description": "学习方法相关资料"},
+                        {"name": "时间管理", "type": 3, "description": "时间管理相关资料"},
+                        {"name": "心理调适", "type": 3, "description": "心理调适相关资料"}
+                    ]
+                    
+                    # 添加所有分类
+                    all_categories = kaoyan_categories + kaogong_categories + common_categories
+                    for category_data in all_categories:
+                        category = MaterialCategory(**category_data)
+                        db.add(category)
+                    
+                    db.commit()
+                    logger.info(f"初始化资料分类数据成功，添加了 {len(all_categories)} 个分类")
+                else:
+                    logger.info("资料分类数据已存在，跳过初始化")
+            except Exception as e:
+                logger.error(f"初始化资料分类数据失败: {str(e)}")
+                logger.error(f"堆栈信息: {traceback.format_exc()}")
+            
             logger.info("数据库连接成功")
         except Exception as e:
             logger.error(f"初始化数据库失败: {str(e)}")
@@ -278,10 +335,11 @@ def init_admin_user():
 if __name__ == "__main__":
     import argparse
     import socket
+    from config import settings
     
     parser = argparse.ArgumentParser(description="双赛道情报通 API服务")
     parser.add_argument("--host", default="0.0.0.0", help="主机地址")
-    parser.add_argument("--port", type=int, default=8000, help="端口号")
+    parser.add_argument("--port", type=int, default=settings.PORT, help="端口号")
     parser.add_argument("--reload", action="store_true", help="自动重载")
     parser.add_argument("--debug", action="store_true", help="调试模式")
     

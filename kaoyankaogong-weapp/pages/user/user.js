@@ -172,6 +172,36 @@ Page({
       url: '/pages/settings/settings'
     });
   },
+
+  // 导航到学习资料
+  navigateToLearningMaterials() {
+    if (!this.data.userInfo) {
+      wx.showToast({
+        title: '请先登录',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    wx.navigateTo({
+      url: '/pages/learning-materials/learning-materials'
+    });
+  },
+
+  // 导航到个人中心
+  navigateToPersonalCenter() {
+    if (!this.data.userInfo) {
+      wx.showToast({
+        title: '请先登录',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    wx.navigateTo({
+      url: '/pages/personal-center/personal-center'
+    });
+  },
   
   // 导航到后台管理
   navigateToAdmin() {

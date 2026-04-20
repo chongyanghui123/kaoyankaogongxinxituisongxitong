@@ -177,6 +177,31 @@
   padding: 0 24rpx;
 }
 
+/* 用户信息显示 */
+.user-info-section {
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.info-item {
+  display: flex;
+  padding: 12rpx 24rpx;
+  align-items: center;
+}
+
+.info-label {
+  font-size: 22rpx;
+  color: #666666;
+  width: 120rpx;
+}
+
+.info-value {
+  flex: 1;
+  font-size: 22rpx;
+  color: #333333;
+  text-align: right;
+}
+
 /* 退出登录按钮 */
 .logout-btn {
   background-color: #ffffff;

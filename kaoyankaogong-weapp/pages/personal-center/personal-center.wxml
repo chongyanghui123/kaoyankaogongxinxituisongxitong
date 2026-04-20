@@ -1,0 +1,106 @@
+<!-- personal-center.wxml -->
+<view class="container">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <view class="back-btn" bindtap="navigateBack">
+      <text>←</text>
+    </view>
+    <view class="page-title">个人中心</view>
+  </view>
+
+  <!-- 用户信息展示 -->
+  <view class="user-info-section" wx:if="{{userInfo}}">
+    <view class="section-title">个人信息</view>
+    <view class="info-item">
+      <view class="info-label">用户名</view>
+      <view class="info-value">{{userInfo.username}}</view>
+    </view>
+    <view class="info-item">
+      <view class="info-label">邮箱</view>
+      <view class="info-value">{{userInfo.email}}</view>
+    </view>
+    <view class="info-item">
+      <view class="info-label">手机号</view>
+      <view class="info-value">{{userInfo.phone}}</view>
+    </view>
+    <view class="info-item" wx:if="{{userInfo.real_name}}">
+      <view class="info-label">真实姓名</view>
+      <view class="info-value">{{userInfo.real_name}}</view>
+    </view>
+    <view class="info-item" wx:if="{{userInfo.avatar}}">
+      <view class="info-label">头像</view>
+      <view class="info-value">
+        <image src="{{userInfo.avatar}}" class="avatar-img" />
+      </view>
+    </view>
+    <view class="info-item">
+      <view class="info-label">注册时间</view>
+      <view class="info-value">{{userInfo.created_at}}</view>
+    </view>
+    <view class="info-item" wx:if="{{userInfo.is_vip_active}}">
+      <view class="info-label">VIP状态</view>
+      <view class="info-value vip-status">已激活</view>
+    </view>
+    <view class="info-item" wx:if="{{userInfo.is_vip_active}}">
+      <view class="info-label">VIP到期时间</view>
+      <view class="info-value">{{userInfo.vip_end_time}}</view>
+    </view>
+  </view>
+
+  <!-- 考研需求信息 -->
+  <view class="requirements-section" wx:if="{{userInfo.vip_type == 1 || userInfo.vip_type == 3}}">
+    <view class="section-title">考研需求信息</view>
+    <view class="info-item" wx:if="{{userInfo.kaoyan_requirements.province}}">
+      <view class="info-label">关注省份</view>
+      <view class="info-value">{{userInfo.kaoyan_requirements.province}}</view>
+    </view>
+    <view class="info-item" wx:if="{{userInfo.kaoyan_requirements.school}}">
+      <view class="info-label">关注学校</view>
+      <view class="info-value">{{userInfo.kaoyan_requirements.school}}</view>
+    </view>
+    <view class="info-item" wx:if="{{userInfo.kaoyan_requirements.major}}">
+      <view class="info-label">关注专业</view>
+      <view class="info-value">{{userInfo.kaoyan_requirements.major}}</view>
+    </view>
+    <view class="info-item" wx:if="{{userInfo.kaoyan_requirements.type}}">
+      <view class="info-label">岗位类型</view>
+      <view class="info-value">{{userInfo.kaoyan_requirements.type}}</view>
+    </view>
+    <view class="info-item" wx:if="{{userInfo.kaoyan_requirements.keywords}}">
+      <view class="info-label">关键词</view>
+      <view class="info-value">{{userInfo.kaoyan_requirements.keywords}}</view>
+    </view>
+  </view>
+
+  <!-- 考公需求信息 -->
+  <view class="requirements-section" wx:if="{{userInfo.vip_type == 2 || userInfo.vip_type == 3}}">
+    <view class="section-title">考公需求信息</view>
+    <view class="info-item" wx:if="{{userInfo.kaogong_requirements.province}}">
+      <view class="info-label">关注省份</view>
+      <view class="info-value">{{userInfo.kaogong_requirements.province}}</view>
+    </view>
+    <view class="info-item" wx:if="{{userInfo.kaogong_requirements.major}}">
+      <view class="info-label">关注专业</view>
+      <view class="info-value">{{userInfo.kaogong_requirements.major}}</view>
+    </view>
+    <view class="info-item" wx:if="{{userInfo.kaogong_requirements.type}}">
+      <view class="info-label">岗位类别</view>
+      <view class="info-value">{{userInfo.kaogong_requirements.type}}</view>
+    </view>
+    <view class="info-item" wx:if="{{userInfo.kaogong_requirements.keywords}}">
+      <view class="info-label">关键词</view>
+      <view class="info-value">{{userInfo.kaogong_requirements.keywords}}</view>
+    </view>
+  </view>
+
+  <!-- 修改需求按钮 -->
+  <view class="edit-btn-section">
+    <button class="edit-btn" bindtap="navigateToEditRequirements">修改需求</button>
+  </view>
+
+  <!-- 加载状态 -->
+  <view class="loading-section" wx:if="{{!userInfo}}">
+    <view class="loading-icon">⌛</view>
+    <view class="loading-text">加载中...</view>
+  </view>
+</view>

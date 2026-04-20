@@ -25,33 +25,72 @@ router = APIRouter()
 def get_info_user_requirements(info_id: int, category: int, db_common: Session):
     """获取情报对应的用户需求信息"""
     try:
-        # 获取推送过该情报的用户ID
-        push_logs = db_common.query(PushLog).filter(
-            PushLog.info_id == info_id,
-            PushLog.category == category
-        ).all()
+        # 获取情报信息
+        from models.kaoyan import KaoyanInfo
+        from core.database import get_db_kaoyan
+        db_kaoyan = next(get_db_kaoyan())
+        info = db_kaoyan.query(KaoyanInfo).filter(KaoyanInfo.id == info_id).first()
+        db_kaoyan.close()
+        if not info:
+            return []
         
-        user_ids = [log.user_id for log in push_logs]
-        user_ids = list(set(user_ids))  # 去重
+        # 获取所有活跃用户
+        active_users = db_common.query(User).filter(User.is_active == True).all()
         
-        # 获取这些用户的需求信息
+        # 筛选符合需求的用户
         user_requirements = []
         
-        for user_id in user_ids:
-            user = db_common.query(User).filter(User.id == user_id).first()
-            if user:
-                # 使用admin.py中的get_user_requirements函数获取用户需求
-                try:
-                    requirements = sync_get_user_requirements(user_id, db_common, user)
+        for user in active_users:
+            try:
+                # 获取用户需求
+                requirements = sync_get_user_requirements(user.id, db_common, user)
+                
+                # 检查用户是否符合情报需求
+                match = False
+                
+                if category == 1:  # 考研
+                    kaoyan_requirements = requirements.get('kaoyan', {})
+                    
+                    # 检查省份
+                    provinces = kaoyan_requirements.get('provinces', [])
+                    if provinces and info.province and info.province not in provinces:
+                        continue
+                    
+                    # 检查学校
+                    schools = kaoyan_requirements.get('schools', [])
+                    if isinstance(schools, str):
+                        schools = [schools]
+                    if schools and info.school and info.school not in schools:
+                        continue
+                    
+                    # 检查专业
+                    majors = kaoyan_requirements.get('majors', [])
+                    if isinstance(majors, str):
+                        majors = [majors]
+                    if majors and info.major and info.major not in majors:
+                        continue
+                    
+                    # 检查关键词
+                    keywords = kaoyan_requirements.get('keywords', [])
+                    if isinstance(keywords, str):
+                        keywords = [keywords]
+                    if keywords:
+                        info_text = f"{info.title} {info.content or ''}"
+                        if not any(keyword in info_text for keyword in keywords):
+                            continue
+                    
+                    match = True
+                
+                if match:
                     user_requirements.append({
-                        'user_id': user_id,
+                        'user_id': user.id,
                         'username': user.username,
                         'email': user.email,
                         'requirements': requirements
                     })
-                except Exception as e:
-                    log_error(f"获取用户{user_id}需求信息失败: {str(e)}")
-                    continue
+            except Exception as e:
+                log_error(f"获取用户{user.id}需求信息失败: {str(e)}")
+                continue
         
         return user_requirements
     except Exception as e:

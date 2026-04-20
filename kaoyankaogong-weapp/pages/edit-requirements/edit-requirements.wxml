@@ -1,0 +1,88 @@
+<!-- edit-requirements.wxml -->
+<view class="container">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <view class="back-btn" bindtap="navigateBack">
+      <text>←</text>
+    </view>
+    <view class="page-title">修改需求信息</view>
+  </view>
+
+  <!-- 需求信息表单 -->
+  <view class="requirements-form" wx:if="{{userInfo}}">
+    <!-- 考研需求信息 -->
+    <view class="form-section" wx:if="{{userInfo.vip_type == 1 || userInfo.vip_type == 3}}">
+      <view class="section-title">考研需求信息</view>
+      <view class="form-item">
+        <view class="label">关注省份</view>
+        <view class="input-box">
+          <input class="input" placeholder="请输入关注省份" value="{{kaoyanRequirements.province}}" bindinput="onKaoyanProvinceInput" />
+        </view>
+      </view>
+      <view class="form-item">
+        <view class="label">关注学校</view>
+        <view class="input-box">
+          <input class="input" placeholder="请输入关注学校" value="{{kaoyanRequirements.school}}" bindinput="onKaoyanSchoolInput" />
+        </view>
+      </view>
+      <view class="form-item">
+        <view class="label">关注专业</view>
+        <view class="input-box">
+          <input class="input" placeholder="请输入关注专业" value="{{kaoyanRequirements.major}}" bindinput="onKaoyanMajorInput" />
+        </view>
+      </view>
+      <view class="form-item">
+        <view class="label">关注类型</view>
+        <view class="input-box">
+          <input class="input" placeholder="请输入关注类型" value="{{kaoyanRequirements.type}}" bindinput="onKaoyanTypeInput" />
+        </view>
+      </view>
+      <view class="form-item">
+        <view class="label">关键词</view>
+        <view class="input-box">
+          <input class="input" placeholder="请输入关键词" value="{{kaoyanRequirements.keywords}}" bindinput="onKaoyanKeywordsInput" />
+        </view>
+      </view>
+    </view>
+
+    <!-- 考公需求信息 -->
+    <view class="form-section" wx:if="{{userInfo.vip_type == 2 || userInfo.vip_type == 3}}">
+      <view class="section-title">考公需求信息</view>
+      <view class="form-item">
+        <view class="label">关注省份</view>
+        <view class="input-box">
+          <input class="input" placeholder="请输入关注省份" value="{{kaogongRequirements.province}}" bindinput="onKaogongProvinceInput" />
+        </view>
+      </view>
+      <view class="form-item">
+        <view class="label">关注专业</view>
+        <view class="input-box">
+          <input class="input" placeholder="请输入关注专业" value="{{kaogongRequirements.major}}" bindinput="onKaogongMajorInput" />
+        </view>
+      </view>
+      <view class="form-item">
+        <view class="label">关注类型</view>
+        <view class="input-box">
+          <input class="input" placeholder="请输入关注类型" value="{{kaogongRequirements.type}}" bindinput="onKaogongTypeInput" />
+        </view>
+      </view>
+      <view class="form-item">
+        <view class="label">关键词</view>
+        <view class="input-box">
+          <input class="input" placeholder="请输入关键词" value="{{kaogongRequirements.keywords}}" bindinput="onKaogongKeywordsInput" />
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 保存按钮 -->
+  <view class="save-section">
+    <button class="save-btn" bindtap="saveRequirements">保存</button>
+  </view>
+
+  <!-- 加载状态 -->
+  <view class="loading-section" wx:if="{{loading}}">
+    <view class="loading-icon">⌛</view>
+    <view class="loading-text">加载中...</view>
+  </view>
+</view>

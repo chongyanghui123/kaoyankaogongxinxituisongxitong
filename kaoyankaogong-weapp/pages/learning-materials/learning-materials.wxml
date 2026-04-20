@@ -1,0 +1,224 @@
+<!-- pages/learning-materials/learning-materials.wxml -->
+<view class="container">
+  <!-- 搜索和筛选 -->
+  <view class="search-filter">
+    <view class="search-bar">
+      <input 
+        placeholder="搜索资料" 
+        value="{{ searchQuery }}" 
+        bindinput="handleSearch"
+        class="search-input"
+      />
+      <button bindtap="submitSearch" class="search-btn">搜索</button>
+    </view>
+    <view class="filter-bar">
+      <picker 
+        bindchange="handleTypeChange" 
+        range="[{value: '', text: '全部'}, {value: '1', text: '考研'}, {value: '2', text: '考公'}]" 
+        range-key="text"
+        class="filter-picker"
+      >
+        <view class="picker-text">类型: {{ typeFilter === '1' ? '考研' : (typeFilter === '2' ? '考公' : '全部') }}</view>
+      </picker>
+      <picker 
+        bindchange="handleCategoryChange" 
+        range="{{ categoryOptions }}" 
+        range-key="text"
+        class="filter-picker"
+      >
+        <view class="picker-text">分类: {{ categoryFilterName }}</view>
+      </picker>
+    </view>
+  </view>
+
+  <!-- 学习资料列表 -->
+  <view class="materials-list" wx:if="{{ !loading && materials.length > 0 }}">
+    <view 
+      wx:for="{{ materials }}" 
+      wx:key="id" 
+      class="material-item"
+      bindtap="showMaterialDetail"
+      data-id="{{ item.id }}"
+    >
+      <view class="material-cover" wx:if="{{ item.cover_image }}">
+        <image src="{{ 'http://192.168.1.154:8000' + item.cover_image }}" mode="aspectFill" />
+      </view>
+      <view class="material-cover placeholder" wx:else>
+        <text class="cover-icon">📄</text>
+      </view>
+      <view class="material-content">
+        <view class="material-title">{{ item.title }}</view>
+        <view class="material-meta">
+          <text class="material-type">{{ item.type === 1 ? '考研' : '考公' }}</text>
+          <text class="material-category">{{ item.category_name }}</text>
+          <text class="material-subject">{{ item.subject }}</text>
+        </view>
+        <view class="material-info">
+          <text class="material-size">{{ formatFileSize(item.file_size) }}</text>
+          <text class="material-downloads">{{ item.download_count }} 次下载</text>
+          <view class="material-rating">
+            <text wx:for="{{ 5 }}" wx:key="index" class="star">{{ index < Math.round(item.rating) ? '★' : '☆' }}</text>
+          </view>
+        </view>
+        <view class="material-actions">
+          <button 
+            bindtap="downloadMaterial" 
+            data-id="{{ item.id }}"
+            class="download-btn"
+          >
+            下载
+          </button>
+          <button 
+            bindtap="rateMaterial" 
+            data-id="{{ item.id }}"
+            class="rate-btn"
+          >
+            评分
+          </button>
+          <button 
+            bindtap="handleFavorite" 
+            data-id="{{ item.id }}"
+            class="favorite-btn {{ userFavorites[item.id] ? 'active' : '' }}"
+          >
+            {{ userFavorites[item.id] ? '已收藏' : '收藏' }}
+          </button>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-state" wx:if="{{ !loading && materials.length === 0 }}">
+    <text class="empty-text">暂无资料</text>
+  </view>
+
+  <!-- 加载中 -->
+  <view class="loading-state" wx:if="{{ loading }}">
+    <text class="loading-text">加载中...</text>
+  </view>
+
+  <!-- 下载历史按钮 -->
+  <button bindtap="goToDownloadHistory" class="history-btn">
+    查看下载历史
+  </button>
+
+  <!-- 资料详情 -->
+  <view class="detail-overlay" wx:if="{{ showDetail }}" bindtap="closeDetail"></view>
+  <view class="detail-dialog" wx:if="{{ showDetail }}">
+    <view class="detail-header">
+      <text class="detail-title">{{ currentMaterial.title }}</text>
+      <text class="detail-close" bindtap="closeDetail">×</text>
+    </view>
+    <view class="detail-body">
+      <view class="detail-cover" wx:if="{{ currentMaterial.cover_image }}">
+        <image src="{{ 'http://192.168.1.154:8000' + currentMaterial.cover_image }}" mode="aspectFill" />
+      </view>
+      <view class="detail-info">
+        <view class="detail-meta">
+          <text class="detail-type">{{ currentMaterial.type === 1 ? '考研' : '考公' }}</text>
+          <text class="detail-category">{{ currentMaterial.category_name }}</text>
+          <text class="detail-subject">{{ currentMaterial.subject }}</text>
+        </view>
+        <view class="detail-stats">
+          <text class="detail-size">{{ formatFileSize(currentMaterial.file_size) }}</text>
+          <text class="detail-downloads">{{ currentMaterial.download_count }} 次下载</text>
+          <view class="detail-rating">
+            <text wx:for="{{ 5 }}" wx:key="index" class="star">{{ index < Math.round(currentMaterial.rating) ? '★' : '☆' }}</text>
+          </view>
+        </view>
+        <view class="detail-description">
+          <text class="description-label">资料描述</text>
+          <text class="description-content">{{ currentMaterial.description }}</text>
+        </view>
+        <view class="detail-actions">
+          <button 
+            bindtap="downloadMaterial" 
+            data-id="{{ currentMaterial.id }}"
+            class="download-btn"
+          >
+            下载
+          </button>
+          <button 
+            bindtap="rateMaterial" 
+            data-id="{{ currentMaterial.id }}"
+            class="rate-btn"
+          >
+            评分
+          </button>
+          <button 
+            bindtap="handleFavorite" 
+            data-id="{{ currentMaterial.id }}"
+            class="favorite-btn {{ userFavorites[currentMaterial.id] ? 'active' : '' }}"
+          >
+            {{ userFavorites[currentMaterial.id] ? '已收藏' : '收藏' }}
+          </button>
+          <button bindtap="showCommentDialog" class="comment-btn">
+            评论
+          </button>
+        </view>
+      </view>
+      <view class="comments-section">
+        <text class="comments-title">评论</text>
+        <view class="comments-list">
+          <view wx:for="{{ comments }}" wx:key="id" class="comment-item">
+            <view class="comment-header">
+              <text class="comment-user">{{ item.user_name }}</text>
+              <text class="comment-time">{{ item.created_at }}</text>
+            </view>
+            <text class="comment-content">{{ item.comment }}</text>
+          </view>
+          <view wx:if="{{ comments.length === 0 }}" class="no-comments">
+            <text>暂无评论</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 评分对话框 -->
+  <view class="dialog-overlay" wx:if="{{ showRateDialog }}" bindtap="cancelRating"></view>
+  <view class="dialog" wx:if="{{ showRateDialog }}">
+    <view class="dialog-header">
+      <text class="dialog-title">给资料评分</text>
+      <text class="dialog-close" bindtap="cancelRating">×</text>
+    </view>
+    <view class="dialog-body">
+      <view class="rating-container">
+        <text 
+          wx:for="{{ 5 }}" 
+          wx:key="index" 
+          class="star {{ index < ratingValue ? 'active' : '' }}"
+          bindtap="handleRatingChange"
+          data-value="{{ index + 1 }}"
+        >
+          ★
+        </text>
+      </view>
+    </view>
+    <view class="dialog-footer">
+      <button bindtap="cancelRating" class="cancel-btn">取消</button>
+      <button bindtap="submitRating" class="confirm-btn">提交</button>
+    </view>
+  </view>
+
+  <!-- 评论对话框 -->
+  <view class="dialog-overlay" wx:if="{{ showCommentDialog }}" bindtap="cancelComment"></view>
+  <view class="dialog" wx:if="{{ showCommentDialog }}">
+    <view class="dialog-header">
+      <text class="dialog-title">发表评论</text>
+      <text class="dialog-close" bindtap="cancelComment">×</text>
+    </view>
+    <view class="dialog-body">
+      <textarea 
+        placeholder="请输入评论内容" 
+        value="{{ commentContent }}" 
+        bindinput="handleCommentChange"
+        class="comment-textarea"
+      ></textarea>
+    </view>
+    <view class="dialog-footer">
+      <button bindtap="cancelComment" class="cancel-btn">取消</button>
+      <button bindtap="submitComment" class="confirm-btn">提交</button>
+    </view>
+  </view>
+</view>

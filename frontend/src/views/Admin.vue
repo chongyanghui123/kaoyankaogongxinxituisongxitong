@@ -52,9 +52,9 @@
             <el-icon><Message /></el-icon>
             <span>推送管理</span>
           </el-menu-item>
-          <el-menu-item index="/admin/push-settings">
-            <el-icon><Bell /></el-icon>
-            <span>用户推送设置</span>
+          <el-menu-item index="/admin/materials">
+            <el-icon><Download /></el-icon>
+            <span>学习资料管理</span>
           </el-menu-item>
 
           <el-dropdown>
@@ -102,8 +102,8 @@
           <!-- 推送管理 -->
           <PushManagement v-if="activeIndex === '/admin/push'" />
           
-          <!-- 用户推送设置 -->
-          <UserPushSettings v-if="activeIndex === '/admin/push-settings'" />
+          <!-- 学习资料管理 -->
+          <LearningMaterialManagement v-if="activeIndex === '/admin/materials'" />
           
 
         </div>
@@ -123,7 +123,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowDown, Search, User, Refresh, ShoppingCart, Setting, Document, DataAnalysis, Paperclip, CreditCard, Message, Bell } from '@element-plus/icons-vue'
+import { ArrowDown, Search, User, Refresh, ShoppingCart, Setting, Document, DataAnalysis, Paperclip, CreditCard, Message, Bell, Download } from '@element-plus/icons-vue'
 import axios from 'axios'
 
 // 导入模块化组件
@@ -136,7 +136,7 @@ import PaymentManagement from '../components/admin/PaymentManagement.vue'
 import SystemConfigManagement from '../components/admin/SystemConfigManagement.vue'
 import SystemOverview from '../components/admin/SystemOverview.vue'
 import PushManagement from '../components/admin/PushManagement.vue'
-import UserPushSettings from '../components/admin/UserPushSettings.vue'
+import LearningMaterialManagement from '../components/admin/LearningMaterialManagement.vue'
 
 
 // const router = useRouter()

@@ -58,7 +58,7 @@ async def get_message_list(
                 "type": message_type,
                 "title": "推送通知" if not log.push_content else log.push_content[:30],
                 "content": log.push_content or "",
-                "time": log.push_time.isoformat(),
+                "time": log.push_time.strftime("%Y-%m-%d %H:%M:%S"),
                 "read": False  # 暂时默认未读，后续可以添加已读状态
             })
         

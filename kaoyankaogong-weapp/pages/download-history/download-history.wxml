@@ -1,0 +1,67 @@
+<!--pages/download-history/download-history.wxml-->
+<view class="container">
+  <view class="header">
+    <text class="title">下载历史</text>
+    <view class="filter-section">
+      <picker 
+        bindchange="handleTypeChange" 
+        range="{{ typeOptions }}" 
+        range-key="text"
+        class="filter-picker"
+      >
+        <view class="picker-text">类型: {{ typeFilter === '1' ? '考研' : (typeFilter === '2' ? '考公' : '全部') }}</view>
+      </picker>
+    </view>
+  </view>
+
+  <!-- 下载记录列表 -->
+  <view class="downloads-list" wx:if="{{ !loading && downloads.length > 0 }}">
+    <view 
+      wx:for="{{ downloads }}" 
+      wx:key="id" 
+      class="download-item"
+    >
+      <view class="download-info">
+        <view class="download-title">{{ item.material_title }}</view>
+        <view class="download-meta">
+          <text class="download-type">{{ item.material_type === 1 ? '考研' : '考公' }}</text>
+          <text class="download-time">{{ item.download_time }}</text>
+        </view>
+      </view>
+      <view class="download-actions">
+        <button 
+          bindtap="downloadMaterial" 
+          data-id="{{ item.material_id }}"
+          class="download-btn"
+        >
+          重新下载
+        </button>
+        <button 
+          bindtap="viewFile" 
+          data-id="{{ item.material_id }}"
+          data-title="{{ item.material_title }}"
+          class="view-btn"
+        >
+          查看文件
+        </button>
+        <button 
+          bindtap="deleteDownload" 
+          data-id="{{ item.id }}"
+          class="delete-btn"
+        >
+          删除记录
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-state" wx:if="{{ !loading && downloads.length === 0 }}">
+    <text class="empty-text">暂无下载记录</text>
+  </view>
+
+  <!-- 加载中 -->
+  <view class="loading-state" wx:if="{{ loading }}">
+    <text class="loading-text">加载中...</text>
+  </view>
+</view>

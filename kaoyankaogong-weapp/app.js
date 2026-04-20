@@ -32,8 +32,8 @@ App({
   
   globalData: {
     userInfo: null,
-    token: null,
-    baseUrl: 'http://localhost:8002/api/v1' // 后端API基础地址
+    token: '',
+    baseUrl: 'http://192.168.1.154:8000/api/v1' // 后端API基础地址
   },
   
   // 检查登录状态
