@@ -7,7 +7,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, Path
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi.responses import JSONResponse, FileResponse
 import os
 import uuid
@@ -711,8 +711,11 @@ async def download_learning_material(
                 }
             )
         
-        # 检查文件是否存在
-        if not os.path.exists(material.file_path):
+        file_path = material.file_path
+        if not os.path.isabs(file_path):
+            file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), file_path)
+        
+        if not os.path.exists(file_path):
             return JSONResponse(
                 status_code=404,
                 content={
@@ -738,9 +741,8 @@ async def download_learning_material(
         
         log_user_action(current_user.id, "download_learning_material", f"下载学习资料: {material.title}")
         
-        # 返回文件
         return FileResponse(
-            path=material.file_path,
+            path=file_path,
             filename=material.title + material.file_extension,
             media_type="application/octet-stream"
         )
@@ -1104,10 +1106,44 @@ async def delete_download_record(
 
 # 资料评分和评论相关API
 
+@router.get("/materials/{material_id}/rating", summary="检查是否已评分")
+async def check_material_rating(
+    material_id: int = Path(..., description="资料ID"),
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    """检查学习资料是否已评分"""
+    try:
+        # 检查评分是否存在
+        rating = db.query(MaterialRating).filter(
+            MaterialRating.user_id == current_user.id,
+            MaterialRating.material_id == material_id
+        ).first()
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "检查评分状态成功",
+                "data": {
+                    "has_rated": rating is not None,
+                    "rating": rating.rating if rating else None
+                }
+            }
+        )
+    except Exception as e:
+        log_error(f"检查评分状态失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="检查评分状态失败"
+        )
+
+
 @router.post("/materials/{material_id}/rating", summary="给资料评分")
 async def rate_material(
     material_id: int = Path(..., description="资料ID"),
-    rating: int = Form(..., ge=1, le=5, description="评分，1-5星"),
+    rating: int = Form(..., ge=1, le=10, description="评分，1-10分"),
     db: Session = Depends(get_db_common),
     current_user: User = Depends(get_current_user)
 ):
@@ -1189,6 +1225,7 @@ async def rate_material(
 async def comment_material(
     material_id: int = Path(..., description="资料ID"),
     comment: str = Form(..., description="评论内容"),
+    parent_comment_id: Optional[int] = Form(None, description="父评论ID（回复功能）"),
     db: Session = Depends(get_db_common),
     current_user: User = Depends(get_current_user)
 ):
@@ -1207,62 +1244,438 @@ async def comment_material(
                 }
             )
         
-        # 检查是否已经评论过
-        existing_comment = db.query(MaterialComment).filter(
-            MaterialComment.user_id == current_user.id,
-            MaterialComment.material_id == material_id
-        ).first()
+        # 检查用户类型和资料类型是否匹配
+        # 考研用户只能评论考研资料，考公用户只能评论考公资料
+        # 双赛道用户和管理员可以评论所有类型
+        if not (current_user.is_admin or current_user.vip_type == 3):
+            # 普通用户只能评论对应类型的资料
+            if current_user.vip_type == 1 and material.type != 1:
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "success": False,
+                        "code": 403,
+                        "message": "考研用户只能评论考研相关的学习资料",
+                        "data": None
+                    }
+                )
+            elif current_user.vip_type == 2 and material.type != 2:
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "success": False,
+                        "code": 403,
+                        "message": "考公用户只能评论考公相关的学习资料",
+                        "data": None
+                    }
+                )
         
-        if existing_comment:
-            # 用户已经评论过，返回提示
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "code": 400,
-                    "message": "您已经评论过该资料，不能重复评论",
-                    "data": None
-                }
-            )
-        else:
-            # 创建评论
-            new_comment = MaterialComment(
-                user_id=current_user.id,
-                material_id=material_id,
-                comment=comment
-            )
-            db.add(new_comment)
+        # 检查是否是回复评论，如果是，检查父评论是否存在
+        if parent_comment_id:
+            parent_comment = db.query(MaterialComment).filter(
+                MaterialComment.id == parent_comment_id,
+                MaterialComment.material_id == material_id
+            ).first()
+            if not parent_comment:
+                return JSONResponse(
+                    status_code=404,
+                    content={
+                        "success": False,
+                        "code": 404,
+                        "message": "父评论不存在",
+                        "data": None
+                    }
+                )
+        
+        # 创建评论（允许重复评论和回复）
+        new_comment = MaterialComment(
+            user_id=current_user.id,
+            material_id=material_id,
+            parent_comment_id=parent_comment_id,
+            comment=comment
+        )
+        db.add(new_comment)
         db.commit()
         db.refresh(new_comment)
         
         log_user_action(current_user.id, "comment_material", f"给资料评论: {material.title}")
+        
+        from fastapi.responses import JSONResponse
+        
+        response_data = {
+            "success": True,
+            "code": 200,
+            "message": "评论成功",
+            "data": {
+                "id": new_comment.id,
+                "comment": new_comment.comment,
+                "created_at": new_comment.created_at.isoformat()
+            }
+        }
+        
+        print(f"响应数据: {response_data}")
+        print(f"评论内容类型: {type(new_comment.comment)}")
+        
+        return JSONResponse(
+            status_code=200,
+            content=response_data,
+            headers={"Content-Type": "application/json; charset=utf-8"}
+        )
+    except Exception as e:
+        log_error(f"给资料评论失败: {str(e)}")
+        import traceback
+        log_error(f"详细错误信息: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"给资料评论失败: {str(e)}"
+        )
+
+
+@router.delete("/materials/{material_id}/comments/{comment_id}", summary="删除资料评论")
+async def delete_material_comment(
+    material_id: int = Path(..., description="资料ID"),
+    comment_id: int = Path(..., description="评论ID"),
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    """删除资料评论"""
+    try:
+        # 检查评论是否存在
+        comment = db.query(MaterialComment).filter(
+            MaterialComment.id == comment_id,
+            MaterialComment.material_id == material_id
+        ).first()
+        
+        if not comment:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "success": False,
+                    "code": 404,
+                    "message": "评论不存在",
+                    "data": None
+                }
+            )
+        
+        # 检查用户是否有权限删除该评论
+        if not (current_user.is_admin or comment.user_id == current_user.id):
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "success": False,
+                    "code": 403,
+                    "message": "您没有权限删除该评论",
+                    "data": None
+                }
+            )
+        
+        # 删除该评论及其所有子评论（递归删除）
+        def delete_comment_recursive(comment_id):
+            # 删除所有子评论
+            child_comments = db.query(MaterialComment).filter(
+                MaterialComment.parent_comment_id == comment_id
+            ).all()
+            for child in child_comments:
+                delete_comment_recursive(child.id)
+            # 删除当前评论
+            comment_to_delete = db.query(MaterialComment).filter(
+                MaterialComment.id == comment_id
+            ).first()
+            if comment_to_delete:
+                db.delete(comment_to_delete)
+        
+        # 开始递归删除
+        delete_comment_recursive(comment_id)
+        db.commit()
+        
+        log_user_action(current_user.id, "delete_comment", f"删除评论: {material_id}")
         
         return JSONResponse(
             status_code=200,
             content={
                 "success": True,
                 "code": 200,
-                "message": "评论成功",
+                "message": "删除评论成功",
+                "data": None
+            }
+        )
+        
+    except Exception as e:
+        log_error(f"删除评论失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="删除评论失败"
+        )
+
+@router.get("/comments", summary="获取所有评论")
+async def get_all_comments(
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(10, ge=1, le=100, description="每页数量"),
+    keyword: Optional[str] = Query(None, description="关键词搜索"),
+    type: Optional[int] = Query(None, description="资料类型：1-考研，2-考公"),
+    date: Optional[str] = Query(None, description="时间筛选：today/week/month"),
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    """获取所有评论"""
+    try:
+        # 检查用户是否是管理员
+        if not current_user.is_admin:
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "success": False,
+                    "code": 403,
+                    "message": "您没有权限访问此API",
+                    "data": None
+                }
+            )
+        
+        query = db.query(MaterialComment).join(
+            LearningMaterial, MaterialComment.material_id == LearningMaterial.id
+        )
+        
+        # 关键词搜索
+        if keyword:
+            query = query.filter(
+                MaterialComment.comment.contains(keyword) | 
+                MaterialComment.user.has(username.contains(keyword))
+            )
+        
+        # 类型筛选
+        if type:
+            query = query.filter(LearningMaterial.type == type)
+        
+        # 时间筛选
+        if date:
+            now = datetime.now()
+            if date == "today":
+                query = query.filter(MaterialComment.created_at >= now.replace(hour=0, minute=0, second=0, microsecond=0))
+            elif date == "week":
+                week_ago = now - timedelta(days=7)
+                query = query.filter(MaterialComment.created_at >= week_ago)
+            elif date == "month":
+                month_ago = now - timedelta(days=30)
+                query = query.filter(MaterialComment.created_at >= month_ago)
+        
+        # 计算总数
+        total = query.count()
+        
+        # 分页
+        offset = (page - 1) * page_size
+        comments = query.order_by(
+            MaterialComment.created_at.desc()
+        ).offset(offset).limit(page_size).all()
+        
+        # 构建评论数据
+        comment_items = []
+        for comment in comments:
+            # 获取父评论内容
+            parent_comment = None
+            if comment.parent_comment_id:
+                parent = db.query(MaterialComment).filter(MaterialComment.id == comment.parent_comment_id).first()
+                if parent:
+                    parent_comment = parent.comment
+            
+            # 计算评论层级
+            depth = 0
+            temp_comment = comment
+            while temp_comment.parent_comment_id:
+                depth += 1
+                temp_comment = db.query(MaterialComment).filter(MaterialComment.id == temp_comment.parent_comment_id).first()
+            
+            comment_items.append({
+                "id": comment.id,
+                "user_id": comment.user_id,
+                "user_name": comment.user.username if comment.user else "",
+                "material_id": comment.material_id,
+                "material_title": comment.material.title if comment.material else "",
+                "material_type": comment.material.type if comment.material else 0,
+                "comment": comment.comment,
+                "parent_comment_id": comment.parent_comment_id,
+                "parent_comment": parent_comment,
+                "depth": depth,
+                "created_at": comment.created_at.isoformat()
+            })
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "获取评论成功",
                 "data": {
-                    "id": new_comment.id,
-                    "comment": new_comment.comment,
-                    "created_at": new_comment.created_at.isoformat()
+                    "total": total,
+                    "items": comment_items
                 }
             }
         )
     except Exception as e:
-        log_error(f"给资料评论失败: {str(e)}")
+        log_error(f"获取评论失败: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail="给资料评论失败"
+            detail="获取评论失败"
+        )
+
+
+@router.delete("/comments/{comment_id}", summary="删除评论")
+async def delete_comment(
+    comment_id: int = Path(..., description="评论ID"),
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    """删除评论"""
+    try:
+        # 检查评论是否存在
+        comment = db.query(MaterialComment).filter(MaterialComment.id == comment_id).first()
+        
+        if not comment:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "success": False,
+                    "code": 404,
+                    "message": "评论不存在",
+                    "data": None
+                }
+            )
+        
+        # 检查用户是否有权限删除该评论
+        if not current_user.is_admin:
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "success": False,
+                    "code": 403,
+                    "message": "您没有权限删除该评论",
+                    "data": None
+                }
+            )
+        
+        # 删除该评论及其所有子评论（递归删除）
+        def delete_comment_recursive(comment_id):
+            # 删除所有子评论
+            child_comments = db.query(MaterialComment).filter(
+                MaterialComment.parent_comment_id == comment_id
+            ).all()
+            for child in child_comments:
+                delete_comment_recursive(child.id)
+            # 删除当前评论
+            comment_to_delete = db.query(MaterialComment).filter(
+                MaterialComment.id == comment_id
+            ).first()
+            if comment_to_delete:
+                db.delete(comment_to_delete)
+        
+        # 开始递归删除
+        delete_comment_recursive(comment_id)
+        db.commit()
+        
+        log_user_action(current_user.id, "delete_comment", f"删除评论: {comment_id}")
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "删除评论成功",
+                "data": None
+            }
+        )
+    except Exception as e:
+        log_error(f"删除评论失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="删除评论失败"
+        )
+
+
+@router.get("/comments/export", summary="导出评论")
+async def export_comments(
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    """导出评论"""
+    try:
+        # 检查用户是否是管理员
+        if not current_user.is_admin:
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "success": False,
+                    "code": 403,
+                    "message": "您没有权限导出评论",
+                    "data": None
+                }
+            )
+        
+        # 获取所有评论
+        comments = db.query(MaterialComment).join(
+            LearningMaterial, MaterialComment.material_id == LearningMaterial.id
+        ).all()
+        
+        # 构建评论数据
+        comment_data = []
+        for comment in comments:
+            # 获取父评论内容
+            parent_comment = None
+            if comment.parent_comment_id:
+                parent = db.query(MaterialComment).filter(MaterialComment.id == comment.parent_comment_id).first()
+                if parent:
+                    parent_comment = parent.comment
+            
+            # 计算评论层级
+            depth = 0
+            temp_comment = comment
+            while temp_comment.parent_comment_id:
+                depth += 1
+                temp_comment = db.query(MaterialComment).filter(MaterialComment.id == temp_comment.parent_comment_id).first()
+            
+            comment_data.append({
+                "ID": comment.id,
+                "用户名": comment.user.username if comment.user else "",
+                "用户ID": comment.user_id,
+                "资料标题": comment.material.title if comment.material else "",
+                "资料ID": comment.material_id,
+                "资料类型": "考研" if comment.material.type == 1 else "考公" if comment.material.type == 2 else "未知",
+                "评论内容": comment.comment,
+                "父评论ID": comment.parent_comment_id,
+                "父评论内容": parent_comment,
+                "评论层级": depth,
+                "评论时间": comment.created_at.isoformat()
+            })
+        
+        # 导出为CSV
+        from io import StringIO
+        import csv
+        
+        output = StringIO()
+        writer = csv.DictWriter(output, fieldnames=comment_data[0].keys() if comment_data else [])
+        writer.writeheader()
+        writer.writerows(comment_data)
+        
+        output.seek(0)
+        
+        from fastapi.responses import StreamingResponse
+        
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f"attachment; filename=comments_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            }
+        )
+    except Exception as e:
+        log_error(f"导出评论失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="导出评论失败"
         )
 
 
 @router.get("/materials/{material_id}/comments", summary="获取资料评论")
 async def get_material_comments(
     material_id: int = Path(..., description="资料ID"),
-    page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(10, ge=1, le=100, description="每页数量"),
     db: Session = Depends(get_db_common),
     current_user: User = Depends(get_current_user)
 ):
@@ -1281,34 +1694,54 @@ async def get_material_comments(
                 }
             )
         
+        # 获取该资料的所有评论（不分页，确保嵌套回复结构完整）
         query = db.query(MaterialComment).filter(MaterialComment.material_id == material_id)
-        
-        # 计算总数
-        total = query.count()
-        
-        # 分页
-        offset = (page - 1) * page_size
         comments = query.order_by(
             MaterialComment.created_at.desc()
-        ).offset(offset).limit(page_size).all()
+        ).all()
+        
+        # 构建评论树（支持嵌套回复）
+        comment_tree = []
+        comment_map = {}
+        
+        # 先将所有评论存入map
+        for comment in comments:
+            comment_map[comment.id] = {
+                "id": comment.id,
+                "user_id": comment.user_id,
+                "user_name": comment.user.username if comment.user else "",
+                "comment": comment.comment,
+                "created_at": comment.created_at.isoformat(),
+                "parent_comment_id": comment.parent_comment_id,
+                "replies": []
+            }
+        
+        # 构建树结构
+        for comment in comments:
+            if comment.parent_comment_id is None:
+                # 顶级评论
+                comment_tree.append(comment_map[comment.id])
+            else:
+                # 回复评论
+                if comment.parent_comment_id in comment_map:
+                    comment_map[comment.parent_comment_id]["replies"].append(comment_map[comment.id])
+        
+        from fastapi.responses import JSONResponse
+        
+        response_data = {
+            "success": True,
+            "code": 200,
+            "message": "获取资料评论成功",
+            "data": {
+                "total": len(comments),
+                "items": comment_tree
+            }
+        }
         
         return JSONResponse(
             status_code=200,
-            content={
-                "success": True,
-                "code": 200,
-                "message": "获取资料评论成功",
-                "data": {
-                    "total": total,
-                    "items": [{
-                        "id": c.id,
-                        "user_id": c.user_id,
-                        "user_name": c.user.username if c.user else "",
-                        "comment": c.comment,
-                        "created_at": c.created_at.isoformat()
-                    } for c in comments]
-                }
-            }
+            content=response_data,
+            headers={"Content-Type": "application/json; charset=utf-8"}
         )
     except Exception as e:
         log_error(f"获取资料评论失败: {str(e)}")

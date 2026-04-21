@@ -23,11 +23,29 @@ Page({
     showCommentDialog: false,
     commentContent: '',
     userRatings: {}, // 存储用户已评分的资料ID
-    userComments: {}, // 存储用户已评论的资料ID
-    userFavorites: {} // 存储用户已收藏的资料ID
+    userFavorites: {}, // 存储用户已收藏的资料ID
+    userInfo: null // 用户信息，用于判断是否是自己的评论
   },
 
   onLoad(options) {
+    // 获取用户信息
+    const app = getApp()
+    let userInfo = app.globalData.userInfo
+    
+
+    
+    if (!userInfo) {
+      userInfo = wx.getStorageSync('userInfo')
+      if (userInfo) {
+        app.globalData.userInfo = userInfo
+      }
+    }
+    
+    this.setData({ userInfo: userInfo })
+    
+    // 调试信息
+
+    
     // 检查是否有 material_id 参数
     if (options.material_id) {
       // 转换为数字类型
@@ -136,6 +154,28 @@ Page({
   },
 
   // 检查资料收藏状态
+  checkRatingStatus(materialId) {
+    return new Promise((resolve, reject) => {
+      wx.request({
+        url: app.globalData.baseUrl + `/learning_materials/materials/${materialId}/rating`,
+        method: 'GET',
+        header: {
+          'Authorization': 'Bearer ' + app.globalData.token
+        },
+        success: (res) => {
+          if (res.data.success && res.data.data) {
+            resolve(res.data.data.has_rated) // 返回是否已评分
+          } else {
+            resolve(false)
+          }
+        },
+        fail: (err) => {
+          resolve(false)
+        }
+      })
+    })
+  },
+
   checkFavoriteStatus(materialId) {
     return new Promise((resolve, reject) => {
       wx.request({
@@ -188,19 +228,26 @@ Page({
               // 保持相对路径，让小程序通过后端 API 获取图片
               // 例如：/uploads/d171db14-3828-4049-8053-6885092c2b7e.png
             }
+            // 打印评分数据
+
           })
           
-          // 检查每个资料的收藏状态
+          // 检查每个资料的收藏状态和评分状态
           const userFavorites = { ...this.data.userFavorites }
+          const userRatings = { ...this.data.userRatings }
           for (const material of materials) {
             const isFavorite = await this.checkFavoriteStatus(material.id)
             userFavorites[material.id] = isFavorite
+            
+            const hasRated = await this.checkRatingStatus(material.id)
+            userRatings[material.id] = hasRated
           }
           
           this.setData({
             materials: materials,
             total: res.data.data.total,
-            userFavorites: userFavorites
+            userFavorites: userFavorites,
+            userRatings: userRatings
           })
         } else {
           this.setData({ materials: [], total: 0 })
@@ -245,6 +292,20 @@ Page({
   showMaterialDetail(e) {
     const materialId = e.currentTarget.dataset.id
     const material = this.data.materials.find(m => m.id === materialId)
+    
+    // 确保用户信息是最新的
+    const app = getApp()
+    let userInfo = app.globalData.userInfo
+    if (!userInfo) {
+      userInfo = wx.getStorageSync('userInfo')
+      if (userInfo) {
+        app.globalData.userInfo = userInfo
+      }
+    }
+    this.setData({ userInfo: userInfo })
+    
+
+    
     if (material) {
       // 保持相对路径，让小程序通过后端 API 获取图片
       this.setData({ currentMaterial: material })
@@ -262,21 +323,36 @@ Page({
       header: {
         'Authorization': 'Bearer ' + app.globalData.token
       },
-      data: {
-        page: 1,
-        page_size: 100
-      },
       success: (res) => {
         if (res.data.success) {
-          this.setData({ comments: res.data.data.items || [] })
+          const comments = res.data.data.items || []
+          
+          const flattenedComments = this.flattenComments(comments)
+          
+          this.setData({ comments: flattenedComments })
         } else {
           this.setData({ comments: [] })
         }
       },
       fail: (err) => {
+        console.error('获取评论请求失败:', err)
         this.setData({ comments: [] })
       }
     })
+  },
+
+  flattenComments(comments, depth = 0) {
+    let result = []
+    for (const comment of comments) {
+      result.push({
+        ...comment,
+        depth: depth
+      })
+      if (comment.replies && comment.replies.length > 0) {
+        result = result.concat(this.flattenComments(comment.replies, depth + 1))
+      }
+    }
+    return result
   },
 
   // 关闭详情
@@ -352,7 +428,9 @@ Page({
 
   // 处理评分变化
   handleRatingChange(e) {
-    this.setData({ ratingValue: parseInt(e.currentTarget.dataset.value) })
+    const score = parseInt(e.currentTarget.dataset.value)
+    const starCount = score / 2
+    this.setData({ ratingValue: starCount })
   },
 
   // 提交评分
@@ -361,6 +439,8 @@ Page({
       wx.showToast({ title: '请选择评分', icon: 'none' })
       return
     }
+    
+    const actualScore = this.data.ratingValue * 2
     
     wx.showLoading({ title: '提交中...' })
     wx.request({
@@ -371,20 +451,24 @@ Page({
         'Content-Type': 'application/x-www-form-urlencoded'
       },
       data: {
-        rating: this.data.ratingValue
+        rating: actualScore
       },
       success: (res) => {
         wx.hideLoading()
-        if (res.data.success) {
+        if (res.statusCode === 400) {
+          this.setData({ showRateDialog: false })
+          wx.showToast({ title: res.data.message || '您已经评价过该资料', icon: 'none' })
+          const userRatings = { ...this.data.userRatings }
+          userRatings[this.data.currentRatingMaterialId] = true
+          this.setData({ userRatings: userRatings })
+        } else if (res.data.success) {
           wx.showToast({ title: '评分成功', icon: 'success' })
-          // 更新userRatings，记录用户已经评分的资料ID
           const userRatings = { ...this.data.userRatings }
           userRatings[this.data.currentRatingMaterialId] = true
           this.setData({ 
             showRateDialog: false,
             userRatings: userRatings
           })
-          // 刷新资料列表
           this.getMaterials()
         } else {
           wx.showToast({ title: res.data.message || '评分失败', icon: 'none' })
@@ -393,7 +477,7 @@ Page({
       fail: (err) => {
         wx.hideLoading()
         // 处理 400 错误，显示后端返回的错误信息
-        console.log('评分失败错误信息:', err)
+
         if (err.errMsg && err.errMsg.includes('400')) {
           // 更新userRatings，记录用户已经评分的资料ID
           const userRatings = { ...this.data.userRatings }
@@ -416,14 +500,16 @@ Page({
   },
 
   // 显示评论对话框
-  showCommentDialog() {
-    const materialId = this.data.currentMaterial.id
-    // 检查用户是否已经评论过该资料
-    if (this.data.userComments[materialId]) {
-      wx.showToast({ title: '您已经评论过该资料，不能重复评论', icon: 'none' })
-      return
-    }
-    this.setData({ showCommentDialog: true })
+  showCommentDialog(parentCommentId = null) {
+    this.setData({ 
+      showCommentDialog: true,
+      parentCommentId: parentCommentId
+    })
+  },
+
+  // 回复评论
+  onReply(e) {
+    this.showCommentDialog(e.currentTarget.dataset.parentId || e.currentTarget.dataset.id)
   },
 
   // 处理评论内容变化
@@ -439,6 +525,30 @@ Page({
     }
     
     const materialId = this.data.currentMaterial.id
+    const data = {
+      comment: this.data.commentContent
+    }
+    
+    // 如果有父评论ID，添加到数据中
+    if (this.data.parentCommentId) {
+      let parentCommentId = this.data.parentCommentId
+      // 确保 parentCommentId 是有效的数字或字符串
+      if (typeof parentCommentId === 'object') {
+        // 如果是对象，尝试获取 id 属性
+        parentCommentId = parentCommentId.id || null
+      }
+      // 如果是字符串，尝试转换为数字
+      if (typeof parentCommentId === 'string') {
+        parentCommentId = parseInt(parentCommentId) || null
+      }
+      if (parentCommentId) {
+        data.parent_comment_id = parentCommentId
+      }
+    }
+    
+    // 打印调试信息
+
+    
     wx.showLoading({ title: '提交中...' })
     wx.request({
       url: app.globalData.baseUrl + `/learning_materials/materials/${materialId}/comment`,
@@ -447,20 +557,16 @@ Page({
         'Authorization': 'Bearer ' + app.globalData.token,
         'Content-Type': 'application/x-www-form-urlencoded'
       },
-      data: {
-        comment: this.data.commentContent
-      },
+      data: data,
       success: (res) => {
+
         wx.hideLoading()
         if (res.data.success) {
           wx.showToast({ title: '评论成功', icon: 'success' })
-          // 更新userComments，记录用户已经评论的资料ID
-          const userComments = { ...this.data.userComments }
-          userComments[materialId] = true
           this.setData({ 
             showCommentDialog: false,
             commentContent: '',
-            userComments: userComments
+            parentCommentId: null
           })
           // 刷新评论
           this.getComments(materialId)
@@ -471,15 +577,12 @@ Page({
       fail: (err) => {
         wx.hideLoading()
         // 处理 400 错误，显示后端返回的错误信息
-        console.log('评论失败错误信息:', err)
+
         if (err.errMsg && err.errMsg.includes('400')) {
-          // 更新userComments，记录用户已经评论的资料ID
-          const userComments = { ...this.data.userComments }
-          userComments[materialId] = true
           this.setData({ 
             showCommentDialog: false,
             commentContent: '',
-            userComments: userComments
+            parentCommentId: null
           })
           wx.showToast({ title: '您已经评论过该资料，不能重复评论', icon: 'none' })
         } else {
@@ -558,6 +661,43 @@ Page({
   // 取消评论
   cancelComment() {
     this.setData({ showCommentDialog: false, commentContent: '' })
+  },
+
+  // 删除评论
+  deleteComment(e) {
+    const commentId = e.currentTarget.dataset.commentId
+    const materialId = this.data.currentMaterial.id
+    
+    wx.showModal({
+      title: '确认删除',
+      content: '确定要删除该评论及其所有回复吗？',
+      success: (res) => {
+        if (res.confirm) {
+          wx.showLoading({ title: '删除中...' })
+          wx.request({
+            url: app.globalData.baseUrl + `/learning_materials/materials/${materialId}/comments/${commentId}`,
+            method: 'DELETE',
+            header: {
+              'Authorization': 'Bearer ' + app.globalData.token
+            },
+            success: (res) => {
+              wx.hideLoading()
+              if (res.data.success) {
+                wx.showToast({ title: '删除成功', icon: 'success' })
+                // 刷新评论
+                this.getComments(materialId)
+              } else {
+                wx.showToast({ title: res.data.message || '删除失败', icon: 'none' })
+              }
+            },
+            fail: (err) => {
+              wx.hideLoading()
+              wx.showToast({ title: '网络错误', icon: 'none' })
+            }
+          })
+        }
+      }
+    })
   },
 
   // 跳转到下载历史

@@ -193,7 +193,7 @@ const getKaogongInfo = async () => {
       kaogongTotal.value = 0
     }
   } catch (error) {
-    console.log('获取考公情报失败:', error) // 改为console.log，不报错
+
     kaogongInfoList.value = []
     kaogongTotal.value = 0
   } finally {

@@ -8,7 +8,7 @@ Page({
   
   onLoad() {
     // 页面加载时执行
-    console.log('修改密码页面加载');
+
   },
   
   // 旧密码输入
@@ -71,7 +71,7 @@ Page({
         new_password: newPassword
       }
     }).then(response => {
-      console.log('修改密码响应:', response);
+
       
       if (response.success) {
         // 修改成功，更新用户信息

@@ -51,13 +51,13 @@ Page({
   
   onLoad() {
     // 页面加载时执行
-    console.log('订阅管理页加载');
+
     this.getUserInfo();
   },
   
   onShow() {
     // 页面显示时执行
-    console.log('订阅管理页显示');
+
     this.getUserInfo();
   },
   
@@ -91,7 +91,7 @@ Page({
     const userInfo = this.data.userInfo;
     if (!userInfo) return;
     
-    console.log('用户信息:', userInfo);
+
     
     // 获取订阅类型
     let subscriptionType = '未订阅';
@@ -105,17 +105,12 @@ Page({
     
     // 计算剩余天数
     let remainingDays = 0;
-    console.log('is_vip:', userInfo.is_vip);
-    console.log('vip_end_time:', userInfo.vip_end_time);
+
     if (userInfo.is_vip && userInfo.vip_end_time) {
       const endTime = new Date(userInfo.vip_end_time);
       const now = new Date();
-      console.log('结束时间:', endTime);
-      console.log('当前时间:', now);
       const diffTime = endTime - now;
-      console.log('时间差:', diffTime);
       remainingDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      console.log('剩余天数:', remainingDays);
     }
     
     this.setData({

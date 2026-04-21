@@ -21,6 +21,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
+from fastapi.exceptions import RequestValidationError
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
@@ -62,6 +64,33 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
+# 自定义验证错误处理
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    import json
+    logger.error(f"请求验证失败: {exc}")
+    logger.error(f"请求路径: {request.url}")
+    logger.error(f"请求方法: {request.method}")
+    
+    try:
+        body = await request.body()
+        logger.error(f"请求body: {body.decode('utf-8')}")
+    except Exception as e:
+        logger.error(f"获取请求body时出错: {e}")
+        
+    return JSONResponse(
+        status_code=422,
+        content=jsonable_encoder({
+            "success": False,
+            "code": 422,
+            "message": "请求参数验证失败",
+            "data": {
+                "errors": exc.errors(),
+                "body": exc.body
+            }
+        }),
+    )
+
 # 配置CORS
 app.add_middleware(
     CORSMiddleware,
@@ -97,6 +126,35 @@ async def global_exception_handler(request: Request, exc: Exception):
             "code": 500,
             "message": "服务器内部错误",
             "data": None
+        }
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """请求验证错误处理"""
+    logger.error(f"请求验证错误: {request.method} {request.url}")
+    logger.error(f"验证错误详情: {str(exc)}")
+    
+    # 处理FormData类型的body
+    if hasattr(exc, 'body') and exc.body:
+        try:
+            # 尝试将body转换为字符串表示
+            body_str = str(exc.body)
+        except:
+            body_str = "无法序列化的body"
+    else:
+        body_str = None
+        
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "success": False,
+            "code": 422,
+            "message": "请求参数验证失败",
+            "data": {
+                "errors": jsonable_encoder(exc.errors()),
+                "body": body_str
+            }
         }
     )
 

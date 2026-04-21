@@ -26,7 +26,7 @@ Page({
   
   onLoad(options) {
     // 页面加载时执行
-    console.log('情报详情页加载', options);
+
     
     const id = options.id;
     this.fetchInfoDetail(id);
@@ -35,7 +35,7 @@ Page({
   
   onShow() {
     // 页面显示时执行
-    console.log('情报详情页显示');
+
   },
   
   // 获取情报详情

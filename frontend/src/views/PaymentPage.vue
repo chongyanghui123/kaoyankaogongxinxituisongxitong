@@ -240,10 +240,8 @@ const getCountdownKey = () => {
 // 保存倒计时数据
 const saveCountdown = () => {
   if (remainingTime.value > 0) {
-    console.log('Saving countdown:', remainingTime.value, 'to key:', getCountdownKey())
     localStorage.setItem(getCountdownKey(), remainingTime.value.toString())
   } else {
-    console.log('Removing countdown for key:', getCountdownKey())
     localStorage.removeItem(getCountdownKey())
   }
 }
@@ -252,11 +250,9 @@ const saveCountdown = () => {
 const loadCountdown = () => {
   const key = getCountdownKey()
   const savedTime = localStorage.getItem(key)
-  console.log('Loading countdown from key:', key, 'value:', savedTime)
   if (savedTime) {
     const parsedTime = parseInt(savedTime)
     if (parsedTime > 0) {
-      console.log('Loaded countdown time:', parsedTime)
       remainingTime.value = parsedTime
     }
   }
@@ -584,22 +580,18 @@ const createOrder = async () => {
       orderId.value = response.data.data.id // 更新订单ID
       
       // 订单创建成功后清除pendingUserData
-      localStorage.removeItem('pendingUserData')
-      
-      console.log('Order created, oldOrderId:', oldOrderId, 'newOrderId:', orderId.value)
-      console.log('Order user_id:', response.data.data.user_id)
-      
-      // 如果之前有临时倒计时数据，迁移到新的订单ID下
-      if (oldOrderId === 'temp') {
-        const tempKey = `payment_countdown_temp`
-        const savedTime = localStorage.getItem(tempKey)
-        if (savedTime) {
-          const newKey = `payment_countdown_${orderId.value}`
-          console.log('Migrating countdown data from', tempKey, 'to', newKey, 'time:', savedTime)
-          localStorage.setItem(newKey, savedTime)
-          localStorage.removeItem(tempKey)
-        }
+    localStorage.removeItem('pendingUserData')
+    
+    // 如果之前有临时倒计时数据，迁移到新的订单ID下
+    if (oldOrderId === 'temp') {
+      const tempKey = `payment_countdown_temp`
+      const savedTime = localStorage.getItem(tempKey)
+      if (savedTime) {
+        const newKey = `payment_countdown_${orderId.value}`
+        localStorage.setItem(newKey, savedTime)
+        localStorage.removeItem(tempKey)
       }
+    }
     } else {
       throw new Error(response.data?.message || '创建订单失败')
     }
@@ -612,10 +604,6 @@ const createOrder = async () => {
 
 // 组件挂载时
 onMounted(async () => {
-  console.log('PaymentPage mounted')
-  console.log('Initial orderId:', orderId.value)
-  console.log('Initial productId:', productId.value)
-  
   // 确保产品ID存在
   if (!productId.value) {
     ElMessage.error('缺少产品ID')
@@ -624,27 +612,21 @@ onMounted(async () => {
   }
   
   // 先加载倒计时数据
-  console.log('Loading saved countdown data...')
   loadCountdown()
   
   if (orderId.value) {
     // 如果有订单ID，获取订单详情
-    console.log('Loading order details for orderId:', orderId.value)
     await getOrderDetail(orderId.value)
-    console.log('Starting countdown with orderId:', orderId.value)
     startCountdown()
   } else {
     // 先设置临时订单ID
     orderId.value = 'temp'
-    console.log('Starting temporary countdown with orderId:', orderId.value)
     startCountdown()
     
     // 然后创建新订单
-    console.log('Creating new order...')
     await createOrder()
     
     // 订单创建成功后，重新启动倒计时
-    console.log('Order created successfully, new orderId:', orderId.value)
     startCountdown()
   }
 })

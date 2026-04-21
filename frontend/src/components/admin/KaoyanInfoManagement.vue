@@ -194,7 +194,7 @@ const getKaoyanInfo = async () => {
       kaoyanTotal.value = 0
     }
   } catch (error) {
-    console.log('获取考研情报失败:', error) // 改为console.log，不报错
+
     kaoyanInfoList.value = []
     kaoyanTotal.value = 0
   } finally {

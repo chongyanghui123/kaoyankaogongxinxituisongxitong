@@ -8,13 +8,13 @@ Page({
   
   onLoad() {
     // 页面加载时执行
-    console.log('个人中心页加载');
+
     this.getUserInfo();
   },
   
   onShow() {
     // 页面显示时执行
-    console.log('个人中心页显示');
+
     this.getUserInfo();
   },
   
@@ -61,12 +61,9 @@ Page({
   
   // 登录
   async login() {
-    console.log('开始登录');
     const { phone, password } = this.data;
-    console.log('手机号:', phone, '密码:', password);
     
     if (!phone || !password) {
-      console.log('请输入手机号和密码');
       wx.showToast({
         title: '请输入手机号和密码',
         icon: 'none'
@@ -74,13 +71,10 @@ Page({
       return;
     }
     
-    console.log('调用app.login方法');
     const app = getApp();
     try {
       const result = await app.login(phone, password);
-      console.log('登录结果:', result);
       if (result) {
-        console.log('登录成功，更新用户信息');
         this.setData({
           userInfo: app.globalData.userInfo
         });

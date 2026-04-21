@@ -11,7 +11,7 @@ Page({
   
   onLoad() {
     // 页面加载时执行
-    console.log('消息中心页加载');
+
     this.getUserInfo();
     this.fetchMessages();
   },
@@ -30,7 +30,7 @@ Page({
   
   onShow() {
     // 页面显示时执行
-    console.log('消息中心页显示');
+
     // 重新获取用户信息，确保用户类型的变化能够及时反映
     this.getUserInfo();
   },
@@ -48,7 +48,6 @@ Page({
   
   // 格式化时间
   formatTime(timeStr) {
-    console.log('格式化时间前:', timeStr);
     // 处理 ISO 格式的时间字符串
     if (timeStr && typeof timeStr === 'string') {
       // 替换 'T' 为空格
@@ -58,7 +57,6 @@ Page({
         timeStr = timeStr.split('.')[0];
       }
     }
-    console.log('格式化时间后:', timeStr);
     return timeStr;
   },
 

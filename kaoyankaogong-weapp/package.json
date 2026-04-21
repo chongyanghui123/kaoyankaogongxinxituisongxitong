@@ -1,12 +1,14 @@
 {
   "name": "kaoyankaogong-weapp",
   "version": "1.0.0",
-  "description": "",
+  "description": "考研考公信息推送小程序",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "echo \"请使用微信开发者工具打开项目\"",
+    "check": "node -c pages/**/*.js app.js"
   },
-  "keywords": [],
+  "keywords": ["wechat", "mini-program", "kaoyan", "kaogong"],
   "author": "",
   "license": "ISC",
   "type": "commonjs"

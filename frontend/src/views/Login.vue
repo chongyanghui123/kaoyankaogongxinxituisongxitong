@@ -73,8 +73,17 @@ const login = async () => {
         }))
         
         ElMessage.success('登录成功')
-        // 登录成功后跳转到管理后台
-        router.push('/admin')
+        // 登录成功后根据用户类型跳转
+        if (is_admin) {
+          // 管理员跳转到管理后台
+          router.push('/admin')
+        } else {
+          // 普通用户跳转到其他页面，比如个人中心
+          ElMessage.error('您不是管理员，无法访问管理后台')
+          // 清除已存储的token和用户信息
+          localStorage.removeItem('token')
+          localStorage.removeItem('userInfo')
+        }
       } catch (error) {
         console.error('登录失败:', error)
         console.error('错误信息:', error.message)

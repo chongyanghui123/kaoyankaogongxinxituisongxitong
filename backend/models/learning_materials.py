@@ -95,6 +95,7 @@ class MaterialComment(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, comment="用户ID")
     material_id = Column(Integer, ForeignKey("learning_materials.id"), nullable=False, comment="资料ID")
+    parent_comment_id = Column(Integer, ForeignKey("material_comments.id"), nullable=True, comment="父评论ID（回复功能）")
     comment = Column(Text, nullable=False, comment="评论内容")
     created_at = Column(DateTime, default=func.now(), comment="创建时间")
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), comment="更新时间")
@@ -102,6 +103,7 @@ class MaterialComment(Base):
     # 关系
     user = relationship("User", backref="comments")
     material = relationship("LearningMaterial", back_populates="comments")
+    parent_comment = relationship("MaterialComment", remote_side=[id], backref="replies")
 
 
 class UserMaterialFavorite(Base):

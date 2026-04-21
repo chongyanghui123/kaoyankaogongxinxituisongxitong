@@ -11,7 +11,7 @@ Page({
   
   onLoad() {
     // 页面加载时执行
-    console.log('首页加载');
+
     this.getUserInfo();
     this.fetchData();
   },
@@ -74,7 +74,7 @@ Page({
   
   onShow() {
     // 页面显示时执行
-    console.log('首页显示');
+
     // 重新获取用户信息，确保登录状态更新
     this.getUserInfo();
     
@@ -96,7 +96,7 @@ Page({
       // 检查用户是否登录
       if (!app.globalData.userInfo) {
         // 用户未登录，不获取数据
-        console.log('用户未登录，跳过数据获取');
+
         return;
       }
       

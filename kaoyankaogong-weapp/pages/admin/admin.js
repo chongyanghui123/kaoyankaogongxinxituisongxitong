@@ -11,13 +11,13 @@ Page({
   
   onLoad() {
     // 页面加载时执行
-    console.log('管理员页面加载');
+
     this.fetchSystemStats();
   },
   
   onShow() {
     // 页面显示时执行
-    console.log('管理员页面显示');
+
   },
   
   // 获取系统统计数据

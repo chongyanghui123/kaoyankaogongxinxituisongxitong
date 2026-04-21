@@ -31,7 +31,7 @@ Page({
       },
       success: (res) => {
         wx.hideLoading()
-        console.log('个人中心用户信息:', res.data)
+
         
         // 检查返回数据格式并转换
         let userData = res.data

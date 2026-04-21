@@ -225,7 +225,7 @@ const getKaogongInfo = async () => {
     kaogongInfoList.value = []
     total.value = 0
   } catch (error) {
-    console.log('获取考公情报失败:', error) // 改为console.log，不报错
+
     kaogongInfoList.value = []
     total.value = 0
   } finally {
@@ -238,7 +238,7 @@ const getProvinces = async () => {
   try {
     // 目前未开发，使用默认数据
   } catch (error) {
-    console.log('获取省份列表失败:', error) // 改为console.log，不报错
+
   }
 }
 
@@ -247,7 +247,7 @@ const getPositionTypes = async () => {
   try {
     // 目前未开发，使用默认数据
   } catch (error) {
-    console.log('获取岗位类别列表失败:', error) // 改为console.log，不报错
+
   }
 }
 

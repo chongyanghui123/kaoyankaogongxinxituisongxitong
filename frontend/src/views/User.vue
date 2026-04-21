@@ -596,17 +596,10 @@ const savePushSettings = async () => {
       timeStr = `${hours}:${minutes}`
     }
     
-    console.log('发送推送设置请求:', {
-      frequency: pushSettings.frequency,
-      time: timeStr
-    })
-    
     const response = await axios.put('/api/v1/users/push-settings', {
       frequency: pushSettings.frequency,
       time: timeStr
     })
-    
-    console.log('推送设置保存响应:', response.data)
     
     if (response.data.success) {
       ElMessage.success('推送设置保存成功')

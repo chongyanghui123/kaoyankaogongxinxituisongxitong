@@ -220,7 +220,7 @@ export default {
       try {
         // 这里应该调用API保存用户的推送设置
         // 暂时模拟保存
-        console.log('保存用户推送设置:', this.pushSettings)
+
         alert('设置保存成功')
       } catch (error) {
         console.error('保存用户设置失败:', error)

@@ -614,7 +614,7 @@ const saveUser = async () => {
         // 刷新用户列表
         getUsers()
       } else {
-        console.log('表单验证失败:', fields)
+
         ElMessage.error('请检查表单填写是否正确')
       }
     })
@@ -659,7 +659,7 @@ const deleteUser = async (userId) => {
 
 // 查看用户需求
 const viewUserRequirements = async (userId) => {
-  console.log('viewUserRequirements被调用，userId:', userId)
+
   // 找到用户
   const user = users.value.find(u => u.id === userId)
   if (!user) {
@@ -668,21 +668,21 @@ const viewUserRequirements = async (userId) => {
   }
   
   currentUser.value = user
-  console.log('currentUser.value:', currentUser.value)
+
   
   try {
     // 调用API获取用户需求（添加时间戳防止缓存）
     const token = localStorage.getItem('token')
-    console.log('token:', token)
-    console.log('API URL:', `/api/v1/admin/users/${userId}/requirements?timestamp=${Date.now()}`)
+
+
     const response = await axios.get(`/api/v1/admin/users/${userId}/requirements?timestamp=${Date.now()}`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
     })
     
-    console.log('API返回的数据:', response.data)
-    console.log('API返回的推送设置:', response.data.push)
+
+
     // 确保response.data是一个对象
     if (!response.data) {
       response.data = {}
@@ -693,10 +693,10 @@ const viewUserRequirements = async (userId) => {
     }
     // 直接设置currentUserRequirements.value
     currentUserRequirements.value = response.data
-    console.log('currentUserRequirements.value:', currentUserRequirements.value)
-    console.log('currentUserRequirements.value.push:', currentUserRequirements.value.push)
-    console.log('currentUserRequirements.value.push.frequency:', currentUserRequirements.value.push.frequency)
-    console.log('currentUserRequirements.value.push.time:', currentUserRequirements.value.push.time)
+
+
+
+
     
     // 不要根据用户类型设置默认标签页，保留之前的设置
     // 这样在saveUserRequirements函数中设置的标签页就不会被覆盖
@@ -774,9 +774,9 @@ const saveUserRequirements = async () => {
     
     // 时间选择器已经使用value-format="HH:mm"，不需要再格式化
     
-    console.log('currentUser.value:', currentUser.value)
-    console.log('currentUser.value.id:', currentUser.value.id)
-    console.log('发送给后端的数据:', data)
+
+
+
     
     await axios.put(`/api/v1/admin/users/${currentUser.value.id}/requirements`, data, {
       headers: {

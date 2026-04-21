@@ -1,4 +1,29 @@
 <!-- pages/learning-materials/learning-materials.wxml -->
+<wxs module="utils">
+module.exports = {
+  floor: function(val) {
+    return Math.floor(val);
+  },
+  toFixed: function(val, num) {
+    return val.toFixed(num);
+  },
+  getFullStars: function(rating) {
+    // 调试日志
+    console.log('getFullStars called with rating:', rating);
+    var fullStars = Math.floor(rating / 2);
+    console.log('getFullStars returned:', fullStars);
+    return fullStars;
+  },
+  hasHalfStar: function(rating) {
+    // 调试日志
+    console.log('hasHalfStar called with rating:', rating);
+    var stars = rating / 2;
+    var hasHalf = (stars - Math.floor(stars)) >= 0.5;
+    console.log('hasHalfStar returned:', hasHalf);
+    return hasHalf;
+  }
+}
+</wxs>
 <view class="container">
   <!-- 搜索和筛选 -->
   <view class="search-filter">
@@ -41,7 +66,7 @@
       data-id="{{ item.id }}"
     >
       <view class="material-cover" wx:if="{{ item.cover_image }}">
-        <image src="{{ 'http://192.168.1.154:8000' + item.cover_image }}" mode="aspectFill" />
+        <image src="{{ 'http://localhost:8000' + item.cover_image }}" mode="aspectFill" />
       </view>
       <view class="material-cover placeholder" wx:else>
         <text class="cover-icon">📄</text>
@@ -56,27 +81,25 @@
         <view class="material-info">
           <text class="material-size">{{ formatFileSize(item.file_size) }}</text>
           <text class="material-downloads">{{ item.download_count }} 次下载</text>
-          <view class="material-rating">
-            <text wx:for="{{ 5 }}" wx:key="index" class="star">{{ index < Math.round(item.rating) ? '★' : '☆' }}</text>
-          </view>
+          <text class="material-rating">{{ utils.toFixed(item.rating, 1) }}分</text>
         </view>
         <view class="material-actions">
           <button 
-            bindtap="downloadMaterial" 
+            catchtap="downloadMaterial" 
             data-id="{{ item.id }}"
             class="download-btn"
           >
             下载
           </button>
           <button 
-            bindtap="rateMaterial" 
+            catchtap="rateMaterial" 
             data-id="{{ item.id }}"
             class="rate-btn"
           >
             评分
           </button>
           <button 
-            bindtap="handleFavorite" 
+            catchtap="handleFavorite" 
             data-id="{{ item.id }}"
             class="favorite-btn {{ userFavorites[item.id] ? 'active' : '' }}"
           >
@@ -111,7 +134,7 @@
     </view>
     <view class="detail-body">
       <view class="detail-cover" wx:if="{{ currentMaterial.cover_image }}">
-        <image src="{{ 'http://192.168.1.154:8000' + currentMaterial.cover_image }}" mode="aspectFill" />
+        <image src="{{ 'http://localhost:8000' + currentMaterial.cover_image }}" mode="aspectFill" />
       </view>
       <view class="detail-info">
         <view class="detail-meta">
@@ -122,9 +145,7 @@
         <view class="detail-stats">
           <text class="detail-size">{{ formatFileSize(currentMaterial.file_size) }}</text>
           <text class="detail-downloads">{{ currentMaterial.download_count }} 次下载</text>
-          <view class="detail-rating">
-            <text wx:for="{{ 5 }}" wx:key="index" class="star">{{ index < Math.round(currentMaterial.rating) ? '★' : '☆' }}</text>
-          </view>
+          <text class="detail-rating">{{ utils.toFixed(currentMaterial.rating, 1) }}分</text>
         </view>
         <view class="detail-description">
           <text class="description-label">资料描述</text>
@@ -160,13 +181,20 @@
       <view class="comments-section">
         <text class="comments-title">评论</text>
         <view class="comments-list">
-          <view wx:for="{{ comments }}" wx:key="id" class="comment-item">
-            <view class="comment-header">
-              <text class="comment-user">{{ item.user_name }}</text>
-              <text class="comment-time">{{ item.created_at }}</text>
+          <block wx:for="{{ comments }}" wx:key="id">
+            <view class="comment-item" style="margin-left: {{ item.depth * 40 }}rpx;">
+              <view class="comment-header">
+                <text class="comment-user">{{ item.user_name }}</text>
+                <text class="comment-time">{{ item.created_at }}</text>
+              </view>
+              <text class="comment-content">{{ item.comment }}</text>
+              <view class="comment-actions">
+                <text class="reply-btn" bindtap="onReply" data-parent-id="{{ item.id }}">回复</text>
+                <text class="delete-btn" wx:if="{{ item.user_id === userInfo.id }}" bindtap="deleteComment" data-comment-id="{{ item.id }}">删除</text>
+              </view>
             </view>
-            <text class="comment-content">{{ item.comment }}</text>
-          </view>
+          </block>
+          
           <view wx:if="{{ comments.length === 0 }}" class="no-comments">
             <text>暂无评论</text>
           </view>
@@ -179,7 +207,7 @@
   <view class="dialog-overlay" wx:if="{{ showRateDialog }}" bindtap="cancelRating"></view>
   <view class="dialog" wx:if="{{ showRateDialog }}">
     <view class="dialog-header">
-      <text class="dialog-title">给资料评分</text>
+      <text class="dialog-title">给资料评分（满分10分）</text>
       <text class="dialog-close" bindtap="cancelRating">×</text>
     </view>
     <view class="dialog-body">
@@ -189,10 +217,11 @@
           wx:key="index" 
           class="star {{ index < ratingValue ? 'active' : '' }}"
           bindtap="handleRatingChange"
-          data-value="{{ index + 1 }}"
+          data-value="{{ (index + 1) * 2 }}"
         >
           ★
         </text>
+        <text class="rating-display">{{ ratingValue * 2 }}分</text>
       </view>
     </view>
     <view class="dialog-footer">

@@ -56,6 +56,10 @@
             <el-icon><Download /></el-icon>
             <span>学习资料管理</span>
           </el-menu-item>
+          <el-menu-item index="/admin/comments">
+            <el-icon><ChatDotRound /></el-icon>
+            <span>评论管理</span>
+          </el-menu-item>
 
           <el-dropdown>
             <span class="el-dropdown-link user-dropdown">
@@ -105,6 +109,9 @@
           <!-- 学习资料管理 -->
           <LearningMaterialManagement v-if="activeIndex === '/admin/materials'" />
           
+          <!-- 评论管理 -->
+          <CommentManagement v-if="activeIndex === '/admin/comments'" />
+          
 
         </div>
       </el-main>
@@ -123,7 +130,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowDown, Search, User, Refresh, ShoppingCart, Setting, Document, DataAnalysis, Paperclip, CreditCard, Message, Bell, Download } from '@element-plus/icons-vue'
+import { ArrowDown, Search, User, Refresh, ShoppingCart, Setting, Document, DataAnalysis, Paperclip, CreditCard, Message, Bell, Download, ChatDotRound } from '@element-plus/icons-vue'
 import axios from 'axios'
 
 // 导入模块化组件
@@ -137,6 +144,7 @@ import SystemConfigManagement from '../components/admin/SystemConfigManagement.v
 import SystemOverview from '../components/admin/SystemOverview.vue'
 import PushManagement from '../components/admin/PushManagement.vue'
 import LearningMaterialManagement from '../components/admin/LearningMaterialManagement.vue'
+import CommentManagement from '../components/admin/CommentManagement.vue'
 
 
 // const router = useRouter()

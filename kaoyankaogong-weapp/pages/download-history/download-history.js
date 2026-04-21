@@ -119,7 +119,7 @@ Page({
           filePath: filePath,
           showMenu: true,
           success: (res) => {
-            console.log('打开文件成功')
+
           },
           fail: (err) => {
             wx.showToast({ title: '打开文件失败', icon: 'none' })

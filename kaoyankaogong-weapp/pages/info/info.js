@@ -20,7 +20,7 @@ Page({
   
   onLoad(options) {
     // 页面加载时执行
-    console.log('情报列表页加载', options);
+
     
     if (options.search) {
       this.setData({
@@ -34,12 +34,11 @@ Page({
   
   onShow() {
     // 页面显示时执行
-    console.log('情报列表页显示');
+
   },
   
   // 格式化时间
   formatTime(timeStr) {
-    console.log('格式化时间前:', timeStr);
     // 处理 ISO 格式的时间字符串
     if (timeStr && typeof timeStr === 'string') {
       // 替换 'T' 为空格
@@ -49,7 +48,6 @@ Page({
         timeStr = timeStr.split('.')[0];
       }
     }
-    console.log('格式化时间后:', timeStr);
     return timeStr;
   },
 

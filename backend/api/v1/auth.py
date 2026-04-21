@@ -368,6 +368,12 @@ async def login(
 ):
     """用户登录接口"""
     try:
+        # 检查是否是管理员登录（只有邮箱和密码）
+        # 如果是邮箱格式，则可能是管理员登录
+        import re
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        is_email = re.match(email_pattern, req.username)
+        
         # 查找用户
         user = db.query(User).filter(
             (User.username == req.username) |
@@ -383,6 +389,30 @@ async def login(
                     "success": False,
                     "code": 401,
                     "message": "用户名或密码错误",
+                    "data": None
+                }
+            )
+        
+        # 检查用户是否是管理员
+        if not user.is_admin:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={
+                    "success": False,
+                    "code": 401,
+                    "message": "只允许管理员登录",
+                    "data": None
+                }
+            )
+        
+        # 如果找到用户且是管理员，但登录凭证不是邮箱格式，则拒绝登录
+        if user.is_admin and not is_email:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={
+                    "success": False,
+                    "code": 401,
+                    "message": "管理员只能使用邮箱登录",
                     "data": None
                 }
             )

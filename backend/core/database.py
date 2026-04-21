@@ -22,6 +22,7 @@ def create_db_engine(database_name: str):
         db_url = (
             f"mysql+pymysql://{settings.DATABASE_USER}:{settings.DATABASE_PASSWORD}@"
             f"{settings.DATABASE_HOST}:{settings.DATABASE_PORT}/{database_name}"
+            "?charset=utf8mb4"
         )
         print(f"使用MySQL数据库: {db_url}")
         
