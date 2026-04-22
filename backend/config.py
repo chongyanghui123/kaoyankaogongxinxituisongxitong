@@ -121,6 +121,14 @@ class Settings(BaseSettings):
     # 爬虫配置扩展
     CRAWLER_RETRY_TIMES: int = int(os.getenv("CRAWLER_RETRY_TIMES", "3"))
     
+    # 阿里云OSS配置
+    OSS_ENABLED: bool = os.getenv("OSS_ENABLED", "false").lower() == "true"
+    OSS_ACCESS_KEY_ID: str = os.getenv("OSS_ACCESS_KEY_ID", "")
+    OSS_ACCESS_KEY_SECRET: str = os.getenv("OSS_ACCESS_KEY_SECRET", "")
+    OSS_BUCKET_NAME: str = os.getenv("OSS_BUCKET_NAME", "")
+    OSS_ENDPOINT: str = os.getenv("OSS_ENDPOINT", "")
+    OSS_REGION: str = os.getenv("OSS_REGION", "")
+    
 
     
     class Config:

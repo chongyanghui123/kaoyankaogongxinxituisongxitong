@@ -15,6 +15,7 @@ import uuid
 from core.database import get_db_common
 from core.security import get_current_user
 from core.logger import log_user_action, log_error
+from core.oss_uploader import oss_uploader
 from models.learning_materials import MaterialCategory, LearningMaterial, UserDownload, MaterialRating, MaterialComment, UserMaterialFavorite
 from models.users import User, UserSubscription
 
@@ -457,27 +458,43 @@ async def upload_learning_material(
                 }
             )
         
-        # 创建文件存储目录
-        upload_dir = "uploads"
-        if not os.path.exists(upload_dir):
-            os.makedirs(upload_dir)
-        
-        # 保存文件
+        # 上传文件到OSS或本地
         file_extension = os.path.splitext(file.filename)[1]
-        file_name = f"{uuid.uuid4()}{file_extension}"
-        file_path = os.path.join(upload_dir, file_name)
-        with open(file_path, "wb") as f:
-            f.write(await file.read())
+        file_data = await file.read()
+        
+        # 优先使用OSS
+        file_url = oss_uploader.upload_file(file_data, file.filename)
+        
+        if file_url:
+            # 使用OSS存储
+            file_path = file_url
+        else:
+            # 回退到本地存储
+            upload_dir = "uploads"
+            if not os.path.exists(upload_dir):
+                os.makedirs(upload_dir)
+            file_name = f"{uuid.uuid4()}{file_extension}"
+            file_path = os.path.join(upload_dir, file_name)
+            with open(file_path, "wb") as f:
+                f.write(file_data)
+            file_url = f"/uploads/{file_name}"
         
         # 保存封面图片（如果有）
         cover_image_url = None
         if cover_image:
+            cover_image_data = await cover_image.read()
             cover_extension = os.path.splitext(cover_image.filename)[1]
-            cover_name = f"{uuid.uuid4()}{cover_extension}"
-            cover_path = os.path.join(upload_dir, cover_name)
-            with open(cover_path, "wb") as f:
-                f.write(await cover_image.read())
-            cover_image_url = f"/uploads/{cover_name}"
+            cover_image_url = oss_uploader.upload_file(cover_image_data, cover_image.filename)
+            
+            if not cover_image_url:
+                # 回退到本地存储
+                if not os.path.exists(upload_dir):
+                    os.makedirs(upload_dir)
+                cover_name = f"{uuid.uuid4()}{cover_extension}"
+                cover_path = os.path.join(upload_dir, cover_name)
+                with open(cover_path, "wb") as f:
+                    f.write(cover_image_data)
+                cover_image_url = f"/uploads/{cover_name}"
         
         # 创建资料
         material = LearningMaterial(
@@ -487,8 +504,8 @@ async def upload_learning_material(
             category_id=category_id,
             subject=subject,
             file_path=file_path,
-            file_url=f"/uploads/{file_name}",
-            file_size=os.path.getsize(file_path),
+            file_url=file_url,
+            file_size=len(file_data),
             file_extension=file_extension,
             cover_image=cover_image_url,
             uploader_id=current_user.id,
