@@ -57,6 +57,12 @@
       <view class="menu-text">学习资料</view>
       <view class="menu-arrow">→</view>
     </view>
+    <view class="menu-item" bindtap="navigateToFeedback">
+      <view class="menu-icon">📝</view>
+      <view class="menu-text">体验反馈</view>
+      <view class="menu-arrow">→</view>
+    </view>
+    
     <view class="menu-item" bindtap="navigateToSettings">
       <view class="menu-icon">⚙️</view>
       <view class="menu-text">设置</view>

@@ -393,29 +393,33 @@ async def login(
                 }
             )
         
-        # 检查用户是否是管理员
-        if not user.is_admin:
-            return JSONResponse(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                content={
-                    "success": False,
-                    "code": 401,
-                    "message": "只允许管理员登录",
-                    "data": None
-                }
-            )
-        
-        # 如果找到用户且是管理员，但登录凭证不是邮箱格式，则拒绝登录
-        if user.is_admin and not is_email:
-            return JSONResponse(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                content={
-                    "success": False,
-                    "code": 401,
-                    "message": "管理员只能使用邮箱登录",
-                    "data": None
-                }
-            )
+        # 检查用户登录方式
+        # 管理员必须使用邮箱登录
+        # 普通用户可以使用手机号登录
+        if user.is_admin:
+            # 管理员必须使用邮箱登录
+            if not is_email:
+                return JSONResponse(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    content={
+                        "success": False,
+                        "code": 401,
+                        "message": "管理员只能使用邮箱登录",
+                        "data": None
+                    }
+                )
+        else:
+            # 普通用户必须使用手机号登录
+            if not req.username.isdigit():
+                return JSONResponse(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    content={
+                        "success": False,
+                        "code": 401,
+                        "message": "普通用户只能使用手机号登录",
+                        "data": None
+                    }
+                )
         
         # 验证密码
         password_valid = False

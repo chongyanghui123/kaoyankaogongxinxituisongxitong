@@ -232,9 +232,10 @@ async def app_info():
         }
     }
 
-# 导入消息和情报路由
+# 导入消息、情报和反馈路由
 from api.v1.message import router as message_router
 from api.v1.info import router as info_router
+from api.v1.feedback import router as feedback_router
 
 # 注册路由
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["认证"])
@@ -249,6 +250,7 @@ app.include_router(info_router, prefix="/api/v1/info", tags=["情报"])
 app.include_router(admin_router, prefix="/api/v1/admin", tags=["管理后台"])
 app.include_router(school_management_router, prefix="/api/v1/school-management", tags=["学校管理"])
 app.include_router(learning_materials_router, prefix="/api/v1/learning_materials", tags=["学习资料"])
+app.include_router(feedback_router, prefix="/api/v1/feedback", tags=["反馈"])
 app.include_router(utils_router, prefix="/api/v1/utils", tags=["工具"])
 
 # 启动事件
@@ -268,6 +270,7 @@ async def startup_event():
             from models.kaoyan import KaoyanInfo, KaoyanCrawlerConfig, KaoyanCrawlerLog  # 导入考研相关模型
             from models.kaogong import KaogongInfo, KaogongCrawlerConfig, KaogongCrawlerLog  # 导入考公相关模型
             from models.learning_materials import MaterialCategory, LearningMaterial, UserDownload, MaterialRating, MaterialComment  # 导入学习资料相关模型
+            from models.feedback import Feedback  # 导入反馈相关模型
             BaseCommon.metadata.create_all(bind=common_db_engine)
             BaseKaoyan.metadata.create_all(bind=kaoyan_db_engine)
             BaseKaogong.metadata.create_all(bind=kaogong_db_engine)

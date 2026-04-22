@@ -60,6 +60,10 @@
             <el-icon><ChatDotRound /></el-icon>
             <span>评论管理</span>
           </el-menu-item>
+          <el-menu-item index="/admin/feedback">
+            <el-icon><Message /></el-icon>
+            <span>体验反馈管理</span>
+          </el-menu-item>
 
           <el-dropdown>
             <span class="el-dropdown-link user-dropdown">
@@ -112,6 +116,9 @@
           <!-- 评论管理 -->
           <CommentManagement v-if="activeIndex === '/admin/comments'" />
           
+          <!-- 体验反馈管理 -->
+          <FeedbackManagement v-if="activeIndex === '/admin/feedback'" />
+          
 
         </div>
       </el-main>
@@ -145,6 +152,7 @@ import SystemOverview from '../components/admin/SystemOverview.vue'
 import PushManagement from '../components/admin/PushManagement.vue'
 import LearningMaterialManagement from '../components/admin/LearningMaterialManagement.vue'
 import CommentManagement from '../components/admin/CommentManagement.vue'
+import FeedbackManagement from '../components/admin/FeedbackManagement.vue'
 
 
 // const router = useRouter()

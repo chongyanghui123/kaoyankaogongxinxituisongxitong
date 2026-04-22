@@ -152,6 +152,21 @@ Page({
     });
   },
   
+  // 导航到体验反馈
+  navigateToFeedback() {
+    if (!this.data.userInfo) {
+      wx.showToast({
+        title: '请先登录',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    wx.navigateTo({
+      url: '/pages/feedback/feedback'
+    });
+  },
+  
   // 导航到设置
   navigateToSettings() {
     if (!this.data.userInfo) {

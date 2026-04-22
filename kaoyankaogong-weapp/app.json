@@ -7,6 +7,7 @@
     "pages/subscription/subscription",
     "pages/message/message",
     "pages/collection/collection",
+    "pages/feedback/feedback",
     "pages/settings/settings",
     "pages/personal-center/personal-center",
     "pages/admin/admin",

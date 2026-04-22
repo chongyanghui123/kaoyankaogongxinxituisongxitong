@@ -49,7 +49,7 @@
   },
   "compileType": "miniprogram",
   "libVersion": "3.15.1",
-  "appid": "wx61675629fe43d78e",
+  "appid": "touristappid",
   "projectname": "双赛道情报通",
   "isGameTourist": false,
   "condition": {

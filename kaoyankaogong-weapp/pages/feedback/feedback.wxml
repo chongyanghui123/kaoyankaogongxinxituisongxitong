@@ -1,0 +1,93 @@
+<!-- feedback.wxml -->
+<view class="container">
+  <!-- 导航栏 -->
+  <view class="nav-bar">
+    <view class="nav-back" bindtap="goBack">
+      <text>←</text>
+    </view>
+    <view class="nav-title">体验反馈</view>
+    <view class="nav-right"></view>
+  </view>
+  
+  <!-- 反馈表单 -->
+  <view class="feedback-form">
+    <view class="form-item">
+      <view class="form-label">反馈类型</view>
+      <picker bindchange="bindFeedbackTypeChange" value="{{feedbackTypeIndex}}" range="{{feedbackTypes}}">
+        <view class="picker-text">{{feedbackTypes[feedbackTypeIndex]}}</view>
+      </picker>
+    </view>
+    
+    <view class="form-item">
+      <view class="form-label">
+        <text>反馈内容</text>
+        <text class="char-count">{{content.length}}/500</text>
+      </view>
+      <textarea placeholder="请输入您的反馈内容，详细描述您的建议或问题" bindinput="bindContentInput" value="{{content}}" maxlength="500" />
+    </view>
+    
+    <view class="form-item">
+      <view class="form-label">联系方式 (选填)</view>
+      <input placeholder="请输入您的手机号或邮箱" bindinput="bindContactInput" value="{{contact}}" />
+    </view>
+    
+    <button class="submit-btn" bindtap="submitFeedback" loading="{{loading}}">
+      {{loading ? '提交中...' : '提交反馈'}}
+    </button>
+  </view>
+  
+  <!-- 历史反馈 -->
+  <view class="history-section">
+    <view class="section-title">历史反馈</view>
+    
+    <view class="feedback-list" wx:if="{{feedbackHistory.length > 0}}">
+      <view class="feedback-item" wx:for="{{feedbackHistory}}" wx:key="id">
+        <view class="feedback-item-header">
+          <view class="feedback-item-type">{{feedbackTypes[item.type - 1]}}</view>
+          <view class="feedback-item-time">{{item.created_at}}</view>
+        </view>
+        <view class="feedback-item-content">{{item.content}}</view>
+        <view class="feedback-item-reply" wx:if="{{item.reply}}">
+          <view class="reply-header">
+            <text class="reply-icon">💬</text>
+            <text class="reply-title">管理员回复</text>
+          </view>
+          <view class="reply-content">{{item.reply}}</view>
+          <view class="reply-time" wx:if="{{item.reply_at}}">{{item.reply_at}}</view>
+        </view>
+        <view class="feedback-item-footer">
+          <view class="feedback-item-contact" wx:if="{{item.contact}}">
+            <text class="contact-label">联系方式：</text>
+            <text class="contact-value">{{item.contact}}</text>
+          </view>
+          <view class="feedback-item-actions">
+            <view class="feedback-item-status" wx:if="{{item.status === 'pending'}}">
+              <text class="status-pending">处理中</text>
+            </view>
+            <view class="feedback-item-status" wx:elif="{{item.status === 'processed'}}">
+              <text class="status-processed">已处理</text>
+            </view>
+            <view class="withdraw-btn" wx:if="{{item.status === 'pending'}}" bindtap="withdrawFeedback" data-id="{{item.id}}">
+              撤回
+            </view>
+            <view class="delete-btn" wx:if="{{item.status === 'processed'}}" bindtap="deleteFeedback" data-id="{{item.id}}">
+              删除
+            </view>
+          </view>
+        </view>
+      </view>
+      <view class="loading-more" wx:if="{{loadingHistory}}">
+        <view class="loading"></view>
+        <text>加载中...</text>
+      </view>
+      <view class="no-more" wx:elif="{{!hasMore && feedbackHistory.length > 0}}">
+        <text>没有更多反馈了</text>
+      </view>
+    </view>
+    
+    <view class="empty-history" wx:else>
+      <view class="empty-icon">📭</view>
+      <view class="empty-text">暂无历史反馈</view>
+    </view>
+  </view>
+</view>

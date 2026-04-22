@@ -655,6 +655,21 @@ async def delete_learning_material(
                 }
             )
         
+        # 删除相关记录
+        from models.learning_materials import UserDownload, MaterialRating, MaterialComment, UserMaterialFavorite
+        
+        # 删除下载记录
+        db.query(UserDownload).filter(UserDownload.material_id == material_id).delete()
+        
+        # 删除评分记录
+        db.query(MaterialRating).filter(MaterialRating.material_id == material_id).delete()
+        
+        # 删除评论记录
+        db.query(MaterialComment).filter(MaterialComment.material_id == material_id).delete()
+        
+        # 删除收藏记录
+        db.query(UserMaterialFavorite).filter(UserMaterialFavorite.material_id == material_id).delete()
+        
         # 删除文件
         if os.path.exists(material.file_path):
             os.remove(material.file_path)
