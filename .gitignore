@@ -58,3 +58,18 @@ backups/
 # Test files
 test*.py
 *.test.*
+
+# Uploads
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Database
+common_db.sql
+kaoyan_db.sql
+kaogong_db.sql
+
+# Docs
+docs/api_documentation.md
+docs/database.sql
+docs/deployment_guide.md
+docs/mock_data.sql

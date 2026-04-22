@@ -83,10 +83,7 @@ Page({
           icon: 'success'
         });
         
-        // 跳转到首页
-        wx.navigateTo({
-          url: '/pages/index/index'
-        });
+        // 不强制跳转到首页，让 app.js 中的跳转逻辑生效
       }
     } catch (error) {
       console.error('登录失败:', error);
@@ -98,14 +95,7 @@ Page({
     }
   },
   
-  // 退出登录
-  logout() {
-    const app = getApp();
-    app.logout();
-    this.setData({
-      userInfo: null
-    });
-  },
+
   
   // 导航到订阅管理
   navigateToSubscription() {

@@ -426,23 +426,24 @@ const getUserInfo = async (userId) => {
   
   try {
     const token = localStorage.getItem('token')
-    const response = await axios.get(`/api/v1/users/${userId}`, {
+    const response = await axios.get(`/api/v1/admin/users/${userId}`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
     })
     
-    if (response.data && response.data.success) {
-      const userInfo = response.data.data
+    // admin接口直接返回用户对象，而不是包裹在data字段中
+    if (response.data) {
+      const userInfo = response.data
       usersMap.value[userId] = userInfo.username || `用户${userId}`
       return usersMap.value[userId]
     }
   } catch (error) {
     console.error(`获取用户 ${userId} 信息失败:`, error)
+    // 当用户不存在时，直接返回默认值，避免错误传播
+    usersMap.value[userId] = `用户${userId}`
+    return usersMap.value[userId]
   }
-  
-  usersMap.value[userId] = `用户${userId}`
-  return usersMap.value[userId]
 }
 
 // 获取产品信息

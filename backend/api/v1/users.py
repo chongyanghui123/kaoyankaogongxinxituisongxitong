@@ -51,6 +51,7 @@ class SubscriptionConfig(BaseModel):
     """订阅配置模型"""
     kaoyan: dict
     kaogong: dict
+    push: Optional[dict] = Field({}, description="推送配置")
 
 class UpdateSubscriptionRequest(BaseModel):
     """更新订阅配置请求模型"""
@@ -367,16 +368,20 @@ async def update_subscription(
                 status=1,
                 config_json={
                     "kaoyan": req.config.kaoyan,
-                    "kaogong": req.config.kaogong
+                    "kaogong": req.config.kaogong,
+                    "push": req.config.push or {}
                 }
             )
             db.add(subscription)
         else:
             # 更新现有配置
             subscription.subscribe_type = req.subscribe_type
+            # 保留原有的推送配置（如果请求中没有提供）
+            existing_push_config = subscription.config_json.get("push", {})
             subscription.config_json = {
                 "kaoyan": req.config.kaoyan,
-                "kaogong": req.config.kaogong
+                "kaogong": req.config.kaogong,
+                "push": req.config.push or existing_push_config
             }
         
         db.commit()

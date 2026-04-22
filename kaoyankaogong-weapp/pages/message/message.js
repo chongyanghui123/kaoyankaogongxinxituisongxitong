@@ -33,6 +33,13 @@ Page({
 
     // 重新获取用户信息，确保用户类型的变化能够及时反映
     this.getUserInfo();
+    // 重新获取消息列表，确保消息及时更新
+    this.setData({
+      page: 1,
+      messages: [],
+      hasMore: true
+    });
+    this.fetchMessages();
   },
   
   // 切换标签
@@ -136,12 +143,9 @@ Page({
         });
         
         if (response.success) {
-          // 更新本地数据
+          // 更新本地数据，标记所有消息为已读（实现用户需求：点击一个消息，所有小红点消失）
           const messages = this.data.messages.map(message => {
-            if (message.id === id) {
-              return { ...message, read: true };
-            }
-            return message;
+            return { ...message, read: true };
           });
           
           this.setData({

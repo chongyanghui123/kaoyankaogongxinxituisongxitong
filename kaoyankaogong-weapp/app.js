@@ -1,10 +1,23 @@
 // app.js
 App({
+  onShow() {
+    // 小程序显示时执行
+    this.applyTheme(this.globalData.theme);
+  },
+  
   onLaunch() {
     // 初始化时执行
     
     // 检查登录状态
     this.checkLoginStatus();
+    
+    // 加载主题设置
+    this.loadTheme();
+    
+    // 监听页面路由变化，确保每个页面都应用主题
+    wx.onAppRoute(() => {
+      this.applyTheme(this.globalData.theme);
+    });
     
     // 跳转到我的页面
     wx.switchTab({
@@ -17,10 +30,6 @@ App({
     });
   },
   
-  onShow() {
-    // 小程序显示时执行
-  },
-  
   onHide() {
     // 小程序隐藏时执行
   },
@@ -28,7 +37,8 @@ App({
   globalData: {
     userInfo: null,
     token: '',
-    baseUrl: 'http://localhost:8000/api/v1' // 后端API基础地址
+    baseUrl: 'http://192.168.1.154:8000/api/v1', // 后端API基础地址
+    theme: 'default' // 默认主题
   },
   
   // 检查登录状态
@@ -66,7 +76,8 @@ App({
           is_vip: response.data.is_vip,
           is_admin: response.data.is_admin,
           vip_type: response.data.vip_type,
-          vip_end_time: response.data.vip_end_time
+          vip_end_time: response.data.vip_end_time,
+          need_change_password: response.data.need_change_password
         };
         
         // 存储到本地
@@ -119,15 +130,15 @@ App({
         success:(res) => {
           if (res.statusCode === 200) {
             resolve(res.data);
-          } else if (res.statusCode === 401) {
-            // 未登录或token过期
+          } else if (res.statusCode === 401 || res.statusCode === 403 || res.statusCode === 404) {
+            // 未登录、token无效或用户不存在
             wx.removeStorageSync('token');
             wx.removeStorageSync('userInfo');
             this.globalData.token = null;
             this.globalData.userInfo = null;
             
             wx.showToast({
-              title: '登录已过期，请重新登录',
+              title: '登录已失效，请重新登录',
               icon: 'none'
             });
             
@@ -136,7 +147,7 @@ App({
               url: '/pages/user/user'
             });
             
-            reject({ success: false, message: '登录已过期' });
+            reject({ success: false, message: '登录已失效' });
           } else {
             reject({ success: false, message: '网络请求失败' });
           }
@@ -162,6 +173,68 @@ App({
     wx.showToast({
       title: '退出登录成功',
       icon: 'success'
+    });
+  },
+  
+  // 加载主题设置
+  loadTheme() {
+    const savedTheme = wx.getStorageSync('systemTheme');
+    if (savedTheme) {
+      this.globalData.theme = savedTheme;
+      this.applyTheme(savedTheme);
+    } else {
+      // 默认使用浅色主题
+      this.applyTheme('default');
+    }
+  },
+  
+  // 切换主题
+  changeTheme(theme) {
+    this.globalData.theme = theme;
+    wx.setStorageSync('systemTheme', theme);
+    this.applyTheme(theme);
+  },
+  
+  // 应用主题
+  applyTheme(theme) {
+    // 根据不同主题设置不同的导航栏和背景颜色
+    switch (theme) {
+      case 'dark':
+        // 深色主题
+        wx.setNavigationBarColor({
+          frontColor: '#ffffff',
+          backgroundColor: '#1a1a1a'
+        });
+        wx.setBackgroundColor({
+          backgroundColor: '#1a1a1a'
+        });
+        break;
+      case 'eye':
+        // 护眼模式
+        wx.setNavigationBarColor({
+          frontColor: '#000000',
+          backgroundColor: '#f7f3e9'
+        });
+        wx.setBackgroundColor({
+          backgroundColor: '#f7f3e9'
+        });
+        break;
+      default:
+        // 默认主题
+        wx.setNavigationBarColor({
+          frontColor: '#000000',
+          backgroundColor: '#f5f7fa'
+        });
+        wx.setBackgroundColor({
+          backgroundColor: '#f5f7fa'
+        });
+        break;
+    }
+    
+    // 更新所有页面的主题数据
+    const pages = getCurrentPages();
+    pages.forEach(page => {
+      page.setData({ theme });
     });
   }
 });

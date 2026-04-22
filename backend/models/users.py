@@ -35,6 +35,7 @@ class User(BaseCommon):
     vip_end_time = Column(DateTime, nullable=True, comment="VIP结束时间")
     vip_type = Column(Integer, default=0, comment="VIP类型: 0-非VIP, 1-考研VIP, 2-考公VIP, 3-双赛道VIP")
     trial_status = Column(Integer, default=0, comment="试用状态: 0-未试用, 1-试用中, 2-已过期")
+    need_change_password = Column(Boolean, default=True, comment="是否需要修改密码: 1-是, 0-否")
     created_at = Column(DateTime, default=datetime.now, comment="创建时间")
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
     
@@ -209,6 +210,7 @@ class PushLog(BaseCommon):
     error_msg = Column(Text, nullable=True, comment="错误信息")
     is_processed = Column(Boolean, default=False, comment="是否处理: 1-是, 0-否")
     push_time = Column(DateTime, default=datetime.now, comment="推送时间")
+    read = Column(Boolean, default=False, comment="是否已读: 1-是, 0-否")
     
     def __repr__(self):
         return f"<PushLog(id={self.id}, user_id={self.user_id}, info_id={self.info_id})>"

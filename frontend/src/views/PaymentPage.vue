@@ -324,7 +324,7 @@ const simulatePayment = async () => {
     // 调用支付API
     const token = localStorage.getItem('token')
     const response = await axios.post(`/api/v1/payments/orders/${orderId.value}/pay`, {
-      payment_method: selectedPaymentMethod.value
+      pay_method: selectedPaymentMethod.value
     }, {
       headers: {
         'Authorization': `Bearer ${token}`
@@ -519,11 +519,9 @@ const processPendingUserData = async () => {
       }
     } catch (error) {
       console.error('用户创建失败:', error)
-      // 即使用户创建失败，继续执行订单创建，但保留pendingUserData
-      return {
-        userCreated: false,
-        isNewUser: false
-      }
+      // 用户创建失败时，清除pendingUserData并抛出错误，避免继续执行
+      localStorage.removeItem('pendingUserData')
+      throw new Error('用户创建失败：' + (error.response?.data?.message || error.message))
     }
   }
   
@@ -576,22 +574,13 @@ const createOrder = async () => {
     
     if (response.data && response.data.success) {
       Object.assign(orderInfo, response.data.data)
-      const oldOrderId = orderId.value
-      orderId.value = response.data.data.id // 更新订单ID
+      orderId.value = response.data.data.id
       
-      // 订单创建成功后清除pendingUserData
-    localStorage.removeItem('pendingUserData')
-    
-    // 如果之前有临时倒计时数据，迁移到新的订单ID下
-    if (oldOrderId === 'temp') {
-      const tempKey = `payment_countdown_temp`
-      const savedTime = localStorage.getItem(tempKey)
-      if (savedTime) {
-        const newKey = `payment_countdown_${orderId.value}`
-        localStorage.setItem(newKey, savedTime)
-        localStorage.removeItem(tempKey)
-      }
-    }
+      localStorage.removeItem('pendingUserData')
+      
+      remainingTime.value = 600
+      
+      localStorage.removeItem(getCountdownKey())
     } else {
       throw new Error(response.data?.message || '创建订单失败')
     }

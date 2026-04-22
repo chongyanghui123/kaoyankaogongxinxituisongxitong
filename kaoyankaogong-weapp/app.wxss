@@ -2,10 +2,26 @@
 
 /* 全局样式 */
 page {
-  background-color: #f5f7fa;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   font-size: 16px;
+}
+
+/* 默认主题 */
+page.default {
+  background-color: #f5f7fa;
   color: #333333;
+}
+
+/* 深色主题 */
+page.dark {
+  background-color: #1a1a1a;
+  color: #e0e0e0;
+}
+
+/* 护眼模式 */
+page.eye {
+  background-color: #f7f3e9;
+  color: #5c4b37;
 }
 
 /* 容器样式 */
@@ -15,11 +31,27 @@ page {
 
 /* 卡片样式 */
 .card {
-  background-color: #ffffff;
   border-radius: 12rpx;
   box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
   padding: 20rpx;
   margin-bottom: 20rpx;
+}
+
+/* 默认主题卡片 */
+page.default .card {
+  background-color: #ffffff;
+}
+
+/* 深色主题卡片 */
+page.dark .card {
+  background-color: #2d2d2d;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.3);
+}
+
+/* 护眼模式卡片 */
+page.eye .card {
+  background-color: #ffffff;
+  box-shadow: 0 4rpx 12rpx rgba(92, 75, 55, 0.1);
 }
 
 /* 标题样式 */
@@ -27,21 +59,63 @@ page {
   font-size: 36rpx;
   font-weight: 600;
   margin-bottom: 20rpx;
+}
+
+/* 默认主题标题 */
+page.default .title {
   color: #333333;
+}
+
+/* 深色主题标题 */
+page.dark .title {
+  color: #ffffff;
+}
+
+/* 护眼模式标题 */
+page.eye .title {
+  color: #5c4b37;
 }
 
 /* 副标题样式 */
 .subtitle {
   font-size: 28rpx;
-  color: #666666;
   margin-bottom: 16rpx;
+}
+
+/* 默认主题副标题 */
+page.default .subtitle {
+  color: #666666;
+}
+
+/* 深色主题副标题 */
+page.dark .subtitle {
+  color: #b0b0b0;
+}
+
+/* 护眼模式副标题 */
+page.eye .subtitle {
+  color: #8b7355;
 }
 
 /* 文本样式 */
 .text {
   font-size: 24rpx;
-  color: #666666;
   line-height: 40rpx;
+}
+
+/* 默认主题文本 */
+page.default .text {
+  color: #666666;
+}
+
+/* 深色主题文本 */
+page.dark .text {
+  color: #d0d0d0;
+}
+
+/* 护眼模式文本 */
+page.eye .text {
+  color: #6b563c;
 }
 
 /* 按钮样式 */
@@ -60,23 +134,71 @@ page {
 }
 
 .btn-default {
+  border-radius: 8rpx;
+  font-size: 24rpx;
+  text-align: center;
+  cursor: pointer;
+}
+
+/* 默认主题默认按钮 */
+page.default .btn-default {
   background-color: #f0f0f0;
   color: #333333;
 }
 
+/* 深色主题默认按钮 */
+page.dark .btn-default {
+  background-color: #3d3d3d;
+  color: #e0e0e0;
+}
+
+/* 护眼模式默认按钮 */
+page.eye .btn-default {
+  background-color: #e8e0d0;
+  color: #5c4b37;
+}
+
 /* 列表样式 */
 .list {
-  background-color: #ffffff;
   border-radius: 8rpx;
   overflow: hidden;
   margin-bottom: 16rpx;
+}
+
+/* 默认主题列表 */
+page.default .list {
+  background-color: #ffffff;
+}
+
+/* 深色主题列表 */
+page.dark .list {
+  background-color: #2d2d2d;
+}
+
+/* 护眼模式列表 */
+page.eye .list {
+  background-color: #ffffff;
 }
 
 .list-item {
   display: flex;
   align-items: center;
   padding: 16rpx;
+}
+
+/* 默认主题列表项 */
+page.default .list-item {
   border-bottom: 1rpx solid #f0f0f0;
+}
+
+/* 深色主题列表项 */
+page.dark .list-item {
+  border-bottom: 1rpx solid #3d3d3d;
+}
+
+/* 护眼模式列表项 */
+page.eye .list-item {
+  border-bottom: 1rpx solid #e8e0d0;
 }
 
 .list-item:last-child {
@@ -86,32 +208,88 @@ page {
 /* 分割线 */
 .divider {
   height: 8rpx;
+}
+
+/* 默认主题分割线 */
+page.default .divider {
   background-color: #f5f7fa;
+}
+
+/* 深色主题分割线 */
+page.dark .divider {
+  background-color: #252525;
+}
+
+/* 护眼模式分割线 */
+page.eye .divider {
+  background-color: #f0e8d8;
 }
 
 /* 加载更多 */
 .loading {
   text-align: center;
   padding: 32rpx;
-  color: #999999;
   font-size: 18rpx;
+}
+
+/* 默认主题加载更多 */
+page.default .loading {
+  color: #999999;
+}
+
+/* 深色主题加载更多 */
+page.dark .loading {
+  color: #777777;
+}
+
+/* 护眼模式加载更多 */
+page.eye .loading {
+  color: #a89378;
 }
 
 /* 空状态 */
 .empty {
   text-align: center;
   padding: 64rpx 0;
+}
+
+/* 默认主题空状态 */
+page.default .empty {
   color: #999999;
+}
+
+/* 深色主题空状态 */
+page.dark .empty {
+  color: #777777;
+}
+
+/* 护眼模式空状态 */
+page.eye .empty {
+  color: #a89378;
 }
 
 /* 搜索框 */
 .search-input {
   display: flex;
   align-items: center;
-  background-color: #f5f7fa;
   border-radius: 4rpx;
   padding: 12rpx 16rpx;
   margin-bottom: 16rpx;
+}
+
+/* 默认主题搜索框 */
+page.default .search-input {
+  background-color: #f5f7fa;
+}
+
+/* 深色主题搜索框 */
+page.dark .search-input {
+  background-color: #2d2d2d;
+}
+
+/* 护眼模式搜索框 */
+page.eye .search-input {
+  background-color: #e8e0d0;
 }
 
 .search-input input {
@@ -119,7 +297,21 @@ page {
   border: none;
   background: transparent;
   font-size: 20rpx;
+}
+
+/* 默认主题搜索框输入 */
+page.default .search-input input {
   color: #333333;
+}
+
+/* 深色主题搜索框输入 */
+page.dark .search-input input {
+  color: #e0e0e0;
+}
+
+/* 护眼模式搜索框输入 */
+page.eye .search-input input {
+  color: #5c4b37;
 }
 
 /* 标签 */
@@ -175,22 +367,84 @@ page {
 .table {
   width: 100%;
   border-collapse: collapse;
-  background-color: #ffffff;
   border-radius: 8rpx;
   overflow: hidden;
+}
+
+/* 默认主题表格 */
+page.default .table {
+  background-color: #ffffff;
+}
+
+/* 深色主题表格 */
+page.dark .table {
+  background-color: #2d2d2d;
+}
+
+/* 护眼模式表格 */
+page.eye .table {
+  background-color: #ffffff;
 }
 
 .table th,
 .table td {
   padding: 12rpx;
   text-align: left;
+}
+
+/* 默认主题表格单元格 */
+page.default .table th,
+page.default .table td {
   border-bottom: 1rpx solid #f0f0f0;
 }
 
+/* 深色主题表格单元格 */
+page.dark .table th,
+page.dark .table td {
+  border-bottom: 1rpx solid #3d3d3d;
+}
+
+/* 护眼模式表格单元格 */
+page.eye .table th,
+page.eye .table td {
+  border-bottom: 1rpx solid #e8e0d0;
+}
+
 .table th {
-  background-color: #fafafa;
   font-weight: 600;
+}
+
+/* 默认主题表格表头 */
+page.default .table th {
+  background-color: #fafafa;
   color: #333333;
+}
+
+/* 深色主题表格表头 */
+page.dark .table th {
+  background-color: #3d3d3d;
+  color: #e0e0e0;
+}
+
+/* 护眼模式表格表头 */
+page.eye .table th {
+  background-color: #f0e8d8;
+  color: #5c4b37;
+}
+
+/* 默认主题表格内容 */
+page.default .table td {
+  color: #333333;
+}
+
+/* 深色主题表格内容 */
+page.dark .table td {
+  color: #e0e0e0;
+}
+
+/* 护眼模式表格内容 */
+page.eye .table td {
+  color: #5c4b37;
 }
 
 /* 加载动画 */

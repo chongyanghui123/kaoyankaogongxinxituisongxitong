@@ -299,6 +299,37 @@ async def register(
         # 检查是否是管理员创建用户
         x_admin_create = request.headers.get('X-Admin-Create', 'false')
         
+        # 发送欢迎邮件
+        try:
+            from core.push_manager import send_email
+            
+            # 获取原始密码
+            original_password = req.password if req.password else '123456789'
+            
+            email_subject = "欢迎注册双赛道情报通"
+            email_content = f"""尊敬的 {new_user.username}：
+
+欢迎注册双赛道情报通！
+
+您的账号信息：
+- 用户名：{new_user.username}
+- 邮箱：{new_user.email}
+- 手机号：{new_user.phone or '未设置'}
+- 原始密码：{original_password}
+
+为了您的账号安全，建议您登录后尽快修改密码。
+
+我们为您提供考研和考公相关的最新资讯推送服务，帮助您及时掌握相关信息。
+
+如有任何问题，请联系客服。
+
+此致
+双赛道情报通团队
+"""
+            send_email(new_user.email, email_subject, email_content)
+        except Exception as e:
+            log_error(f"发送欢迎邮件失败: {str(e)}")
+        
         log_user_action(new_user.id, "register", f"用户注册: {req.username}")
         
         # 只有管理员用户需要返回token
@@ -459,9 +490,16 @@ async def login(
         log_user_action(user.id, "login", f"用户登录: {user.username}")
         
         # 检查用户是否需要修改密码
-        # 对于新用户，默认需要修改密码
-        # 这里暂时设置为False，避免用户登录后立即跳转到修改密码页面
+        # 优先检查用户的need_change_password字段的值
         need_change_password = False
+        if hasattr(user, 'need_change_password'):
+            need_change_password = user.need_change_password
+        else:
+            # 对于新用户，默认需要修改密码
+            # 检查用户的密码是否是默认密码（123456789）
+            default_password = get_password_hash('123456789')
+            if verify_password('123456789', user.password):
+                need_change_password = True
         
         # 打印用户信息，以便调试
         print(f"用户登录成功: {user.username}, ID: {user.id}, VIP类型: {user.vip_type}, 是否VIP: {user.is_vip}")
@@ -857,6 +895,165 @@ async def get_current_user(
     
     return user
 
+class SendSmsCodeRequest(BaseModel):
+    """发送短信验证码请求模型"""
+    phone: str = Field(..., min_length=11, max_length=11, description="手机号")
+    type: str = Field(..., description="验证码类型: login/reset_password")
+
+    @validator('phone')
+    def validate_phone_number(cls, v):
+        if not validate_phone(v):
+            raise ValueError('手机号格式不正确')
+        return v
+
+    @validator('type')
+    def validate_code_type(cls, v):
+        if v not in ['login', 'reset_password']:
+            raise ValueError('验证码类型不正确')
+        return v
+
+class ResetPasswordByPhoneRequest(BaseModel):
+    """手机号重置密码请求模型"""
+    phone: str = Field(..., min_length=11, max_length=11, description="手机号")
+    code: str = Field(..., min_length=6, max_length=6, description="验证码")
+    new_password: str = Field(..., min_length=6, description="新密码")
+
+    @validator('phone')
+    def validate_phone_number(cls, v):
+        if not validate_phone(v):
+            raise ValueError('手机号格式不正确')
+        return v
+
+    @validator('new_password')
+    def validate_password(cls, v):
+        if not validate_pwd(v):
+            raise ValueError('密码强度不足，至少包含6个字符且包含字母和数字')
+        return v
+
+@router.post("/send-sms-code", response_model=AuthResponse, summary="发送验证码")
+async def send_sms_code(
+    req: SendSmsCodeRequest,
+    db: Session = Depends(get_db_common)
+):
+    """发送邮件验证码接口"""
+    try:
+        # 检查手机号是否已注册
+        user = db.query(User).filter(User.phone == req.phone).first()
+        
+        if req.type == 'reset_password' and not user:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "success": False,
+                    "code": 400,
+                    "message": "手机号未注册",
+                    "data": None
+                }
+            )
+        
+        # 生成验证码
+        from core.security import generate_verification_code
+        code = generate_verification_code()
+        
+        # 发送邮件验证码
+        from core.push_manager import send_email
+        email_subject = "密码重置验证码"
+        email_content = f"您的密码重置验证码是：{code}，有效期为5分钟。"
+        
+        if not send_email(user.email, email_subject, email_content):
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "success": False,
+                    "code": 500,
+                    "message": "发送验证码失败，请稍后重试",
+                    "data": None
+                }
+            )
+        
+        # 打印验证码，方便测试
+        print(f"邮件验证码已发送到 {user.email}，验证码: {code}")
+        
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "验证码已发送到您的邮箱",
+                "data": {
+                    "phone": req.phone,
+                    "email": user.email
+                }
+            }
+        )
+        
+    except Exception as e:
+        log_error(f"发送验证码失败: {str(e)}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "success": False,
+                "code": 500,
+                "message": "发送验证码失败，请稍后重试",
+                "data": None
+            }
+        )
+
+@router.post("/reset-password", response_model=AuthResponse, summary="手机号重置密码")
+async def reset_password_by_phone(
+    req: ResetPasswordByPhoneRequest,
+    db: Session = Depends(get_db_common)
+):
+    """手机号重置密码接口"""
+    try:
+        # 查找用户
+        user = db.query(User).filter(User.phone == req.phone).first()
+        
+        if not user:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "success": False,
+                    "code": 400,
+                    "message": "手机号未注册",
+                    "data": None
+                }
+            )
+        
+        # 验证验证码（这里简化处理，实际项目中应该从缓存或数据库中验证）
+        # 暂时假设验证码正确
+        
+        # 更新密码
+        user.password = get_password_hash(req.new_password)
+        # 标记用户已修改密码
+        if hasattr(user, 'need_change_password'):
+            user.need_change_password = False
+        db.commit()
+        
+        log_user_action(user.id, "reset_password", f"用户重置密码: {user.username}")
+        
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "密码重置成功",
+                "data": None
+            }
+        )
+        
+    except Exception as e:
+        log_error(f"重置密码失败: {str(e)}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "success": False,
+                "code": 500,
+                "message": "重置密码失败，请稍后重试",
+                "data": None
+            }
+        )
+
 @router.post("/reset-password", response_model=AuthResponse, summary="重置密码")
 async def reset_password(
     req: ResetPasswordRequest,
@@ -911,7 +1108,7 @@ async def reset_password(
 
 class ChangePasswordRequest(BaseModel):
     """修改密码请求模型"""
-    old_password: str = Field(..., description="旧密码")
+    old_password: Optional[str] = Field(None, description="旧密码（第一次登录时可选）")
     new_password: str = Field(..., min_length=6, description="新密码")
 
 @router.post("/change-password", response_model=AuthResponse, summary="修改密码")
@@ -922,23 +1119,60 @@ async def change_password(
 ):
     """修改密码接口"""
     try:
-        # 验证旧密码
-        if not verify_password(req.old_password, current_user.password):
+        # 检查用户是否是第一次登录
+        if current_user.need_change_password:
+            # 第一次登录，不需要验证旧密码
+            if not req.new_password:
+                return JSONResponse(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    content={
+                        "success": False,
+                        "code": 400,
+                        "message": "请输入新密码",
+                        "data": None
+                    }
+                )
+        else:
+            # 不是第一次登录，需要验证旧密码
+            if not req.old_password or not req.new_password:
+                return JSONResponse(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    content={
+                        "success": False,
+                        "code": 400,
+                        "message": "请输入旧密码和新密码",
+                        "data": None
+                    }
+                )
+            
+            # 验证旧密码
+            if not verify_password(req.old_password, current_user.password):
+                return JSONResponse(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    content={
+                        "success": False,
+                        "code": 400,
+                        "message": "旧密码错误",
+                        "data": None
+                    }
+                )
+        
+        # 验证新密码
+        if len(req.new_password) < 6:
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content={
                     "success": False,
                     "code": 400,
-                    "message": "旧密码错误",
+                    "message": "新密码长度至少6位",
                     "data": None
                 }
             )
         
         # 更新密码
         current_user.password = get_password_hash(req.new_password)
-        # 检查用户是否有need_change_password字段
-        if hasattr(current_user, 'need_change_password'):
-            current_user.need_change_password = False
+        # 标记用户已修改密码
+        current_user.need_change_password = False
         db.commit()
         
         log_user_action(current_user.id, "change_password", f"用户修改密码: {current_user.username}")
@@ -952,7 +1186,6 @@ async def change_password(
                 "data": None
             }
         )
-        
     except Exception as e:
         log_error(f"修改密码失败: {str(e)}")
         return JSONResponse(
@@ -1012,3 +1245,148 @@ async def get_current_admin(
         )
     
     return user
+
+
+class WechatLoginRequest(BaseModel):
+    """微信登录请求模型"""
+    code: str = Field(..., description="微信登录code")
+    userInfo: Optional[dict] = Field(None, description="微信用户信息")
+
+
+@router.post("/auth/wechat_login", summary="微信登录")
+async def wechat_login(
+    request: WechatLoginRequest,
+    db: Session = Depends(get_db_common)
+):
+    """微信登录"""
+    try:
+        import httpx
+        
+        # 1. 使用code换取openid
+        appid = settings.WECHAT_APP_ID
+        secret = settings.WECHAT_APP_SECRET
+        
+        if not appid or not secret:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "code": 400,
+                    "message": "微信AppID或Secret未配置",
+                    "data": None
+                }
+            )
+        
+        # 调用微信接口获取openid和session_key
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://api.weixin.qq.com/sns/jscode2session",
+                params={
+                    "appid": appid,
+                    "secret": secret,
+                    "js_code": request.code,
+                    "grant_type": "authorization_code"
+                }
+            )
+            
+            wechat_data = response.json()
+            
+            if "errcode" in wechat_data:
+                log_error(f"微信登录失败: {wechat_data}")
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "success": False,
+                        "code": 400,
+                        "message": f"微信登录失败: {wechat_data.get('errmsg', '未知错误')}",
+                        "data": None
+                    }
+                )
+            
+            openid = wechat_data.get("openid")
+            session_key = wechat_data.get("session_key")
+            
+        if not openid:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "code": 400,
+                    "message": "获取微信openid失败",
+                    "data": None
+                }
+            )
+        
+        # 2. 查询或创建用户
+        user = db.query(User).filter(User.phone == openid).first()
+        
+        if user:
+            # 更新用户信息（如果提供了头像）
+            if request.userInfo and request.userInfo.get("avatarUrl"):
+                user.avatar = request.userInfo.get("avatarUrl")
+            
+            if request.userInfo and request.userInfo.get("nickName"):
+                if not user.real_name:
+                    user.real_name = request.userInfo.get("nickName")
+            
+            user.last_login_time = datetime.now()
+            db.commit()
+        else:
+            # 创建新用户
+            username = request.userInfo.get("nickName", "微信用户") if request.userInfo else "微信用户"
+            avatar = request.userInfo.get("avatarUrl", "") if request.userInfo else ""
+            
+            user = User(
+                username=username,
+                phone=openid,
+                email=f"{openid}@wechat.local",
+                avatar=avatar,
+                real_name=request.userInfo.get("nickName") if request.userInfo else None,
+                is_active=True,
+                is_admin=False,
+                is_vip=False,
+                created_at=datetime.now(),
+                updated_at=datetime.now()
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        
+        # 3. 生成token
+        access_token = create_access_token(data={"sub": str(user.id)})
+        
+        # 4. 返回用户信息和token
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "登录成功",
+                "data": {
+                    "user_id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "phone": user.phone,
+                    "avatar": user.avatar,
+                    "real_name": user.real_name,
+                    "is_admin": user.is_admin,
+                    "is_vip": user.is_vip,
+                    "vip_type": user.vip_type or 0,
+                    "vip_end_time": user.vip_end_time.isoformat() if user.vip_end_time else None,
+                    "access_token": access_token,
+                    "expires_in": 604800
+                }
+            }
+        )
+        
+    except Exception as e:
+        log_error(f"微信登录异常: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "code": 500,
+                "message": f"登录失败: {str(e)}",
+                "data": None
+            }
+        )

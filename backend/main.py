@@ -374,7 +374,7 @@ def init_admin_user():
                 username="admin",
                 email="admin@example.com",
                 phone="13800138000",
-                password="admin123",  # 存储明文密码
+                password=get_password_hash("admin123"),  # 存储加密后的密码
                 is_admin=True,
                 is_active=True,
                 is_vip=True,

@@ -245,7 +245,7 @@
             <el-button 
               type="danger" 
               size="small" 
-              @click="deletePushHistory(scope.row.id)"
+              @click="handleDeleteClick(scope.row.id)"
               :loading="loading"
             >
               删除
@@ -441,8 +441,21 @@ function refreshData() {
 }
 
 function formatTime(timeStr) {
-  const date = new Date(timeStr)
-  return date.toLocaleString('zh-CN')
+  if (!timeStr) {
+    return ''
+  }
+  
+  try {
+    const date = new Date(timeStr)
+    // 检查日期是否有效
+    if (isNaN(date.getTime())) {
+      return '无效时间'
+    }
+    return date.toLocaleString('zh-CN')
+  } catch (error) {
+    console.error('时间格式化错误:', error)
+    return '无效时间'
+  }
 }
 
 function initCharts() {
@@ -685,9 +698,22 @@ onMounted(() => {
   fetchPushSettings()
 })
 
-async function deletePushHistory(id) {
+function handleDeleteClick(id) {
+  console.log('删除按钮被点击，ID:', id)
+  console.log('当前token:', localStorage.getItem('token'))
   try {
-    const { value: confirmDelete } = await ElMessageBox.confirm(
+    deletePushHistory(id)
+    console.log('deletePushHistory 函数已调用')
+  } catch (error) {
+    console.error('调用 deletePushHistory 时出错:', error)
+  }
+}
+
+async function deletePushHistory(id) {
+  console.log('deletePushHistory 函数开始执行，ID:', id)
+  try {
+    console.log('准备显示确认对话框')
+    await ElMessageBox.confirm(
       '确定要删除这条推送记录吗？',
       '删除确认',
       {
@@ -696,15 +722,24 @@ async function deletePushHistory(id) {
         type: 'warning'
       }
     )
+    console.log('用户点击了确定按钮')
     
-    if (confirmDelete) {
-      const response = await fetch(`/api/v1/push/history/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      })
-      const data = await response.json()
+    console.log('准备发送删除请求')
+    const response = await fetch(`/api/v1/push/history/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    })
+    
+    console.log('删除响应状态码:', response.status)
+    const responseText = await response.text()
+    console.log('删除响应内容:', responseText)
+    
+    try {
+      const data = JSON.parse(responseText)
+      console.log('解析后的数据:', data)
+      
       if (data.success) {
         ElMessage.success('删除成功')
         fetchPushHistory()
@@ -712,18 +747,24 @@ async function deletePushHistory(id) {
       } else {
         ElMessage.error('删除失败: ' + (data.message || '未知错误'))
       }
+    } catch (parseError) {
+      console.error('响应解析失败:', parseError)
+      ElMessage.error('删除失败: 响应解析错误')
     }
   } catch (error) {
-    if (error !== 'cancel') {
-      console.error('删除推送记录失败:', error)
-      ElMessage.error('删除失败: 网络错误')
-    }
+    console.log('用户取消了删除操作或发生错误:', error)
   }
 }
 
 async function deleteAllPushHistory() {
+  // 先检查是否有数据
+  if (!pushHistory.value || pushHistory.value.length === 0) {
+    ElMessage.warning('不存在数据')
+    return
+  }
+  
   try {
-    const { value: confirmDelete } = await ElMessageBox.confirm(
+    await ElMessageBox.confirm(
       '确定要删除所有推送记录吗？此操作不可恢复！',
       '全部删除确认',
       {
@@ -733,14 +774,22 @@ async function deleteAllPushHistory() {
       }
     )
     
-    if (confirmDelete) {
-      const response = await fetch('/api/v1/push/history', {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      })
-      const data = await response.json()
+    console.log('用户点击了确定按钮，准备删除全部')
+    const response = await fetch('/api/v1/push/history', {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    })
+    
+    console.log('全部删除响应状态码:', response.status)
+    const responseText = await response.text()
+    console.log('全部删除响应内容:', responseText)
+    
+    try {
+      const data = JSON.parse(responseText)
+      console.log('解析后的数据:', data)
+      
       if (data.success) {
         ElMessage.success('全部删除成功')
         fetchPushHistory()
@@ -748,12 +797,12 @@ async function deleteAllPushHistory() {
       } else {
         ElMessage.error('删除失败: ' + (data.message || '未知错误'))
       }
+    } catch (parseError) {
+      console.error('响应解析失败:', parseError)
+      ElMessage.error('删除失败: 响应解析错误')
     }
   } catch (error) {
-    if (error !== 'cancel') {
-      console.error('删除全部推送记录失败:', error)
-      ElMessage.error('删除失败: 网络错误')
-    }
+    console.log('用户取消了删除操作或发生错误:', error)
   }
 }
 

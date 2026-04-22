@@ -623,9 +623,12 @@ async def delete_push_history(
 ):
     """删除单条推送记录"""
     try:
+        log_error(f"删除推送记录请求: history_id={history_id}, current_user={current_user.id}")
+        
         # 查找推送记录
         push_log = db_common.query(PushLog).filter(PushLog.id == history_id).first()
         if not push_log:
+            log_error(f"推送记录不存在: history_id={history_id}")
             return JSONResponse(
                 status_code=404,
                 content={
@@ -636,10 +639,13 @@ async def delete_push_history(
                 }
             )
         
+        log_error(f"找到推送记录: id={push_log.id}")
+        
         # 删除推送记录
         db_common.delete(push_log)
         db_common.commit()
         
+        log_error(f"推送记录已删除: history_id={history_id}")
         log_user_action(current_user.id, "delete_push_history", f"删除推送记录 ID: {history_id}")
         
         return JSONResponse(

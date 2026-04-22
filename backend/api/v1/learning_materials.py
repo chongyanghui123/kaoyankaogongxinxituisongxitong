@@ -500,6 +500,58 @@ async def upload_learning_material(
         
         log_user_action(current_user.id, "upload_learning_material", f"上传学习资料: {title}")
         
+        # 推送消息给对应类型的用户
+        from models.users import PushLog, UserSubscription, User
+        
+        # 构建用户查询
+        user_query = db.query(User)
+        
+        # 为了简化逻辑，我们先获取所有用户，然后在内存中过滤
+        all_users = user_query.all()
+        target_users = []
+        
+        # 遍历所有用户，根据资料类型和用户类型进行过滤
+        for user in all_users:
+            # 检查用户的VIP类型
+            if type == 1:  # 考研资料
+                # 考研用户、双赛道用户可以接收
+                if user.vip_type in [1, 3]:
+                    target_users.append(user)
+                else:
+                    # 检查用户的订阅类型
+                    user_subscription = db.query(UserSubscription).filter(
+                        UserSubscription.user_id == user.id
+                    ).first()
+                    if user_subscription and user_subscription.subscribe_type in [1, 3]:
+                        target_users.append(user)
+            elif type == 2:  # 考公资料
+                # 考公用户、双赛道用户可以接收
+                if user.vip_type in [2, 3]:
+                    target_users.append(user)
+                else:
+                    # 检查用户的订阅类型
+                    user_subscription = db.query(UserSubscription).filter(
+                        UserSubscription.user_id == user.id
+                    ).first()
+                    if user_subscription and user_subscription.subscribe_type in [2, 3]:
+                        target_users.append(user)
+        
+        # 为目标用户创建推送记录
+        for user in target_users:
+            # 创建推送记录
+            push_log = PushLog(
+                user_id=user.id,
+                info_id=material.id,
+                category=type,
+                push_type=1,
+                push_status=1,
+                push_content=f"管理员上传了新的学习资料：{title}\n\n{description}",
+                push_time=datetime.now(),
+                is_processed=False
+            )
+            db.add(push_log)
+        db.commit()
+        
         return JSONResponse(
             status_code=200,
             content={

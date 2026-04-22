@@ -1,1 +1,158 @@
 /* pages/settings/settings.wxss */
+.settings-container {
+  min-height: 100vh;
+  padding-bottom: 40rpx;
+}
+
+/* 默认主题 */
+page.default .settings-container {
+  background-color: #f5f5f5;
+}
+
+/* 深色主题 */
+page.dark .settings-container {
+  background-color: #1a1a1a;
+}
+
+/* 护眼模式 */
+page.eye .settings-container {
+  background-color: #f7f3e9;
+}
+
+.settings-section {
+  margin-top: 20rpx;
+  border-radius: 10rpx;
+  overflow: hidden;
+}
+
+/* 默认主题 */
+page.default .settings-section {
+  background-color: #fff;
+}
+
+/* 深色主题 */
+page.dark .settings-section {
+  background-color: #2d2d2d;
+}
+
+/* 护眼模式 */
+page.eye .settings-section {
+  background-color: #fff;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  padding: 30rpx 20rpx 10rpx;
+}
+
+/* 默认主题 */
+page.default .section-title {
+  color: #333;
+}
+
+/* 深色主题 */
+page.dark .section-title {
+  color: #fff;
+}
+
+/* 护眼模式 */
+page.eye .section-title {
+  color: #5c4b37;
+}
+
+.setting-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 25rpx 20rpx;
+}
+
+/* 默认主题 */
+page.default .setting-item {
+  border-top: 1rpx solid #f0f0f0;
+}
+
+/* 深色主题 */
+page.dark .setting-item {
+  border-top: 1rpx solid #3d3d3d;
+}
+
+/* 护眼模式 */
+page.eye .setting-item {
+  border-top: 1rpx solid #e8e0d0;
+}
+
+.setting-label {
+  font-size: 32rpx;
+}
+
+/* 默认主题 */
+page.default .setting-label {
+  color: #333;
+}
+
+/* 深色主题 */
+page.dark .setting-label {
+  color: #e0e0e0;
+}
+
+/* 护眼模式 */
+page.eye .setting-label {
+  color: #5c4b37;
+}
+
+.setting-arrow {
+  font-size: 24rpx;
+}
+
+/* 默认主题 */
+page.default .setting-arrow {
+  color: #999;
+}
+
+/* 深色主题 */
+page.dark .setting-arrow {
+  color: #777;
+}
+
+/* 护眼模式 */
+page.eye .setting-arrow {
+  color: #a89378;
+}
+
+.setting-value {
+  font-size: 28rpx;
+}
+
+/* 默认主题 */
+page.default .setting-value {
+  color: #999;
+}
+
+/* 深色主题 */
+page.dark .setting-value {
+  color: #777;
+}
+
+/* 护眼模式 */
+page.eye .setting-value {
+  color: #a89378;
+}
+
+.logout-btn {
+  margin-top: 50rpx;
+  margin-left: 20rpx;
+  margin-right: 20rpx;
+  background-color: #ff4d4f;
+  color: #fff;
+  font-size: 32rpx;
+  text-align: center;
+  padding: 30rpx;
+  border-radius: 10rpx;
+}
+
+/* 开关样式 */
+switch {
+  transform: scale(0.8);
+}

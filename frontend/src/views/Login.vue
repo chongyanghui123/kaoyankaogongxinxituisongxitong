@@ -30,7 +30,7 @@ const loading = ref(false)
 
 const loginForm = reactive({
   email: 'admin@shuangsai.com',
-  password: '123456789'
+  password: 'admin123'
 })
 
 const rules = {

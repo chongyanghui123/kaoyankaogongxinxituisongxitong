@@ -13,7 +13,9 @@
     "pages/admin/admin",
     "pages/learning-materials/learning-materials",
     "pages/download-history/download-history",
-    "pages/edit-requirements/edit-requirements"
+    "pages/edit-requirements/edit-requirements",
+    "pages/change-password/change-password",
+    "pages/forgot-password/forgot-password"
   ],
   "window": {
     "backgroundTextStyle": "light",

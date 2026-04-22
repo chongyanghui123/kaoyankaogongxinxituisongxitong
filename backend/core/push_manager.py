@@ -74,10 +74,23 @@ def send_pending_notifications():
                 
                 # 检查用户的推送设置
                 config_json = subscription.config_json or {}
-                push_settings = config_json.get('push', {
-                    'frequency': 'daily',
-                    'time': '08:00'
-                })
+                if not isinstance(config_json, dict):
+                    logger.warning(f"用户 {user.id} 的配置不是字典类型: {type(config_json)}")
+                    continue
+                
+                push_settings = config_json.get('push', {})
+                if not isinstance(push_settings, dict):
+                    logger.warning(f"用户 {user.id} 的推送设置不是字典类型: {type(push_settings)}")
+                    push_settings = {
+                        'frequency': 'daily',
+                        'time': '08:00'
+                    }
+                
+                # 确保 push_settings 包含必要的字段
+                if 'frequency' not in push_settings:
+                    push_settings['frequency'] = 'daily'
+                if 'time' not in push_settings:
+                    push_settings['time'] = '08:00'
                 
                 # 检查是否到了用户设置的推送时间
                 current_time = datetime.now()
@@ -413,11 +426,11 @@ def send_expiry_notifications():
             logger.info(f"找到 {len(users_to_notify)} 个快到期的用户")
             
             for user in users_to_notify:
-                # 检查是否已经发送过到期通知
+                # 检查是否已经发送过今天的到期通知
                 existing_log = db.query(PushLog).filter(
                     PushLog.user_id == user.id,
                     PushLog.category == 3,  # 3-服务到期通知
-                    PushLog.push_time >= datetime.now() - timedelta(days=7)  # 7天内只发送一次
+                    PushLog.push_time >= datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)  # 今天内是否已经发送过
                 ).first()
                 
                 if not existing_log:
@@ -445,7 +458,7 @@ def send_expiry_notifications():
                         category=3,  # 3-服务到期通知
                         push_type=3,  # 邮件推送
                         push_status=1,  # 成功
-                        push_content=f"【服务到期提醒】尊敬的 {user.username}，您的{service_type}推送服务将在 {remaining_days} 天后到期，请及时续费以继续享受服务。",
+                        push_content=f"【服务到期提醒】尊敬的 {user.real_name}，您的{service_type}推送服务将在 {remaining_days} 天后到期，请及时续费以继续享受服务。",
                         push_time=datetime.now()
                     )
                     db.add(push_log)
@@ -453,11 +466,24 @@ def send_expiry_notifications():
                     # 发送邮件通知
                     if user.email:
                         email_subject = f"【服务到期提醒】您的{service_type}推送服务即将到期"
-                        email_content = f"尊敬的 {user.username}：\n\n您的{service_type}推送服务将在 {remaining_days} 天后到期，请及时续费以继续享受服务。\n\n如有疑问，请联系客服。\n\n此致\n双赛道情报通团队"
+                        email_content = f"尊敬的 {user.real_name}：\n\n您的{service_type}推送服务将在 {remaining_days} 天后到期，请及时续费以继续享受服务。\n\n如有疑问，请联系客服。\n\n此致\n双赛道情报通团队"
                         send_email(user.email, email_subject, email_content)
                     
+                    # 发送小程序通知（添加到push_logs表，供小程序显示）
+                    # 这里使用push_type=4表示小程序推送
+                    weapp_push_log = PushLog(
+                        user_id=user.id,
+                        info_id=0,  # 服务到期通知，没有具体的信息ID
+                        category=3,  # 3-服务到期通知
+                        push_type=4,  # 小程序推送
+                        push_status=1,  # 成功
+                        push_content=f"您的{service_type}推送服务将在 {remaining_days} 天后到期，请及时续费以继续享受服务。",
+                        push_time=datetime.now()
+                    )
+                    db.add(weapp_push_log)
+                    
                     # 这里可以添加其他推送逻辑，比如发送短信等
-                    logger.info(f"向用户 {user.username} 发送{service_type}推送服务到期提醒，剩余 {remaining_days} 天")
+                    logger.info(f"向用户 {user.real_name} 发送{service_type}推送服务到期提醒，剩余 {remaining_days} 天")
             
             db.commit()
         finally:

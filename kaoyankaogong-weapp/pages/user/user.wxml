@@ -80,6 +80,5 @@
     </view>
   </view>
 
-  <!-- 退出登录按钮 -->
-  <button class="logout-btn" wx:if="{{userInfo}}" bindtap="logout">退出登录</button>
+
 </view>

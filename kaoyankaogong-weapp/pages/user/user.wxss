@@ -143,6 +143,7 @@
   align-items: center;
   padding: 20rpx 24rpx;
   border-bottom: 1rpx solid #f0f0f0;
+  position: relative;
 }
 
 .menu-item:last-child {
@@ -163,6 +164,23 @@
 .menu-arrow {
   font-size: 18rpx;
   color: #999999;
+}
+
+.menu-badge {
+  position: absolute;
+  top: 50%;
+  right: 24rpx;
+  transform: translateY(-50%);
+  min-width: 32rpx;
+  height: 32rpx;
+  border-radius: 16rpx;
+  background-color: #ff4d4f;
+  color: #ffffff;
+  font-size: 16rpx;
+  text-align: center;
+  line-height: 32rpx;
+  padding: 0 8rpx;
+  margin-left: 8rpx;
 }
 
 /* 管理员功能 */

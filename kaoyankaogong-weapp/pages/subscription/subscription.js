@@ -155,19 +155,48 @@ Page({
       const app = getApp();
       const selectedPlan = this.data.plans.find(plan => plan.id === this.data.selectedPlan);
       
-      // 调用支付API
-      const response = await app.request({
-        url: '/payment/create',
+      // 先创建订单
+      const createResponse = await app.request({
+        url: '/payments/orders',
         method: 'POST',
         data: {
-          plan_id: this.data.selectedPlan,
-          amount: selectedPlan.price,
+          product_id: this.data.selectedPlan,
+          payment_method: this.data.selectedPayMethod
+        }
+      });
+      
+      if (!createResponse.success) {
+        wx.showToast({
+          title: '创建订单失败',
+          icon: 'none'
+        });
+        return;
+      }
+      
+      const orderId = createResponse.data.order_id;
+      
+      // 调用支付API
+      const response = await app.request({
+        url: `/payments/orders/${orderId}/pay`,
+        method: 'POST',
+        data: {
           pay_method: this.data.selectedPayMethod
         }
       });
       
       if (response.success) {
-        // 发起支付
+        // 如果是模拟支付（测试模式）
+        if (response.data.mock) {
+          wx.showToast({
+            title: '支付成功（模拟）',
+            icon: 'success'
+          });
+          this.closePayModal();
+          this.getUserInfo();
+          return;
+        }
+        
+        // 发起微信支付
         wx.requestPayment({
           timeStamp: response.data.timeStamp,
           nonceStr: response.data.nonceStr,
@@ -180,7 +209,6 @@ Page({
               icon: 'success'
             });
             this.closePayModal();
-            // 刷新用户信息
             this.getUserInfo();
           },
           fail: (res) => {
@@ -192,7 +220,7 @@ Page({
         });
       } else {
         wx.showToast({
-          title: '创建订单失败',
+          title: response.message || '支付失败',
           icon: 'none'
         });
       }

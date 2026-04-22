@@ -13,6 +13,41 @@ from sqlalchemy.pool import QueuePool
 
 from config import settings
 
+def create_database_if_not_exists():
+    """创建数据库（如果不存在）"""
+    try:
+        # 创建一个临时引擎连接到 MySQL 服务器（不指定数据库）
+        temp_db_url = (
+            f"mysql+pymysql://{settings.DATABASE_USER}:{settings.DATABASE_PASSWORD}@"
+            f"{settings.DATABASE_HOST}:{settings.DATABASE_PORT}/"
+        )
+        
+        temp_engine = create_engine(temp_db_url, pool_pre_ping=True)
+        
+        with temp_engine.connect() as conn:
+            # 检查是否存在 common_db
+            result = conn.execute(text(f"SHOW DATABASES LIKE '{settings.COMMON_DB}'"))
+            if not result.scalar():
+                conn.execute(text(f"CREATE DATABASE {settings.COMMON_DB} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"))
+                print(f"数据库 {settings.COMMON_DB} 已创建")
+            
+            # 检查是否存在 kaoyan_db
+            result = conn.execute(text(f"SHOW DATABASES LIKE '{settings.KAOYAN_DB}'"))
+            if not result.scalar():
+                conn.execute(text(f"CREATE DATABASE {settings.KAOYAN_DB} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"))
+                print(f"数据库 {settings.KAOYAN_DB} 已创建")
+            
+            # 检查是否存在 kaogong_db
+            result = conn.execute(text(f"SHOW DATABASES LIKE '{settings.KAOGONG_DB}'"))
+            if not result.scalar():
+                conn.execute(text(f"CREATE DATABASE {settings.KAOGONG_DB} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"))
+                print(f"数据库 {settings.KAOGONG_DB} 已创建")
+        
+        temp_engine.dispose()
+        print("所有数据库检查完成")
+    except Exception as e:
+        print(f"创建数据库失败: {e}")
+
 # 创建数据库引擎
 def create_db_engine(database_name: str):
     """创建数据库引擎 - 根据配置选择MySQL或SQLite"""

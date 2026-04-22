@@ -1,2 +1,66 @@
 <!--pages/settings/settings.wxml-->
-<text>pages/settings/settings.wxml</text>
+<view class="settings-container">
+  <view class="settings-section">
+    <view class="section-title">通知设置</view>
+    <view class="setting-item">
+      <view class="setting-label">推送频率</view>
+      <picker bindchange="changePushFrequency" value="{{pushFrequencyIndex}}" range="{{pushFrequencyOptions}}" range-key="label">
+        <view class="setting-value">{{pushFrequencyOptions[pushFrequencyIndex].label}}</view>
+      </picker>
+    </view>
+    <view class="setting-item">
+      <view class="setting-label">推送时间</view>
+      <picker bindchange="changePushTime" value="{{pushTimeIndex}}" range="{{pushTimeOptions}}" range-key="time">
+        <view class="setting-value">{{pushTimeOptions[pushTimeIndex].time}}</view>
+      </picker>
+    </view>
+  </view>
+
+  <view class="settings-section">
+    <view class="section-title">外观设置</view>
+    <view class="setting-item">
+      <view class="setting-label">系统主题</view>
+      <picker bindchange="changeTheme" value="{{themeIndex}}" range="{{themeOptions}}" range-key="name">
+        <view class="setting-value">{{themeOptions[themeIndex].name}}</view>
+      </picker>
+    </view>
+  </view>
+
+
+
+  <view class="settings-section">
+    <view class="section-title">账号安全</view>
+    <view class="setting-item" bindtap="navigateToChangePassword">
+      <view class="setting-label">修改密码</view>
+      <view class="setting-arrow">></view>
+    </view>
+    <view class="setting-item" bindtap="navigateToForgotPassword">
+      <view class="setting-label">找回密码</view>
+      <view class="setting-arrow">></view>
+    </view>
+  </view>
+
+
+
+  <view class="settings-section">
+    <view class="section-title">缓存管理</view>
+    <view class="setting-item" bindtap="clearCache">
+      <view class="setting-label">清除缓存</view>
+      <view class="setting-value">{{cacheSize}}</view>
+    </view>
+  </view>
+
+  <view class="settings-section">
+    <view class="section-title">关于我们</view>
+    <view class="setting-item" bindtap="showAbout">
+      <view class="setting-label">关于系统</view>
+      <view class="setting-arrow">></view>
+    </view>
+    <view class="setting-item">
+      <view class="setting-label">版本信息</view>
+      <view class="setting-value">v1.0.0</view>
+    </view>
+  </view>
+
+  <view class="logout-btn" bindtap="logout">退出登录</view>
+</view>
