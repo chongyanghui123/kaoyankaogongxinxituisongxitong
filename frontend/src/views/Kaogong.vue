@@ -260,7 +260,7 @@ const likeInfo = async (id) => {
       return
     }
     
-    const response = await axios.post(`http://localhost:8000/api/v1/kaogong/info/like/${id}`, {}, {
+    const response = await axios.post(`/api/v1/kaogong/info/like/${id}`, {}, {
       headers: {
         'Authorization': `Bearer ${token}`
       }

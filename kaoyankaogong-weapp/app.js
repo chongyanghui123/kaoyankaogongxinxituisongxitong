@@ -37,7 +37,7 @@ App({
   globalData: {
     userInfo: null,
     token: '',
-    baseUrl: 'http://192.168.1.154:8000/api/v1', // 后端API基础地址
+    baseUrl: 'http://192.168.16.2:8000/api/v1', // 后端API基础地址
     theme: 'default' // 默认主题
   },
   

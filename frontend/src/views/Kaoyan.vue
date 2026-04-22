@@ -250,7 +250,7 @@ const likeInfo = async (id) => {
       return
     }
     
-    const response = await axios.post(`http://localhost:8000/api/v1/kaoyan/info/like/${id}`, {}, {
+    const response = await axios.post(`/api/v1/kaoyan/info/like/${id}`, {}, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
