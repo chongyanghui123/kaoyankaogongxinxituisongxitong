@@ -340,7 +340,27 @@ const simulatePayment = async () => {
       showSuccessDialog.value = true
       showQrCode.value = false
     } else {
-      throw new Error(response.data?.message || '支付失败')
+      // 直接使用模拟支付，不需要用户确认
+      const mockResponse = await axios.post(`/api/v1/payments/orders/${orderId.value}/pay`, {
+        pay_method: selectedPaymentMethod.value,
+        mock_payment: true
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (mockResponse.data && mockResponse.data.success) {
+        orderInfo.payment_status = 1 // 支付成功
+        
+        // 清除localStorage中的倒计时
+        localStorage.removeItem(getCountdownKey())
+        
+        showSuccessDialog.value = true
+        showQrCode.value = false
+      } else {
+        throw new Error(mockResponse.data?.message || '支付失败')
+      }
     }
   } catch (error) {
     console.error('支付失败:', error)

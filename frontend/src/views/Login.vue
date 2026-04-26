@@ -22,15 +22,15 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import axios from 'axios'
+import axios from '../utils/axios'
 
 const router = useRouter()
 const loginFormRef = ref(null)
 const loading = ref(false)
 
 const loginForm = reactive({
-  email: 'admin@shuangsai.com',
-  password: 'admin123'
+  email: '',
+  password: ''
 })
 
 const rules = {
@@ -61,36 +61,42 @@ const login = async () => {
           },
           timeout: 10000
         })
-        const { access_token, user_id, username, email, is_admin } = response.data.data
         
-        // 存储token和用户信息
-        localStorage.setItem('token', access_token)
-        localStorage.setItem('userInfo', JSON.stringify({
-          id: user_id,
-          username: username,
-          email: email,
-          is_admin: is_admin
-        }))
-        
-        ElMessage.success('登录成功')
-        // 登录成功后根据用户类型跳转
-        if (is_admin) {
-          // 管理员跳转到管理后台
-          router.push('/admin')
+        // 检查登录是否成功
+        if (response.data.success) {
+          const { access_token, user_id, username, email, is_admin } = response.data.data
+          
+          // 存储token和用户信息
+          localStorage.setItem('token', access_token)
+          localStorage.setItem('userInfo', JSON.stringify({
+            id: user_id,
+            username: username,
+            email: email,
+            is_admin: is_admin
+          }))
+          
+          // 登录成功后根据用户类型处理
+          ElMessage.success('登录成功')
+          // 所有用户都跳转到首页，添加短暂延迟让用户看到成功提示
+          setTimeout(() => {
+            if (is_admin) {
+              router.push('/admin')
+            } else {
+              router.push('/')
+            }
+            loading.value = false
+          }, 1000)
         } else {
-          // 普通用户跳转到其他页面，比如个人中心
-          ElMessage.error('您不是管理员，无法访问管理后台')
-          // 清除已存储的token和用户信息
-          localStorage.removeItem('token')
-          localStorage.removeItem('userInfo')
+          // 登录失败，显示错误信息
+          ElMessage.error(response.data.message || '登录失败')
         }
       } catch (error) {
-        console.error('登录失败:', error)
-        console.error('错误信息:', error.message)
-        console.error('错误响应:', error.response)
-        console.error('错误请求:', error.request)
-        ElMessage.error('登录失败，请检查网络连接或服务器状态')
-      } finally {
+        // 处理后端返回的错误
+        if (error.response && error.response.data) {
+          ElMessage.error(error.response.data.message || '登录失败')
+        } else {
+          ElMessage.error('登录失败，请检查网络连接或服务器状态')
+        }
         loading.value = false
       }
     }

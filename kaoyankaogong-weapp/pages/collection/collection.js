@@ -1,8 +1,8 @@
-// pages/collection/collection.js
 const app = getApp()
 
 Page({
   data: {
+    activeTab: 'info',
     favorites: [],
     hasMore: true,
     page: 1,
@@ -11,100 +11,44 @@ Page({
   },
 
   onLoad() {
-
     this.fetchFavorites();
   },
 
-  // 获取收藏内容（根据用户类型自动判断）
+  onShow() {
+    this.setData({ page: 1, favorites: [], hasMore: true });
+    this.fetchFavorites();
+  },
+
+  switchTab(e) {
+    const tab = e.currentTarget.dataset.tab;
+    if (tab === this.data.activeTab) return;
+    this.setData({
+      activeTab: tab,
+      page: 1,
+      favorites: [],
+      hasMore: true
+    });
+    this.fetchFavorites();
+  },
+
   async fetchFavorites() {
-    if (this.data.loading || !this.data.hasMore) {
-      return;
-    }
+    if (this.data.loading) return;
 
     this.setData({ loading: true });
 
     try {
       const app = getApp();
       
-      // 检查用户是否登录
       if (!app.globalData.userInfo) {
         this.setData({ loading: false });
         return;
       }
 
-      // 获取传统收藏（kaoyan和kaogong信息）
-      const [traditionalResponse, materialResponse] = await Promise.all([
-        app.request({
-          url: '/users/favorites',
-          data: {
-            page: this.data.page,
-            page_size: this.data.pageSize
-          }
-        }),
-        // 获取学习资料收藏
-        app.request({
-          url: '/learning_materials/favorites',
-          data: {
-            page: this.data.page,
-            page_size: this.data.pageSize
-          }
-        })
-      ]);
-
-      const allFavorites = [];
-
-      // 处理传统收藏
-      if (traditionalResponse.success) {
-        const traditionalItems = traditionalResponse.data.items || [];
-        traditionalItems.forEach(item => {
-          allFavorites.push({
-            id: item.id,
-            info_id: item.info_id,
-            category: item.category,
-            title: item.title || '',
-            summary: item.summary || '',
-            publish_time: item.publish_time || '',
-            created_at: item.created_at || '',
-            type: 'traditional' // 标记为传统收藏
-          });
-        });
+      if (this.data.activeTab === 'info') {
+        await this.fetchInfoFavorites(app);
+      } else {
+        await this.fetchMaterialFavorites(app);
       }
-
-      // 处理学习资料收藏
-      if (materialResponse.success) {
-        const materialItems = materialResponse.data.items || [];
-        materialItems.forEach(item => {
-          allFavorites.push({
-            id: item.id,
-            info_id: item.id, // 使用资料ID作为info_id
-            category: item.type, // 学习资料类型作为分类
-            title: item.title,
-            summary: item.description || '',
-            publish_time: item.upload_time || '',
-            created_at: new Date().toISOString(), // 临时时间
-            type: 'material' // 标记为学习资料收藏
-          });
-        });
-      }
-
-      // 按创建时间排序
-      allFavorites.sort((a, b) => {
-        return new Date(b.created_at) - new Date(a.created_at);
-      });
-
-      const hasMore = traditionalResponse.success && (traditionalResponse.data.items || []).length === this.data.pageSize ||
-                     materialResponse.success && (materialResponse.data.items || []).length === this.data.pageSize;
-
-      // 合并数据
-      const favorites = this.data.page === 1 
-        ? allFavorites 
-        : [...this.data.favorites, ...allFavorites];
-
-      this.setData({
-        favorites,
-        hasMore: hasMore,
-        page: this.data.page + 1
-      });
     } catch (error) {
       console.error('获取收藏失败:', error);
     } finally {
@@ -112,14 +56,83 @@ Page({
     }
   },
 
-  // 加载更多
+  async fetchInfoFavorites(app) {
+    try {
+      const response = await app.request({
+        url: '/users/favorites',
+        data: {
+          page: this.data.page,
+          page_size: this.data.pageSize
+        }
+      });
+
+      if (response.success) {
+        const items = (response.data.items || []).map(item => ({
+          id: item.id,
+          info_id: item.info_id,
+          category: item.category,
+          title: item.title || '',
+          summary: item.summary || '',
+          publish_time: item.publish_time || '',
+          created_at: item.created_at || '',
+          type: 'info'
+        }));
+        
+        const favorites = this.data.page === 1 ? items : [...this.data.favorites, ...items];
+        this.setData({
+          favorites,
+          hasMore: items.length === this.data.pageSize,
+          page: this.data.page + 1
+        });
+      }
+    } catch (error) {
+      console.error('获取情报收藏失败:', error);
+    }
+  },
+
+  async fetchMaterialFavorites(app) {
+    try {
+      const response = await app.request({
+        url: '/learning_materials/favorites',
+        data: {
+          page: this.data.page,
+          page_size: this.data.pageSize
+        }
+      });
+
+      if (response.success) {
+        const items = (response.data.items || []).map(item => ({
+          id: item.id,
+          info_id: item.id,
+          category: item.type,
+          title: item.title || '',
+          summary: item.description || '',
+          publish_time: item.upload_time || '',
+          created_at: item.created_at || '',
+          type: 'material'
+        }));
+        
+        const favorites = this.data.page === 1 ? items : [...this.data.favorites, ...items];
+        this.setData({
+          favorites,
+          hasMore: items.length === this.data.pageSize,
+          page: this.data.page + 1
+        });
+      }
+    } catch (error) {
+      console.error('获取资料收藏失败:', error);
+    }
+  },
+
   loadMore() {
     this.fetchFavorites();
   },
 
-  // 删除收藏
   async deleteFavorite(e) {
-    const { infoId, category, type } = e.currentTarget.dataset;
+    const infoId = e.currentTarget.dataset.infoId;
+    const category = e.currentTarget.dataset.category;
+    const type = e.currentTarget.dataset.type;
+    const index = e.currentTarget.dataset.index;
     
     wx.showModal({
       title: '确认删除',
@@ -128,17 +141,14 @@ Page({
         if (res.confirm) {
           try {
             const app = getApp();
-            
             let response;
             
             if (type === 'material') {
-              // 删除学习资料收藏
               response = await app.request({
                 url: `/learning_materials/materials/${infoId}/favorite`,
                 method: 'DELETE'
               });
             } else {
-              // 删除传统收藏
               response = await app.request({
                 url: `/users/favorites/${infoId}/${category}`,
                 method: 'DELETE'
@@ -146,75 +156,50 @@ Page({
             }
 
             if (response.success) {
-              // 更新收藏列表
               const favorites = this.data.favorites.filter(
-                item => item.info_id !== infoId
+                (item, i) => i !== index
               );
-              
               this.setData({ favorites });
-
-              wx.showToast({
-                title: '取消收藏成功',
-                icon: 'success'
-              });
+              wx.showToast({ title: '取消收藏成功', icon: 'success' });
             } else {
-              wx.showToast({
-                title: '取消收藏失败',
-                icon: 'none'
-              });
+              wx.showToast({ title: '取消收藏失败', icon: 'none' });
             }
           } catch (error) {
             console.error('取消收藏失败:', error);
-            wx.showToast({
-              title: '取消收藏失败',
-              icon: 'none'
-            });
+            wx.showToast({ title: '取消收藏失败', icon: 'none' });
           }
         }
       }
     });
   },
 
-  // 显示学习资料详情
   goToDetail(e) {
-    const { infoId, category, type } = e.currentTarget.dataset;
-    
-
+    const infoId = e.currentTarget.dataset.infoId;
+    const category = e.currentTarget.dataset.category;
+    const type = e.currentTarget.dataset.type;
     
     if (type === 'material') {
-      // 跳转到学习资料页面并显示对应资料详情
       wx.navigateTo({
         url: `/pages/learning-materials/learning-materials?material_id=${infoId}`
       });
     } else {
-      // 跳转到传统详情页
       wx.navigateTo({
-        url: `/pages/detail/detail?info_id=${infoId}&category=${category}`
+        url: `/pages/detail/detail?id=${infoId}&category=${category}`
       });
     }
   },
 
-  /**
-   * 页面上拉触底事件的处理函数
-   */
   onReachBottom() {
     this.loadMore();
   },
 
-  /**
-   * 页面相关事件处理函数--监听用户下拉动作
-   */
   onPullDownRefresh() {
-    // 重置数据并重新加载
     this.setData({
       favorites: [],
       hasMore: true,
       page: 1
     });
-    
     this.fetchFavorites();
-    
-    // 停止下拉刷新
     wx.stopPullDownRefresh();
   }
-})
+});

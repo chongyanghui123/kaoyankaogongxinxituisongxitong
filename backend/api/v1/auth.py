@@ -5,6 +5,7 @@
 """
 
 from datetime import datetime, timedelta
+import os
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import JSONResponse
@@ -56,7 +57,7 @@ class RegisterRequest(BaseModel):
                 raise ValueError('密码必须至少包含6个字符，且包含字母和数字')
         else:
             # 普通用户设置默认密码
-            values['password'] = '123456789'
+            values['password'] = os.getenv("DEFAULT_USER_PASSWORD", "changeme123")
             
         return values
 
@@ -304,7 +305,7 @@ async def register(
             from core.push_manager import send_email
             
             # 获取原始密码
-            original_password = req.password if req.password else '123456789'
+            original_password = req.password if req.password else os.getenv("DEFAULT_USER_PASSWORD", "changeme123")
             
             email_subject = "欢迎注册双赛道情报通"
             email_content = f"""尊敬的 {new_user.username}：
@@ -440,17 +441,9 @@ async def login(
                     }
                 )
         else:
-            # 普通用户必须使用手机号登录
-            if not req.username.isdigit():
-                return JSONResponse(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    content={
-                        "success": False,
-                        "code": 401,
-                        "message": "普通用户只能使用手机号登录",
-                        "data": None
-                    }
-                )
+            # 普通用户可以使用邮箱或手机号登录
+            # 移除手机号登录的限制
+            pass
         
         # 验证密码
         password_valid = False
@@ -496,9 +489,9 @@ async def login(
             need_change_password = user.need_change_password
         else:
             # 对于新用户，默认需要修改密码
-            # 检查用户的密码是否是默认密码（123456789）
-            default_password = get_password_hash('123456789')
-            if verify_password('123456789', user.password):
+            # 检查用户的密码是否是默认密码
+            default_password = os.getenv("DEFAULT_USER_PASSWORD", "changeme123")
+            if verify_password(default_password, user.password):
                 need_change_password = True
         
         # 打印用户信息，以便调试

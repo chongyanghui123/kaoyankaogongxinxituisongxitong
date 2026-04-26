@@ -34,6 +34,7 @@ class KaoyanInfo(BaseKaoyan):
     is_excellent = Column(Boolean, default=False, comment="是否加精: 1-是, 0-否")
     view_count = Column(Integer, default=0, comment="浏览次数")
     like_count = Column(Integer, default=0, comment="点赞次数")
+    favorite_count = Column(Integer, default=0, comment="收藏次数")
     is_processed = Column(Boolean, default=False, comment="是否处理: 1-是, 0-否")
     created_at = Column(DateTime, default=datetime.now, comment="创建时间")
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")

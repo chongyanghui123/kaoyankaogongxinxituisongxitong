@@ -1,74 +1,8 @@
 <!-- index.wxml -->
 <view class="container">
-  <!-- 未登录状态 -->
-  <view class="login-prompt" wx:if="{{!userInfo}}">
-    <view class="login-icon">🔐</view>
-    <view class="login-text">请先登录以查看情报</view>
-    <button class="login-btn" bindtap="navigateToLogin">去登录</button>
-  </view>
-  
-  <!-- 已登录状态 -->
-  <view wx:else>
-    <!-- 搜索框 -->
-    <view class="search-input">
-      <input placeholder="搜索情报" bindinput="onSearchInput" bindconfirm="onSearchConfirm" />
-      <view class="search-icon">🔍</view>
-    </view>
-
-    <!-- 分类导航 -->
-    <view class="category-nav">
-      <view class="category-item" wx:if="{{showKaoyan}}" bindtap="navigateToInfo" data-type="kaoyan">
-        <view class="category-icon">📚</view>
-        <view class="category-text">考研情报</view>
-      </view>
-      <view class="category-item" wx:if="{{showKaogong}}" bindtap="navigateToInfo" data-type="kaogong">
-        <view class="category-icon">💼</view>
-        <view class="category-text">考公情报</view>
-      </view>
-      <view class="category-item" bindtap="navigateToSubscription">
-        <view class="category-icon">💎</view>
-        <view class="category-text">订阅管理</view>
-      </view>
-      <view class="category-item" bindtap="navigateToMessage">
-        <view class="category-icon">📢</view>
-        <view class="category-text">消息中心</view>
-      </view>
-    </view>
-
-    <!-- 最新情报 -->
-    <view class="section">
-      <view class="section-header">
-        <text class="section-title">最新情报</text>
-        <text class="section-more" bindtap="navigateToInfo">查看更多</text>
-      </view>
-      
-      <view class="info-list">
-        <view class="info-item" wx:for="{{latestInfo}}" wx:key="id" bindtap="navigateToDetail" data-id="{{item.id}}">
-          <view class="info-title">{{item.title}}</view>
-          <view class="info-meta">
-            <text class="info-type">{{item.type}}</text>
-            <text class="info-time">{{item.time}}</text>
-          </view>
-        </view>
-      </view>
-    </view>
-
-    <!-- 历史情报 -->
-    <view class="section">
-      <view class="section-header">
-        <text class="section-title">历史情报</text>
-        <text class="section-more" bindtap="navigateToInfo">查看更多</text>
-      </view>
-      
-      <view class="info-list">
-        <view class="info-item" wx:for="{{historyInfo}}" wx:key="id" bindtap="navigateToDetail" data-id="{{item.id}}">
-          <view class="info-title">{{item.title}}</view>
-          <view class="info-meta">
-            <text class="info-type">{{item.type}}</text>
-            <text class="info-time">{{item.time}}</text>
-          </view>
-        </view>
-      </view>
-    </view>
+  <view class="placeholder">
+    <view class="placeholder-icon">📋</view>
+    <view class="placeholder-text">首页开发中，敬请期待</view>
+    <view class="placeholder-hint">请前往"情报"页面浏览内容</view>
   </view>
 </view>

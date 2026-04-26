@@ -5,9 +5,19 @@
     <view class="nav-title">我的收藏</view>
   </view>
 
+  <!-- 分类切换 -->
+  <view class="tab-bar">
+    <view class="tab-item {{activeTab === 'info' ? 'tab-active' : ''}}" bindtap="switchTab" data-tab="info">
+      <text>情报收藏</text>
+    </view>
+    <view class="tab-item {{activeTab === 'material' ? 'tab-active' : ''}}" bindtap="switchTab" data-tab="material">
+      <text>资料收藏</text>
+    </view>
+  </view>
+
   <!-- 内容区域 -->
   <view class="content">
-    <view class="collection-list">
+    <view class="collection-list" wx:if="{{favorites.length > 0}}">
       <view class="collection-item" 
             wx:for="{{favorites}}" 
             wx:key="id">
@@ -18,24 +28,22 @@
               data-type="{{item.type}}">
           <view class="item-title">{{item.title}}</view>
           <view class="item-meta">
+            <text class="item-tag tag-{{item.type === 'material' ? 'material' : (item.category === 1 ? 'kaoyan' : 'kaogong')}}">
+              {{item.type === 'material' ? '学习资料' : (item.category === 1 ? '考研' : '考公')}}
+            </text>
             <text class="item-date">{{item.created_at}}</text>
-            <text class="item-tag">{{item.type === 'material' ? '学习资料' : (item.category === 1 ? '考研' : '考公')}}</text>
           </view>
         </view>
         <view class="item-actions">
-          <button class="delete-btn" 
-                  catchtap="deleteFavorite" 
-                  data-info-id="{{item.info_id}}" 
-                  data-category="{{item.category}}"
-                  data-type="{{item.type}}">
-            删除
-          </button>
+          <view class="delete-btn" catchtap="deleteFavorite" data-info-id="{{item.info_id}}" data-category="{{item.category}}" data-type="{{item.type}}" data-index="{{index}}">
+            ✕
+          </view>
         </view>
       </view>
     </view>
     
     <!-- 加载状态 -->
-    <view class="loading" wx:if="{{loading}}">加载中...</view>
+    <view class="loading-state" wx:if="{{loading}}">加载中...</view>
     
     <!-- 没有更多数据 -->
     <view class="no-more" wx:if="{{!hasMore && favorites.length > 0}}">
@@ -44,8 +52,8 @@
     
     <!-- 空状态 -->
     <view class="empty" wx:if="{{!loading && favorites.length === 0}}">
-      <view class="empty-icon">📚</view>
-      <view class="empty-text">暂无收藏</view>
+      <view class="empty-icon">{{activeTab === 'info' ? '📋' : '📂'}}</view>
+      <view class="empty-text">{{activeTab === 'info' ? '暂无情报收藏' : '暂无资料收藏'}}</view>
       <view class="empty-desc">快去浏览感兴趣的内容并添加收藏吧</view>
     </view>
   </view>

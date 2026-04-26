@@ -62,6 +62,8 @@ async def get_message_list(
             
             items.append({
                 "id": log.id,
+                "info_id": log.info_id,
+                "category": log.category,
                 "type": message_type,
                 "title": "服务到期提醒" if "到期" in (log.push_content or "") else ("系统通知" if message_type == "system" else "推送通知"),
                 "content": log.push_content or "",

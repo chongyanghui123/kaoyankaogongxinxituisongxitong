@@ -11,16 +11,17 @@ from email.mime.multipart import MIMEMultipart
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
 
+from config import settings
 from core.database import get_db_common
 from models.users import PushLog, User, UserSubscription, UserKeyword, Order, UserReadInfo
 from models.kaoyan import KaoyanInfo
 from models.kaogong import KaogongInfo
 
 # 邮箱配置
-EMAIL_SENDER = "1322835898@qq.com"  # 发送者QQ邮箱
-EMAIL_PASSWORD = "jmqyjcmkrrnnifaa"  # QQ邮箱授权码
-SMTP_SERVER = "smtp.qq.com"
-SMTP_PORT = 587
+EMAIL_SENDER = settings.SMTP_FROM_EMAIL or settings.SMTP_USER
+EMAIL_PASSWORD = settings.SMTP_PASSWORD
+SMTP_SERVER = settings.SMTP_SERVER
+SMTP_PORT = settings.SMTP_PORT
 
 logger = logging.getLogger(__name__)
 

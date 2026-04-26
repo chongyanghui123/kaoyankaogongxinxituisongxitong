@@ -14,32 +14,32 @@ class Settings(BaseSettings):
     """应用配置类"""
     
     # 基本配置
-    ENVIRONMENT: str = "development"
-    DEBUG: bool = True
-    PORT: int = 8000
-    HOST: str = "0.0.0.0"
-    SECRET_KEY: str = "your-secret-key-here-change-in-production"
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "production")
+    DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
+    PORT: int = int(os.getenv("PORT", 8000))
+    HOST: str = os.getenv("HOST", "0.0.0.0")
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "CHANGE-ME-IN-PRODUCTION-USE-STRONG-KEY")
     API_V1_STR: str = "/api/v1"
-    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000,http://127.0.0.1:8080,http://localhost:5175,http://127.0.0.1:5175,http://localhost:5173,http://127.0.0.1:5173,https://servicewechat.com"
+    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "https://servicewechat.com")
     
     @property
     def cors_origins_list(self) -> List[str]:
         return [i.strip() for i in self.CORS_ORIGINS.split(',')]
     
     # 数据库配置
-    DATABASE_USER: str = "root"
-    DATABASE_PASSWORD: str = "123456789"
-    DATABASE_HOST: str = "localhost"
-    DATABASE_PORT: int = 3306
+    DATABASE_USER: str = os.getenv("DATABASE_USER", "")
+    DATABASE_PASSWORD: str = os.getenv("DATABASE_PASSWORD", "")
+    DATABASE_HOST: str = os.getenv("DATABASE_HOST", "")
+    DATABASE_PORT: int = int(os.getenv("DATABASE_PORT", 3306))
     COMMON_DB: str = "common_db"
     KAOYAN_DB: str = "kaoyan_db"
     KAOGONG_DB: str = "kaogong_db"
     
     # Redis配置
-    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    REDIS_URL: str = os.getenv("REDIS_URL", "")
     
     # RabbitMQ配置（Celery）
-    RABBITMQ_URL: str = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672//")
+    RABBITMQ_URL: str = os.getenv("RABBITMQ_URL", "")
     
     # 邮箱配置
     SMTP_SERVER: str = os.getenv("SMTP_SERVER", "smtp.qq.com")
@@ -132,7 +132,7 @@ class Settings(BaseSettings):
 
     
     class Config:
-        env_file = None
+        env_file = ".env"
         case_sensitive = True
         extra = "ignore"
 

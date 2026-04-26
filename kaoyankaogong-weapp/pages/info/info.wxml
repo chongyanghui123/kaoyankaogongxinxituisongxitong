@@ -1,7 +1,50 @@
 <!-- info.wxml -->
 <view class="container">
-  <!-- 筛选条件 -->
-  <view class="filter">
+  <!-- 搜索框 -->
+  <view class="search-bar">
+    <input class="search-input-el" placeholder="搜索情报" bindinput="onSearchInput" bindconfirm="onSearchConfirm" value="{{searchText}}" />
+    <view class="search-icon" bindtap="onSearchConfirm">🔍</view>
+  </view>
+
+  <!-- 未登录提示横幅 -->
+  <view class="login-banner" wx:if="{{!userInfo}}" bindtap="navigateToLogin">
+    <view class="banner-left">
+      <view class="banner-icon">🔐</view>
+      <view class="banner-text">
+        <view class="banner-title">登录后解锁个性化推送</view>
+        <view class="banner-desc">根据你的关注省份、学校、专业精准推送</view>
+      </view>
+    </view>
+    <view class="banner-btn">去登录</view>
+  </view>
+
+  <!-- 数据概览 -->
+  <view class="data-overview" wx:if="{{userInfo}}">
+    <view class="overview-item" wx:if="{{userVipType !== 2}}">
+      <view class="overview-value">{{kaoyanTotal}}</view>
+      <view class="overview-label">考研情报</view>
+    </view>
+    <view class="overview-divider" wx:if="{{userVipType !== 2 && userVipType !== 1}}"></view>
+    <view class="overview-item" wx:if="{{userVipType !== 1}}">
+      <view class="overview-value">{{kaogongTotal}}</view>
+      <view class="overview-label">考公情报</view>
+    </view>
+    <view class="overview-divider"></view>
+    <view class="overview-item">
+      <view class="overview-value">{{todayCount}}</view>
+      <view class="overview-label">今日更新</view>
+    </view>
+  </view>
+
+  <!-- 标签切换 -->
+  <view class="tab-bar">
+    <view class="tab-item {{activeTab === 'recommend' ? 'tab-active' : ''}}" bindtap="switchTab" data-tab="recommend" wx:if="{{userInfo}}">推荐</view>
+    <view class="tab-item {{activeTab === 'latest' ? 'tab-active' : ''}}" bindtap="switchTab" data-tab="latest">最新</view>
+    <view class="tab-item {{activeTab === 'hot' ? 'tab-active' : ''}}" bindtap="switchTab" data-tab="hot">热门</view>
+  </view>
+
+  <!-- 时间筛选 -->
+  <view class="filter" wx:if="{{activeTab !== 'hot'}}">
     <view class="filter-item" bindtap="showTimePicker">
       <text class="filter-label">时间</text>
       <text class="filter-value">{{currentTime}}</text>
@@ -10,25 +53,36 @@
   </view>
 
   <!-- 情报列表 -->
-  <view class="info-list">
-    <view class="info-item" wx:for="{{infoList}}" wx:key="id" bindtap="navigateToDetail" data-id="{{item.id}}">
-      <view class="info-title">{{item.title}}</view>
-      <view class="info-content">{{item.content}}</view>
-      <view class="info-meta">
-        <text class="info-type">{{item.type}}</text>
-        <text class="info-time">{{item.time}}</text>
+  <view class="info-list" wx:if="{{infoList.length > 0}}">
+    <view class="info-item" wx:for="{{infoList}}" wx:key="id">
+      <view class="info-main" bindtap="navigateToDetail" data-id="{{item.id}}" data-type="{{item.type}}">
+        <view class="info-title">{{item.title}}</view>
+        <view class="info-content" wx:if="{{item.content}}">{{item.content}}</view>
+        <view class="info-meta">
+          <text class="info-type {{item.type === '考研' ? 'type-kaoyan' : 'type-kaogong'}}">{{item.type}}</text>
+          <text class="info-province" wx:if="{{item.province}}">{{item.province}}</text>
+          <text class="info-school" wx:if="{{item.school}}">{{item.school}}</text>
+          <text class="info-time">{{item.time}}</text>
+        </view>
+      </view>
+      <view class="info-actions" wx:if="{{userInfo}}">
+        <view class="fav-btn {{item.is_favorited ? 'fav-active' : ''}}" catchtap="toggleFavorite" data-id="{{item.id}}" data-type="{{item.type}}" data-index="{{index}}">
+          <text class="fav-icon">{{item.is_favorited ? '★' : '☆'}}</text>
+          <text class="fav-count">{{item.favorite_count || 0}}</text>
+        </view>
       </view>
     </view>
   </view>
+  <view class="empty-tip" wx:elif="{{!loading}}">
+    <text>暂无情报数据</text>
+  </view>
 
   <!-- 加载更多 -->
-  <view class="load-more">
+  <view class="load-more" wx:if="{{infoList.length > 0}}">
     <view class="loading" wx:if="{{loading}}">加载中...</view>
     <view class="loading" wx:elif="{{!hasMore}}">没有更多数据了</view>
     <view class="loading" wx:else bindtap="loadMore">点击加载更多</view>
   </view>
-
-
 
   <!-- 时间选择器 -->
   <picker-view wx:if="{{showTimePicker}}" class="picker-view" value="{{timeIndex}}" bindchange="bindTimeChange">

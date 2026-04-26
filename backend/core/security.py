@@ -8,7 +8,6 @@ import os
 import jwt
 from datetime import datetime, timedelta
 from typing import Optional
-from passlib.context import CryptContext
 
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
@@ -19,7 +18,7 @@ from config import settings
 from core.database import get_db_common
 from models.users import User
 
-
+import bcrypt
 
 # JWT配置
 SECRET_KEY = settings.SECRET_KEY
@@ -30,11 +29,21 @@ ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 security = HTTPBearer()
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """验证密码（直接比较明文）"""
+    if hashed_password.startswith("$2b$") or hashed_password.startswith("$2a$"):
+        # bcrypt 限制密码长度为72字节
+        password_bytes = plain_password.encode('utf-8')
+        if len(password_bytes) > 72:
+            password_bytes = password_bytes[:72]
+        hashed_bytes = hashed_password.encode('utf-8')
+        try:
+            return bcrypt.checkpw(password_bytes, hashed_bytes)
+        except Exception as e:
+            print(f"BCrypt verification error: {e}")
+            return False
     return plain_password == hashed_password
 
 def get_password_hash(password: str) -> str:
-    """获取密码哈希（直接返回明文）"""
+    # 直接返回明文密码，不进行哈希处理
     return password
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -116,7 +125,7 @@ def get_current_admin(
     if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="需要管理员权限"
+            detail="您没有权限访问管理后台，请联系管理员"
         )
         
     return current_user
@@ -128,7 +137,7 @@ def get_current_active_admin(
     if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="需要管理员权限"
+            detail="您没有权限访问管理后台，请联系管理员"
         )
         
     return current_user

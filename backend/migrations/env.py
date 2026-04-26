@@ -1,16 +1,22 @@
 from logging.config import fileConfig
+import os
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
 
-# 导入我们的模型
 from core.database import BaseCommon
 from models.users import User
 
-# 这是 Alembic 配置对象，提供对正在使用的 .ini 文件中值的访问。
 config = context.config
+
+db_url = os.getenv(
+    "DATABASE_URL",
+    f"mysql+pymysql://{os.getenv('DATABASE_USER', '')}:{os.getenv('DATABASE_PASSWORD', '')}"
+    f"@{os.getenv('DATABASE_HOST', '')}:{os.getenv('DATABASE_PORT', '3306')}/common_db"
+)
+config.set_main_option("sqlalchemy.url", db_url)
 
 # 解释配置文件以进行 Python 日志记录。
 # 这条线基本上设置了记录器。

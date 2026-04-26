@@ -14,13 +14,13 @@
           <el-form-item label="手机号" prop="phone">
             <el-input v-model="formData.phone" placeholder="请输入手机号" />
           </el-form-item>
-          <el-form-item label="性别">
+          <el-form-item label="性别" prop="gender">
             <el-radio-group v-model="formData.gender">
               <el-radio value="男">男</el-radio>
               <el-radio value="女">女</el-radio>
             </el-radio-group>
           </el-form-item>
-          <el-form-item label="出生日期">
+          <el-form-item label="出生日期" prop="birthdate">
             <el-date-picker
               v-model="formData.birthdate"
               type="date"
@@ -32,7 +32,7 @@
 
         <!-- 考研需求 -->
         <el-card class="form-section" header="考研需求" shadow="hover">
-          <el-form-item label="关注省份">
+          <el-form-item label="关注省份" prop="kaoyan.provinces">
             <el-select
               v-model="formData.kaoyan.provinces"
               multiple
@@ -48,7 +48,7 @@
               />
             </el-select>
           </el-form-item>
-          <el-form-item label="关注学校">
+          <el-form-item label="关注学校" prop="kaoyan.schools">
             <el-select
               v-model="formData.kaoyan.schools"
               multiple
@@ -63,10 +63,10 @@
               />
             </el-select>
           </el-form-item>
-          <el-form-item label="关注专业">
+          <el-form-item label="关注专业" prop="kaoyan.majors">
             <el-input v-model="formData.kaoyan.majors" placeholder="请输入关注专业，多个专业用逗号分隔" />
           </el-form-item>
-          <el-form-item label="关注类型">
+          <el-form-item label="关注类型" prop="kaoyan.types">
             <el-select
               v-model="formData.kaoyan.types"
               multiple
@@ -80,14 +80,14 @@
               <el-option label="录取通知" value="录取通知" />
             </el-select>
           </el-form-item>
-          <el-form-item label="关键词">
+          <el-form-item label="关键词" prop="kaoyan.keywords">
             <el-input v-model="formData.kaoyan.keywords" placeholder="请输入关键词，多个关键词用逗号分隔" />
           </el-form-item>
         </el-card>
 
         <!-- 产品选择 -->
         <el-card class="form-section" header="产品选择" shadow="hover">
-          <el-form-item label="选择产品">
+          <el-form-item label="选择产品" required>
             <el-radio-group v-model="selectedProductId" @change="handleProductChange">
               <el-radio-button
                 v-for="product in products"
@@ -284,6 +284,27 @@ const rules = {
     { required: true, message: '请输入手机号', trigger: 'blur' },
     { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
   ],
+  gender: [
+    { required: true, message: '请选择性别', trigger: 'change' }
+  ],
+  birthdate: [
+    { required: true, message: '请选择出生日期', trigger: 'change' }
+  ],
+  'kaoyan.provinces': [
+    { required: true, message: '请选择关注省份', trigger: 'change' }
+  ],
+  'kaoyan.schools': [
+    { required: true, message: '请选择关注学校', trigger: 'change' }
+  ],
+  'kaoyan.majors': [
+    { required: true, message: '请输入关注专业', trigger: 'blur' }
+  ],
+  'kaoyan.types': [
+    { required: true, message: '请选择关注类型', trigger: 'change' }
+  ],
+  'kaoyan.keywords': [
+    { required: true, message: '请输入关键词', trigger: 'blur' }
+  ],
   paymentMethod: [
     { required: true, message: '请选择支付方式', trigger: 'change' }
   ]
@@ -387,7 +408,7 @@ const handlePayment = async () => {
           username: formData.real_name,
           email: formData.email,
           phone: formData.phone,
-          password: '123456789', // 为用户自动生成一个默认密码
+          password: undefined,
           real_name: formData.real_name,
           gender: formData.gender,
           birthdate: formData.birthdate ? formData.birthdate.toISOString().split('T')[0] : null,
@@ -401,6 +422,8 @@ const handlePayment = async () => {
           kaogong_requirements: null,
           is_admin: false // 明确指定是普通用户
         }
+        
+        console.log('准备支付的用户数据:', userData)
         
         // 保存用户数据到 localStorage，供支付页面使用
         localStorage.setItem('pendingUserData', JSON.stringify(userData))

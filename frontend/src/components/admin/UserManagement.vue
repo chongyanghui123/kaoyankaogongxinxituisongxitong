@@ -393,7 +393,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import axios from 'axios'
+import axios from '../../utils/axios'
 import { ElMessage, ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElSwitch, ElDialog, ElButton, ElTable, ElTableColumn, ElTag, ElTabs, ElTabPane, ElDescriptions, ElDescriptionsItem, ElSelectV2, ElRadio, ElRadioGroup, ElMessageBox } from 'element-plus'
 
 // 用户管理相关

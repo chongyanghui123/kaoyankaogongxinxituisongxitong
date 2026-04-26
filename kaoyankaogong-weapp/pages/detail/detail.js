@@ -52,10 +52,36 @@ Page({
         this.setData({
           info: response.data
         });
+        
+        // 检查是否已收藏
+        await this.checkIfCollected(id, response.data.type === '考研' ? 1 : 2);
       }
     } catch (error) {
       console.error('获取情报详情失败:', error);
       // 使用模拟数据
+    }
+  },
+
+  // 检查是否已收藏
+  async checkIfCollected(infoId, category) {
+    try {
+      const app = getApp();
+      
+      // 调用API获取收藏列表
+      const response = await app.request({
+        url: `/users/favorites?page=1&page_size=100`
+      });
+      
+      if (response.success) {
+        const favorites = response.data.items;
+        const isCollected = favorites.some(fav => fav.info_id == infoId && fav.category == category);
+        
+        this.setData({
+          isCollected: isCollected
+        });
+      }
+    } catch (error) {
+      console.error('检查收藏状态失败:', error);
     }
   },
   
@@ -81,15 +107,70 @@ Page({
   },
   
   // 收藏情报
-  collectInfo() {
-    this.setData({
-      isCollected: !this.data.isCollected
-    });
-    
-    wx.showToast({
-      title: this.data.isCollected ? '收藏成功' : '取消收藏',
-      icon: 'success'
-    });
+  async collectInfo() {
+    try {
+      const app = getApp();
+      const infoId = this.data.info.id;
+      const category = this.data.info.type === '考研' ? 1 : 2;
+      
+      if (this.data.isCollected) {
+        // 取消收藏
+        const response = await app.request({
+          url: `/users/favorites/${infoId}/${category}`,
+          method: 'DELETE'
+        });
+        
+        if (response.success) {
+          this.setData({
+            isCollected: false
+          });
+          
+          wx.showToast({
+            title: '取消收藏成功',
+            icon: 'success'
+          });
+        }
+      } else {
+        // 添加收藏
+        try {
+          const response = await app.request({
+            url: `/users/favorites/${infoId}/${category}`,
+            method: 'POST'
+          });
+          
+          if (response.success) {
+            this.setData({
+              isCollected: true
+            });
+            
+            wx.showToast({
+              title: '收藏成功',
+              icon: 'success'
+            });
+          }
+        } catch (error) {
+          // 检查是否是400错误（已收藏）
+          if (error.message && error.message.includes('已收藏')) {
+            this.setData({
+              isCollected: true
+            });
+            
+            wx.showToast({
+              title: '该情报已收藏',
+              icon: 'none'
+            });
+          } else {
+            throw error;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('收藏操作失败:', error);
+      wx.showToast({
+        title: '收藏操作失败，请稍后重试',
+        icon: 'none'
+      });
+    }
   },
   
   // 分享情报

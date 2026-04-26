@@ -12,11 +12,13 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, Field, validator
 
 from config import settings
-from core.database import get_db_common
+from core.database import get_db_common, get_db_kaoyan, get_db_kaogong
 from core.security import get_current_user, get_current_admin, get_password_hash, validate_email, validate_phone
 from core.logger import log_user_action, log_error
 
 from models.users import User, UserSubscription, UserKeyword, UserReadInfo, UserFavorite
+from models.kaoyan import KaoyanInfo
+from models.kaogong import KaogongInfo
 import asyncio
 
 router = APIRouter()
@@ -594,7 +596,9 @@ async def get_favorites(
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(10, ge=1, le=100, description="每页数量"),
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db_common)
+    db: Session = Depends(get_db_common),
+    db_kaoyan: Session = Depends(get_db_kaoyan),
+    db_kaogong: Session = Depends(get_db_kaogong)
 ):
     """获取用户收藏信息列表（根据用户类型自动判断）"""
     try:
@@ -642,22 +646,23 @@ async def get_favorites(
                 "id": fav.id,
                 "info_id": fav.info_id,
                 "category": fav.category,
-                "created_at": fav.created_at.isoformat()
+                "created_at": fav.created_at.isoformat() if fav.created_at else None
             }
             
-            # 根据分类获取内容详情
-            if fav.category == 1:  # 考研
-                info = db.query(KaoyanInfo).filter(KaoyanInfo.id == fav.info_id).first()
+            if fav.category == 1:
+                info = db_kaoyan.query(KaoyanInfo).filter(KaoyanInfo.id == fav.info_id).first()
                 if info:
                     favorite_data["title"] = info.title
-                    favorite_data["summary"] = info.summary
-                    favorite_data["publish_time"] = info.publish_time.isoformat()
-            elif fav.category == 2:  # 考公
-                info = db.query(KaogongInfo).filter(KaogongInfo.id == fav.info_id).first()
+                    favorite_data["summary"] = (info.content[:100] + '...') if info.content and len(info.content) > 100 else (info.content or '')
+                    favorite_data["publish_time"] = info.publish_time.isoformat() if info.publish_time else None
+                    favorite_data["source"] = info.source
+            elif fav.category == 2:
+                info = db_kaogong.query(KaogongInfo).filter(KaogongInfo.id == fav.info_id).first()
                 if info:
                     favorite_data["title"] = info.title
-                    favorite_data["summary"] = info.summary
-                    favorite_data["publish_time"] = info.publish_time.isoformat()
+                    favorite_data["summary"] = (info.content[:100] + '...') if info.content and len(info.content) > 100 else (info.content or '')
+                    favorite_data["publish_time"] = info.publish_time.isoformat() if info.publish_time else None
+                    favorite_data["source"] = info.source
             
             result.append(favorite_data)
         
@@ -685,11 +690,12 @@ async def add_favorite(
     info_id: int,
     category: int,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db_common)
+    db: Session = Depends(get_db_common),
+    db_kaoyan: Session = Depends(get_db_kaoyan),
+    db_kaogong: Session = Depends(get_db_kaogong)
 ):
     """添加收藏信息"""
     try:
-        # 检查是否已收藏
         existing_favorite = db.query(UserFavorite).filter(
             UserFavorite.user_id == current_user.id,
             UserFavorite.info_id == info_id,
@@ -707,7 +713,6 @@ async def add_favorite(
                 }
             )
         
-        # 创建收藏
         new_favorite = UserFavorite(
             user_id=current_user.id,
             info_id=info_id,
@@ -716,6 +721,17 @@ async def add_favorite(
         
         db.add(new_favorite)
         db.commit()
+
+        if category == 1:
+            kaoyan_info = db_kaoyan.query(KaoyanInfo).filter(KaoyanInfo.id == info_id).first()
+            if kaoyan_info:
+                kaoyan_info.favorite_count = (kaoyan_info.favorite_count or 0) + 1
+                db_kaoyan.commit()
+        elif category == 2:
+            kaogong_info = db_kaogong.query(KaogongInfo).filter(KaogongInfo.id == info_id).first()
+            if kaogong_info:
+                kaogong_info.favorite_count = (kaogong_info.favorite_count or 0) + 1
+                db_kaogong.commit()
         
         log_user_action(current_user.id, "add_favorite", f"添加收藏: 信息ID={info_id}, 分类={category}")
         
@@ -745,7 +761,9 @@ async def remove_favorite(
     info_id: int,
     category: int,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db_common)
+    db: Session = Depends(get_db_common),
+    db_kaoyan: Session = Depends(get_db_kaoyan),
+    db_kaogong: Session = Depends(get_db_kaogong)
 ):
     """取消收藏信息"""
     try:
@@ -768,6 +786,17 @@ async def remove_favorite(
         
         db.delete(favorite)
         db.commit()
+
+        if category == 1:
+            kaoyan_info = db_kaoyan.query(KaoyanInfo).filter(KaoyanInfo.id == info_id).first()
+            if kaoyan_info and (kaoyan_info.favorite_count or 0) > 0:
+                kaoyan_info.favorite_count -= 1
+                db_kaoyan.commit()
+        elif category == 2:
+            kaogong_info = db_kaogong.query(KaogongInfo).filter(KaogongInfo.id == info_id).first()
+            if kaogong_info and (kaogong_info.favorite_count or 0) > 0:
+                kaogong_info.favorite_count -= 1
+                db_kaogong.commit()
         
         log_user_action(current_user.id, "remove_favorite", f"取消收藏: 信息ID={info_id}, 分类={category}")
         

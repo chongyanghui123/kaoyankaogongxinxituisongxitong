@@ -9,7 +9,7 @@ class OSSUploader:
     """阿里云OSS文件上传工具类"""
     
     def __init__(self):
-        self.enabled = getattr(settings, 'OSS_ENABLED', False) and os.environ.get('OSS_ENABLED', '').lower() == 'true'
+        self.enabled = getattr(settings, 'OSS_ENABLED', False)
         
         if self.enabled:
             self.access_key_id = getattr(settings, 'OSS_ACCESS_KEY_ID', None) or os.environ.get('OSS_ACCESS_KEY_ID', '')

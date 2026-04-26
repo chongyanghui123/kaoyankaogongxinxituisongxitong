@@ -22,9 +22,10 @@ Page({
     currentRatingMaterialId: 0,
     showCommentDialog: false,
     commentContent: '',
-    userRatings: {}, // 存储用户已评分的资料ID
-    userFavorites: {}, // 存储用户已收藏的资料ID
-    userInfo: null // 用户信息，用于判断是否是自己的评论
+    userRatings: {},
+    userFavorites: {},
+    userInfo: null,
+    baseUrl: 'http://localhost:8000'
   },
 
   onLoad(options) {
@@ -221,15 +222,17 @@ Page({
       data: data,
       success: async (res) => {
         if (res.data.success) {
-          // 处理图片路径，使用相对路径
+          // 处理图片路径
           const materials = res.data.data.items || []
           materials.forEach(material => {
             if (material.cover_image) {
-              // 保持相对路径，让小程序通过后端 API 获取图片
-              // 例如：/uploads/d171db14-3828-4049-8053-6885092c2b7e.png
+              // 确保图片路径是正确的格式
+              if (!material.cover_image.startsWith('/')) {
+                material.cover_image = '/' + material.cover_image
+              }
+              // 打印图片路径用于调试
+              console.log('图片路径:', material.cover_image)
             }
-            // 打印评分数据
-
           })
           
           // 检查每个资料的收藏状态和评分状态

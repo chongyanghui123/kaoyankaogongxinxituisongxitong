@@ -1,7 +1,14 @@
 <!-- message.wxml -->
 <view class="container">
+  <!-- 未登录提示 -->
+  <view class="login-prompt" wx:if="{{!userInfo}}">
+    <view class="prompt-icon">🔐</view>
+    <view class="prompt-text">请先登录查看消息</view>
+    <view class="prompt-hint">登录后可接收系统通知、情报推送和到期提醒</view>
+  </view>
+
   <!-- 消息分类 -->
-  <view class="message-tabs">
+  <view class="message-tabs" wx:if="{{userInfo}}">
     <view class="tab-item" bindtap="switchTab" data-tab="all" data-selected="{{activeTab === 'all'}}">
       全部
     </view>
@@ -17,8 +24,8 @@
   </view>
 
   <!-- 消息列表 -->
-  <view class="message-list">
-    <view class="message-item" wx:for="{{messages}}" wx:key="id" bindtap="markAsRead" data-id="{{item.id}}" data-read="{{item.read}}">
+  <view class="message-list" wx:if="{{userInfo}}">
+    <view class="message-item" wx:for="{{messages}}" wx:key="id" bindtap="navigateToDetail" data-id="{{item.info_id}}" data-message-id="{{item.id}}" data-read="{{item.read}}">
       <view class="message-icon" wx:if="{{item.type === 'system'}}">📢</view>
       <view class="message-icon" wx:elif="{{item.type === 'info'}}">📚</view>
       <view class="message-icon" wx:else>⏰</view>

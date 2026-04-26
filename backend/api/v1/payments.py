@@ -7,6 +7,7 @@ import time
 import hashlib
 import uuid
 import json
+import os
 
 from core.database import get_db, get_db_common
 from core.security import get_current_user, get_current_admin
@@ -126,8 +127,16 @@ def process_payment_success(order: Order, db: Session, db_common: Session):
 
 服务详情：
 产品名称：{product.name}
+服务类型：{service_type}推送服务
 服务开始时间：{vip_start_time.strftime('%Y-%m-%d')}
 服务结束时间：{vip_end_time.strftime('%Y-%m-%d')}
+服务时长：{product.duration}天
+
+订阅信息：
+您已成功订阅{service_type}推送服务，我们将为您提供以下内容：
+- 最新{service_type}相关资讯和政策变化
+- 个性化的考试信息推送
+- 专业的备考指导和建议
 
 如有疑问，请联系客服。
 
@@ -137,13 +146,15 @@ def process_payment_success(order: Order, db: Session, db_common: Session):
                 
                 # 记录到推送历史记录
                 try:
+                    # 修改推送内容，添加"系统"关键词，确保归类到系统通知
+                    push_content = f"【系统通知】{email_subject}"
                     push_log = PushLog(
                         user_id=user.id,
                         info_id=order.id,
                         category=3,
                         push_type=3,
                         push_status=1,
-                        push_content=email_subject,
+                        push_content=push_content,
                         is_processed=1,
                         push_time=datetime.now()
                     )
@@ -225,7 +236,7 @@ async def create_order(
                 username=user_username,
                 email=user_email,
                 phone=user_phone,
-                password=get_password_hash("123456789"),  # 为用户设置默认密码
+                password=get_password_hash(os.getenv("DEFAULT_USER_PASSWORD", "changeme123")),
                 real_name=user_username,
                 is_admin=False,
                 is_active=True,
@@ -262,7 +273,7 @@ async def create_order(
             username=user_username,
             email=user_email,
             phone=user_phone,
-            password=get_password_hash("123456789"),  # 为用户设置默认密码
+            password=get_password_hash(os.getenv("DEFAULT_USER_PASSWORD", "changeme123")),
             is_admin=False,
             is_active=True,
             is_vip=False
@@ -491,6 +502,9 @@ async def pay_order(
         raise HTTPException(status_code=400, detail="产品不存在")
     
     # 根据支付方式处理
+    # 检查是否使用模拟支付（需要明确确认）
+    use_mock_payment = payment_data.get("mock_payment", False)
+    
     if payment_method == "alipay":
         # 支付宝支付
         if settings.ALIPAY_APP_ID and settings.ALIPAY_PRIVATE_KEY:
@@ -498,9 +512,22 @@ async def pay_order(
             alipay_params = generate_alipay_params(order, product)
             return {"success": True, "code": 200, "message": "支付宝支付", "data": alipay_params}
         else:
-            # 没有配置，使用模拟支付
-            process_payment_success(order, db, db_common)
-            return {"success": True, "code": 200, "message": "支付成功（模拟）", "data": {"mock": True}}
+            # 没有配置，返回提示信息
+            if use_mock_payment:
+                # 用户明确确认使用模拟支付
+                process_payment_success(order, db, db_common)
+                return {"success": True, "code": 200, "message": "支付成功（模拟）", "data": {"mock": True}}
+            else:
+                # 返回提示，让用户确认是否使用模拟支付
+                return {
+                    "success": False, 
+                    "code": 400, 
+                    "message": "支付宝支付未配置，是否使用模拟支付？", 
+                    "data": {
+                        "need_confirmation": True,
+                        "mock_payment_available": True
+                    }
+                }
     
     elif payment_method == "wechat" or payment_method == "wechatpay":
         # 微信支付
@@ -565,24 +592,68 @@ async def pay_order(
                     else:
                         error_msg = root.find("return_msg").text or root.find("err_code_des").text or "下单失败"
                         log_error(f"微信下单失败: {error_msg}")
-                        # 失败后使用模拟支付
-                        process_payment_success(order, db, db_common)
-                        return {"success": True, "code": 200, "message": "支付成功（模拟）", "data": {"mock": True}}
+                        # 失败后返回提示
+                        if use_mock_payment:
+                            process_payment_success(order, db, db_common)
+                            return {"success": True, "code": 200, "message": "支付成功（模拟）", "data": {"mock": True}}
+                        else:
+                            return {
+                                "success": False, 
+                                "code": 400, 
+                                "message": f"微信下单失败: {error_msg}，是否使用模拟支付？", 
+                                "data": {
+                                    "need_confirmation": True,
+                                    "mock_payment_available": True
+                                }
+                            }
                         
             except Exception as e:
                 log_error(f"微信支付异常: {str(e)}")
-                # 异常时使用模拟支付
+                # 异常时返回提示
+                if use_mock_payment:
+                    process_payment_success(order, db, db_common)
+                    return {"success": True, "code": 200, "message": "支付成功（模拟）", "data": {"mock": True}}
+                else:
+                    return {
+                        "success": False, 
+                        "code": 400, 
+                        "message": f"微信支付异常: {str(e)}，是否使用模拟支付？", 
+                        "data": {
+                            "need_confirmation": True,
+                            "mock_payment_available": True
+                        }
+                    }
+        else:
+            # 没有配置微信支付，返回提示
+            if use_mock_payment:
                 process_payment_success(order, db, db_common)
                 return {"success": True, "code": 200, "message": "支付成功（模拟）", "data": {"mock": True}}
-        else:
-            # 没有配置微信支付，使用模拟支付
-            process_payment_success(order, db, db_common)
-            return {"success": True, "code": 200, "message": "支付成功（模拟）", "data": {"mock": True}}
+            else:
+                return {
+                    "success": False, 
+                    "code": 400, 
+                    "message": "微信支付未配置，是否使用模拟支付？", 
+                    "data": {
+                        "need_confirmation": True,
+                        "mock_payment_available": True
+                    }
+                }
     
     else:
-        # 其他支付方式，使用模拟支付
-        process_payment_success(order, db, db_common)
-        return {"success": True, "code": 200, "message": "支付成功（模拟）", "data": {"mock": True}}
+        # 其他支付方式，返回提示
+        if use_mock_payment:
+            process_payment_success(order, db, db_common)
+            return {"success": True, "code": 200, "message": "支付成功（模拟）", "data": {"mock": True}}
+        else:
+            return {
+                "success": False, 
+                "code": 400, 
+                "message": "支付方式未配置，是否使用模拟支付？", 
+                "data": {
+                    "need_confirmation": True,
+                    "mock_payment_available": True
+                }
+            }
 
 
 @router.post("/callback")
@@ -635,7 +706,7 @@ async def payment_callback(
                     service_type = "推送"
                 
                 email_subject = f"【支付成功】您的{service_type}推送服务已开通"
-                email_content = f"尊敬的 {user.username}：\n\n恭喜您支付成功！您的{service_type}推送服务已开通。\n\n服务详情：\n产品名称：{product.name}\n服务开始时间：{vip_start_time.strftime('%Y-%m-%d')}\n服务结束时间：{vip_end_time.strftime('%Y-%m-%d')}\n\n如有疑问，请联系客服。\n\n此致\n双赛道情报通团队"
+                email_content = f"尊敬的 {user.username}：\n\n恭喜您支付成功！您的{service_type}推送服务已开通。\n\n服务详情：\n产品名称：{product.name}\n服务类型：{service_type}推送服务\n服务开始时间：{vip_start_time.strftime('%Y-%m-%d')}\n服务结束时间：{vip_end_time.strftime('%Y-%m-%d')}\n服务时长：{product.duration}天\n\n订阅信息：\n您已成功订阅{service_type}推送服务，我们将为您提供以下内容：\n- 最新{service_type}相关资讯和政策变化\n- 个性化的考试信息推送\n- 专业的备考指导和建议\n\n如有疑问，请联系客服。\n\n此致\n双赛道情报通团队"
                 send_email(user.email, email_subject, email_content)
             
             db.commit()
@@ -825,9 +896,33 @@ async def update_order_status_admin(
                         service_type = "推送"
                     
                     email_subject = f"【支付成功】您的{service_type}推送服务已开通"
-                    email_content = f"尊敬的 {user.username}：\n\n恭喜您支付成功！您的{service_type}推送服务已开通。\n\n服务详情：\n产品名称：{product.name}\n服务开始时间：{vip_start_time.strftime('%Y-%m-%d')}\n服务结束时间：{vip_end_time.strftime('%Y-%m-%d')}\n\n如有疑问，请联系客服。\n\n此致\n双赛道情报通团队"
+                    email_content = f"尊敬的 {user.username}：\n\n恭喜您支付成功！您的{service_type}推送服务已开通。\n\n服务详情：\n产品名称：{product.name}\n服务类型：{service_type}推送服务\n服务开始时间：{vip_start_time.strftime('%Y-%m-%d')}\n服务结束时间：{vip_end_time.strftime('%Y-%m-%d')}\n服务时长：{product.duration}天\n\n订阅信息：\n您已成功订阅{service_type}推送服务，我们将为您提供以下内容：\n- 最新{service_type}相关资讯和政策变化\n- 个性化的考试信息推送\n- 专业的备考指导和建议\n\n如有疑问，请联系客服。\n\n此致\n双赛道情报通团队"
                     send_email(user.email, email_subject, email_content)
-    
+                    
+                    # 记录到推送历史记录
+                    try:
+                        from core.database import get_db_common
+                        from models.users import PushLog
+                        from datetime import datetime
+                        db_common = next(get_db_common())
+                        # 修改推送内容，添加"系统"关键词，确保归类到系统通知
+                        push_content = f"【系统通知】{email_subject}"
+                        push_log = PushLog(
+                            user_id=user.id,
+                            info_id=db_order.id,
+                            category=3,
+                            push_type=3,
+                            push_status=1,
+                            push_content=push_content,
+                            is_processed=1,
+                            push_time=datetime.now()
+                        )
+                        db_common.add(push_log)
+                        db_common.commit()
+                        db_common.close()
+                    except Exception as e:
+                        log_error(f"记录推送历史失败: {str(e)}")
+
     db.commit()
     db.refresh(db_order)
     

@@ -66,7 +66,7 @@ module.exports = {
       data-id="{{ item.id }}"
     >
       <view class="material-cover" wx:if="{{ item.cover_image }}">
-        <image src="{{ 'http://localhost:8000' + item.cover_image }}" mode="aspectFill" />
+        <image src="{{ baseUrl + item.cover_image }}" mode="aspectFill" />
       </view>
       <view class="material-cover placeholder" wx:else>
         <text class="cover-icon">📄</text>
@@ -134,7 +134,7 @@ module.exports = {
     </view>
     <view class="detail-body">
       <view class="detail-cover" wx:if="{{ currentMaterial.cover_image }}">
-        <image src="{{ 'http://localhost:8000' + currentMaterial.cover_image }}" mode="aspectFill" />
+        <image src="{{ baseUrl + currentMaterial.cover_image }}" mode="aspectFill" />
       </view>
       <view class="detail-info">
         <view class="detail-meta">

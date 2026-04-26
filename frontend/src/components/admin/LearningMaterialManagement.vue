@@ -49,6 +49,18 @@
       <el-table :data="materials" style="width: 100%" v-loading="loading">
         <el-table-column type="index" label="序号" width="80" :index="(index) => index + 1" />
         <el-table-column prop="title" label="标题" min-width="200" />
+        <el-table-column label="封面图片" width="120">
+          <template #default="scope">
+            <el-image 
+              v-if="scope.row.cover_image" 
+              :src="apiBaseUrl + scope.row.cover_image" 
+              :preview-src-list="[apiBaseUrl + scope.row.cover_image]"
+              style="width: 60px; height: 60px;"
+              fit="cover"
+            />
+            <span v-else>无图片</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="type" label="类型" width="100">
           <template #default="scope">
             <el-tag :type="scope.row.type === 1 ? 'primary' : 'success'">
@@ -249,7 +261,7 @@
               </template>
             </el-upload>
             <div v-if="editForm.cover_image" class="current-file">
-              当前封面: <el-image :src="editForm.cover_image" :preview-src-list="[editForm.cover_image]" style="width: 100px; height: 100px;" />
+              当前封面: <el-image :src="apiBaseUrl + editForm.cover_image" :preview-src-list="[apiBaseUrl + editForm.cover_image]" style="width: 100px; height: 100px;" fit="cover" />
             </div>
           </el-form-item>
         </el-form>
@@ -268,6 +280,9 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
+
+// 获取 API 基础 URL
+const apiBaseUrl = import.meta.env.VITE_API_URL
 
 // 资料列表相关
 const materials = ref([])

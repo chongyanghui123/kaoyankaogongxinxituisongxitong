@@ -74,16 +74,10 @@ Page({
       
       // 检查用户是否登录
       if (!app.globalData.userInfo) {
-        // 用户未登录，跳转到登录页面
-        wx.showToast({
-          title: '请先登录',
-          icon: 'none'
+        this.setData({
+          messages: [],
+          loading: false
         });
-        
-        wx.navigateTo({
-          url: '/pages/user/user'
-        });
-        
         return;
       }
       
@@ -128,10 +122,7 @@ Page({
   },
   
   // 标记为已读
-  async markAsRead(e) {
-    const id = e.currentTarget.dataset.id;
-    const read = e.currentTarget.dataset.read;
-    
+  async markAsRead(id, read) {
     if (!read) {
       try {
         const app = getApp();
@@ -156,5 +147,20 @@ Page({
         console.error('标记已读失败:', error);
       }
     }
+  },
+
+  // 导航到情报详情
+  async navigateToDetail(e) {
+    const infoId = e.currentTarget.dataset.id;
+    const messageId = e.currentTarget.dataset.messageId;
+    const read = e.currentTarget.dataset.read;
+    
+    // 先标记为已读
+    await this.markAsRead(messageId, read);
+    
+    // 导航到情报详情页面
+    wx.navigateTo({
+      url: `/pages/detail/detail?id=${infoId}`
+    });
   }
 });

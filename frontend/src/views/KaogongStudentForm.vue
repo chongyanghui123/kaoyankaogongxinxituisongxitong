@@ -14,13 +14,13 @@
           <el-form-item label="手机号" prop="phone">
             <el-input v-model="formData.phone" placeholder="请输入手机号" />
           </el-form-item>
-          <el-form-item label="性别">
+          <el-form-item label="性别" prop="gender">
             <el-radio-group v-model="formData.gender">
               <el-radio value="男">男</el-radio>
               <el-radio value="女">女</el-radio>
             </el-radio-group>
           </el-form-item>
-          <el-form-item label="出生日期">
+          <el-form-item label="出生日期" prop="birthdate">
             <el-date-picker
               v-model="formData.birthdate"
               type="date"
@@ -32,7 +32,7 @@
 
         <!-- 考公需求 -->
         <el-card class="form-section" header="考公需求" shadow="hover">
-          <el-form-item label="关注省份">
+          <el-form-item label="关注省份" prop="kaogong.provinces">
             <el-select
               v-model="formData.kaogong.provinces"
               multiple
@@ -47,7 +47,7 @@
               />
             </el-select>
           </el-form-item>
-          <el-form-item label="岗位类别">
+          <el-form-item label="岗位类别" prop="kaogong.position_types">
             <el-select
               v-model="formData.kaogong.position_types"
               multiple
@@ -60,10 +60,10 @@
               <el-option label="医疗" value="医疗" />
             </el-select>
           </el-form-item>
-          <el-form-item label="专业">
+          <el-form-item label="专业" prop="kaogong.majors">
             <el-input v-model="formData.kaogong.majors" placeholder="请输入专业，多个专业用逗号分隔" />
           </el-form-item>
-          <el-form-item label="学历要求">
+          <el-form-item label="学历要求" prop="kaogong.education">
             <el-select
               v-model="formData.kaogong.education"
               placeholder="请选择学历要求"
@@ -75,21 +75,21 @@
               <el-option label="博士" value="博士" />
             </el-select>
           </el-form-item>
-          <el-form-item label="是否应届生">
+          <el-form-item label="是否应届生" prop="kaogong.is_fresh_graduate">
             <el-radio-group v-model="formData.kaogong.is_fresh_graduate">
               <el-radio value="是">是</el-radio>
               <el-radio value="否">否</el-radio>
               <el-radio value="不限">不限</el-radio>
             </el-radio-group>
           </el-form-item>
-          <el-form-item label="关键词">
+          <el-form-item label="关键词" prop="kaogong.keywords">
             <el-input v-model="formData.kaogong.keywords" placeholder="请输入关键词，多个关键词用逗号分隔" />
           </el-form-item>
         </el-card>
 
         <!-- 产品选择 -->
         <el-card class="form-section" header="产品选择" shadow="hover">
-          <el-form-item label="选择产品">
+          <el-form-item label="选择产品" required>
             <el-radio-group v-model="selectedProductId" @change="handleProductChange">
               <el-radio-button
                 v-for="product in products"
@@ -219,6 +219,30 @@ const rules = {
     { required: true, message: '请输入手机号', trigger: 'blur' },
     { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
   ],
+  gender: [
+    { required: true, message: '请选择性别', trigger: 'change' }
+  ],
+  birthdate: [
+    { required: true, message: '请选择出生日期', trigger: 'change' }
+  ],
+  'kaogong.provinces': [
+    { required: true, message: '请选择关注省份', trigger: 'change' }
+  ],
+  'kaogong.position_types': [
+    { required: true, message: '请选择岗位类别', trigger: 'change' }
+  ],
+  'kaogong.majors': [
+    { required: true, message: '请输入专业', trigger: 'blur' }
+  ],
+  'kaogong.education': [
+    { required: true, message: '请选择学历要求', trigger: 'change' }
+  ],
+  'kaogong.is_fresh_graduate': [
+    { required: true, message: '请选择是否应届生', trigger: 'change' }
+  ],
+  'kaogong.keywords': [
+    { required: true, message: '请输入关键词', trigger: 'blur' }
+  ],
   paymentMethod: [
     { required: true, message: '请选择支付方式', trigger: 'change' }
   ]
@@ -309,7 +333,7 @@ const handlePayment = async () => {
           username: formData.real_name,
           email: formData.email,
           phone: formData.phone,
-          password: '123456789', // 为用户自动生成一个默认密码
+          password: undefined,
           real_name: formData.real_name,
           gender: formData.gender,
           birthdate: formData.birthdate ? formData.birthdate.toISOString().split('T')[0] : null,
