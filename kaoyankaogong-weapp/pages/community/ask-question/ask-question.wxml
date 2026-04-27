@@ -1,0 +1,29 @@
+<view class="ask-question-container">
+  <view class="form-section">
+    <view class="form-item">
+      <text class="form-label">问题标题</text>
+      <input class="form-input" placeholder="请输入问题标题" bindinput="onTitleInput" value="{{title}}" maxlength="200"></input>
+    </view>
+    
+    <view class="form-item">
+      <text class="form-label">问题内容</text>
+      <textarea class="form-textarea" placeholder="请详细描述您的问题" bindinput="onContentInput" value="{{content}}" maxlength="5000"></textarea>
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">分类</text>
+      <picker mode="selector" range="{{categories}}" bindchange="onCategoryChange">
+        <view class="picker">
+          {{categories[categoryIndex] || '请选择分类'}}
+        </view>
+      </picker>
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">标签</text>
+      <input class="form-input" placeholder="请输入标签，用逗号分隔" bindinput="onTagsInput" value="{{tags}}" maxlength="100"></input>
+    </view>
+  </view>
+
+  <button class="submit-btn" bindtap="submitQuestion">提交问题</button>
+</view>

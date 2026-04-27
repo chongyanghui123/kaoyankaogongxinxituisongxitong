@@ -42,14 +42,16 @@
     <el-main class="main">
       <div class="container">
         <!-- 轮播图 -->
-        <el-carousel :interval="5000" type="card" height="400px" class="carousel">
-          <el-carousel-item v-for="item in carouselItems" :key="item.id">
-            <div class="carousel-item">
-              <h3>{{ item.title }}</h3>
-              <p>{{ item.description }}</p>
-            </div>
-          </el-carousel-item>
-        </el-carousel>
+        <Carousel />
+        
+        <!-- 备考倒计时 -->
+        <div class="countdown-section">
+          <h2 class="section-title">
+            <el-icon><Clock /></el-icon>
+            备考倒计时
+          </h2>
+          <ExamCountdown />
+        </div>
 
         <!-- 功能模块 -->
         <div class="features">
@@ -147,18 +149,15 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Document, Position, Bell, ArrowDown } from '@element-plus/icons-vue'
+import { Document, Position, Bell, ArrowDown, Clock } from '@element-plus/icons-vue'
 import axios from 'axios'
+import Carousel from '@/components/Carousel.vue'
+import ExamCountdown from '@/components/ExamCountdown.vue'
 
 const router = useRouter()
 const activeIndex = ref('/')
 const isLoggedIn = ref(false)
 const userInfo = ref({})
-const carouselItems = ref([
-  { id: 1, title: '考研情报监控', description: '实时监控考研相关信息，第一时间获取重要资讯' },
-  { id: 2, title: '考公情报监控', description: '实时监控考公相关信息，不错过任何招考机会' },
-  { id: 3, title: '智能精准推送', description: '根据您的兴趣和需求，智能推送相关信息' }
-])
 const kaoyanLatest = ref([])
 const kaogongLatest = ref([])
 
@@ -260,8 +259,23 @@ onMounted(() => {
   padding: 40px 0;
 }
 
-.carousel {
-  margin-bottom: 40px;
+.countdown-section {
+  margin-bottom: 30px;
+}
+
+.countdown-section .section-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.countdown-section .section-title el-icon {
+  margin-right: 10px;
+  color: #409eff;
 }
 
 .carousel-item {

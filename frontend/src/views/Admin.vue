@@ -56,6 +56,14 @@
             <el-icon><Download /></el-icon>
             <span>学习资料管理</span>
           </el-menu-item>
+          <el-menu-item index="/admin/carousel">
+            <el-icon><Picture /></el-icon>
+            <span>轮播图管理</span>
+          </el-menu-item>
+          <el-menu-item index="/admin/exam-schedule">
+            <el-icon><Calendar /></el-icon>
+            <span>考试日程管理</span>
+          </el-menu-item>
           <el-menu-item index="/admin/comments">
             <el-icon><ChatDotRound /></el-icon>
             <span>评论管理</span>
@@ -63,6 +71,14 @@
           <el-menu-item index="/admin/feedback">
             <el-icon><Message /></el-icon>
             <span>体验反馈管理</span>
+          </el-menu-item>
+          <el-menu-item index="/admin/sign-in">
+            <el-icon><Calendar /></el-icon>
+            <span>签到管理</span>
+          </el-menu-item>
+          <el-menu-item index="/admin/gift">
+            <el-icon><CreditCard /></el-icon>
+            <span>礼品管理</span>
           </el-menu-item>
 
           <el-dropdown>
@@ -119,6 +135,18 @@
           <!-- 体验反馈管理 -->
           <FeedbackManagement v-if="activeIndex === '/admin/feedback'" />
           
+          <!-- 轮播图管理 -->
+          <CarouselManagement v-if="activeIndex === '/admin/carousel'" />
+          
+          <!-- 考试日程管理 -->
+          <ExamScheduleManagement v-if="activeIndex === '/admin/exam-schedule'" />
+          
+          <!-- 签到管理 -->
+          <SignInManagement v-if="activeIndex === '/admin/sign-in'" />
+          
+          <!-- 礼品管理 -->
+          <GiftManagement v-if="activeIndex === '/admin/gift'" />
+          
 
         </div>
       </el-main>
@@ -137,7 +165,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowDown, Search, User, Refresh, ShoppingCart, Setting, Document, DataAnalysis, Paperclip, CreditCard, Message, Bell, Download, ChatDotRound } from '@element-plus/icons-vue'
+import { ArrowDown, Search, User, Refresh, ShoppingCart, Setting, Document, DataAnalysis, Paperclip, CreditCard, Message, Bell, Download, ChatDotRound, Picture, Calendar } from '@element-plus/icons-vue'
 import axios from 'axios'
 
 // 导入模块化组件
@@ -153,6 +181,10 @@ import PushManagement from '../components/admin/PushManagement.vue'
 import LearningMaterialManagement from '../components/admin/LearningMaterialManagement.vue'
 import CommentManagement from '../components/admin/CommentManagement.vue'
 import FeedbackManagement from '../components/admin/FeedbackManagement.vue'
+import CarouselManagement from '../components/admin/CarouselManagement.vue'
+import ExamScheduleManagement from '../components/admin/ExamScheduleManagement.vue'
+import SignInManagement from '../components/admin/SignInManagement.vue'
+import GiftManagement from '../components/admin/GiftManagement.vue'
 
 
 // const router = useRouter()

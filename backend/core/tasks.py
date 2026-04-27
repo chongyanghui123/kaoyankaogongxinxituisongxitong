@@ -36,9 +36,7 @@ def check_service_expiration():
             for user in vip_users:
                 # 检查服务是否到期
                 if user.vip_end_time and datetime.now() > user.vip_end_time:
-                    # 服务到期，更新用户状态
                     user.is_vip = False
-                    user.is_active = False
                     expired_count += 1
                     logger.info(f"用户 {user.username} (ID: {user.id}) 服务已到期，已更新状态")
             

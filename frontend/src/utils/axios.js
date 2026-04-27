@@ -1,18 +1,30 @@
 import axios from 'axios'
 
-// 创建 axios 实例
 const service = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: '/',
   timeout: 10000
 })
 
-// 响应拦截器
+service.interceptors.request.use(
+  config => {
+    const token = localStorage.getItem('token')
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`
+    }
+    return config
+  },
+  error => {
+    console.error('请求错误:', error)
+    return Promise.reject(error)
+  }
+)
+
 service.interceptors.response.use(
   response => {
     return response
   },
   error => {
-    // 阻止 axios 默认的控制台错误输出
+    console.error('响应错误:', error)
     return Promise.reject(error)
   }
 )

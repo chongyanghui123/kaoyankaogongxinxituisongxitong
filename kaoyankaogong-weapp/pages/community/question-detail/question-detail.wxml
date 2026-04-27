@@ -1,0 +1,83 @@
+<view class="question-detail-container">
+  <view class="question-header">
+    <view class="question-meta">
+      <image class="author-avatar" src="{{question.author_avatar || '/images/default-avatar.png'}}" mode="aspectFill"></image>
+      <view class="author-info">
+        <text class="author-name">{{question.author_name}}</text>
+        <text class="question-time">{{question.created_at}}</text>
+      </view>
+    </view>
+    <text class="question-title">{{question.title}}</text>
+    <text class="question-content">{{question.content}}</text>
+    <view class="question-tags" wx:if="{{question.tags}}">
+      <text class="tag" wx:for="{{tagsArray}}" wx:key="index">{{item}}</text>
+    </view>
+    <view class="question-stats">
+      <text class="stat">{{question.view_count}} 浏览</text>
+      <text class="stat">{{question.answer_count}} 回答</text>
+      <text class="stat">{{question.like_count}} 点赞</text>
+    </view>
+  </view>
+
+  <view class="question-actions">
+    <button class="like-btn {{isLiked ? 'liked' : ''}}" bindtap="toggleLike">
+      <text class="btn-icon">{{isLiked ? '❤️' : '🤍'}}</text>
+      <text class="btn-text">点赞</text>
+    </button>
+    <button class="answer-btn" bindtap="showAnswerInput">
+      <text class="btn-icon">✏️</text>
+      <text class="btn-text">回答</text>
+    </button>
+    <button class="share-btn" open-type="share">
+      <text class="btn-icon">📤</text>
+      <text class="btn-text">分享</text>
+    </button>
+  </view>
+
+  <view class="answers-section">
+    <view class="section-header">
+      <text class="section-title">全部回答 ({{answers.length}})</text>
+      <text class="sort-btn" bindtap="toggleSort">按时间排序</text>
+    </view>
+    
+    <view class="answers-list" wx:if="{{answers.length > 0}}">
+      <view class="answer-item" wx:for="{{answers}}" wx:key="id">
+        <view class="answer-header">
+          <image class="answer-avatar" src="{{item.author_avatar || '/images/default-avatar.png'}}" mode="aspectFill"></image>
+          <view class="answer-meta">
+            <text class="answer-author">{{item.author_name}}</text>
+            <text class="answer-time">{{item.created_at}}</text>
+          </view>
+          <view class="accepted-badge" wx:if="{{item.is_accepted}}">✓ 已采纳</view>
+        </view>
+        <text class="answer-content">{{item.content}}</text>
+        <view class="answer-actions">
+          <text class="action-btn" bindtap="likeAnswer" data-id="{{item.id}}">
+            <text class="action-icon">👍</text>
+            <text class="action-text">{{item.like_count}}</text>
+          </text>
+          <text class="action-btn" bindtap="showCommentInput" data-id="{{item.id}}">
+            <text class="action-icon">💬</text>
+            <text class="action-text">评论</text>
+          </text>
+        </view>
+      </view>
+    </view>
+    
+    <view class="empty-state" wx:else>
+      <text class="empty-text">暂无回答，快来抢答吧！</text>
+    </view>
+  </view>
+</view>
+
+<view class="answer-input-modal" wx:if="{{showAnswerModal}}">
+  <view class="modal-mask" bindtap="hideAnswerInput"></view>
+  <view class="modal-content">
+    <view class="modal-header">
+      <text class="modal-title">回答问题</text>
+      <text class="modal-close" bindtap="hideAnswerInput">×</text>
+    </view>
+    <textarea class="answer-textarea" placeholder="请输入您的回答..." bindinput="onAnswerInput" value="{{answerContent}}"></textarea>
+    <button class="submit-btn" bindtap="submitAnswer">提交回答</button>
+  </view>
+</view>

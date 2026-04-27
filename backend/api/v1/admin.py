@@ -1,20 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Path, Body
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, date
 
 from core.database import get_db, get_db_kaoyan, get_db_kaogong
 from core.security import get_current_admin
 
-from models.users import User, Order, Product, SystemConfig, PushTemplate, PushLog, UserSubscription, UserKeyword, UserReadInfo, UserFavorite
+from models.users import User, Order, Product, SystemConfig, PushTemplate, PushLog, UserSubscription, UserKeyword, UserReadInfo, UserFavorite, UserLoginRecord
 from models.kaoyan import KaoyanInfo, KaoyanCrawlerConfig, KaoyanCrawlerLog
 from models.kaogong import KaogongInfo, KaogongCrawlerConfig, KaogongCrawlerLog
+from models.sign_in import SignInRecord, PointsRecord
+from models.community import Group, GroupMember, GroupPost, GroupPostComment, Question, Answer, AnswerComment, Like, Report
 from schemas.users import UserResponse, UserUpdate
 from schemas.kaoyan import KaoyanInfoResponse, KaoyanCrawlerConfigResponse
 from schemas.kaogong import KaogongInfoResponse, KaogongCrawlerConfigResponse
 from schemas.payments import OrderResponse, ProductResponse
 from schemas.push import PushTemplateResponse, PushLogResponse
 from schemas.system import SystemConfigResponse, SystemStatsResponse, SystemConfigBase, SystemConfigCreate, SystemConfigUpdate
+from schemas.community import GroupResponse, QuestionResponse, AnswerResponse
 
 router = APIRouter(tags=["admin"])
 
@@ -24,7 +27,7 @@ async def get_users(
     skip: int = Query(0, ge=0),
     limit: int = Query(1000, ge=1, le=1000),
     is_admin: Optional[bool] = Query(None),
-    is_active: Optional[bool] = Query(None),
+    is_active: Optional[bool] = Query(None, description="是否今日活跃"),
     keyword: Optional[str] = Query(None, description="搜索关键词（用户名、邮箱、手机号）"),
     user_type: Optional[str] = Query(None, description="用户类型筛选"),
     db: Session = Depends(get_db),
@@ -35,8 +38,20 @@ async def get_users(
     
     if is_admin is not None:
         query = query.filter(User.is_admin == is_admin)
+    
+    # 今日活跃筛选：基于UserLoginRecord
+    today = date.today()
     if is_active is not None:
-        query = query.filter(User.is_active == is_active)
+        if is_active:
+            active_user_ids = db.query(UserLoginRecord.user_id).filter(
+                UserLoginRecord.login_date == today
+            ).distinct()
+            query = query.filter(User.id.in_(active_user_ids))
+        else:
+            active_user_ids = db.query(UserLoginRecord.user_id).filter(
+                UserLoginRecord.login_date == today
+            ).distinct()
+            query = query.filter(~User.id.in_(active_user_ids))
     
     # 关键词搜索
     if keyword:
@@ -72,6 +87,13 @@ async def get_users(
     
     users = query.offset(skip).limit(limit).all()
     
+    # 批量查询今日活跃用户
+    today_active_ids = set(
+        r[0] for r in db.query(UserLoginRecord.user_id).filter(
+            UserLoginRecord.login_date == today
+        ).distinct().all()
+    )
+    
     # 为每个用户添加类型信息和VIP信息
     for user in users:
         # 查询用户的订阅配置
@@ -89,6 +111,9 @@ async def get_users(
                 user.user_type = "双赛道"
         else:
             user.user_type = "未订阅"
+        
+        # 动态判断今日是否活跃
+        user.is_active = user.id in today_active_ids
         
         # 确保VIP相关字段正确设置
         if hasattr(user, 'is_vip'):
@@ -176,7 +201,7 @@ async def get_all_orders(
     return {"success": True, "code": 200, "message": "获取订单列表成功", "data": order_list, "total": total_count}
 
 
-@router.get("/users/{user_id}", response_model=UserResponse)
+@router.get("/users/{user_id}")
 async def get_user(
     user_id: int = Path(..., ge=1),
     db: Session = Depends(get_db),
@@ -185,7 +210,7 @@ async def get_user(
     """获取用户详情（管理员）"""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="用户不存在")
+        return {"success": False, "code": 404, "message": "用户不存在", "data": None}
     
     # 添加用户类型信息
     subscription = db.query(UserSubscription).filter(
@@ -209,7 +234,7 @@ async def get_user(
     user.vip_start_time = user.vip_start_time
     user.vip_end_time = user.vip_end_time
     
-    return user
+    return {"success": True, "code": 200, "message": "获取用户信息成功", "data": user}
 
 
 @router.put("/users/{user_id}", response_model=UserResponse)
@@ -901,7 +926,10 @@ async def get_student_crawlers(
             'email': user.email,
             'user_type': user_type,
             'crawlers': user_crawlers,
-            'status': user.is_active
+            'is_active_today': db.query(UserLoginRecord).filter(
+                UserLoginRecord.user_id == user.id,
+                UserLoginRecord.login_date == date.today()
+            ).first() is not None
         })
     
     return student_crawlers_list
@@ -993,7 +1021,10 @@ async def get_student_websites(
             'email': user.email,
             'user_type': user_type,
             'websites': user_websites,
-            'status': user.is_active
+            'is_active_today': db.query(UserLoginRecord).filter(
+                UserLoginRecord.user_id == user.id,
+                UserLoginRecord.login_date == date.today()
+            ).first() is not None
         })
     
     return student_websites_list
@@ -1131,3 +1162,306 @@ async def delete_all_products(
     db.query(Product).delete()
     db.commit()
     return {"message": "所有产品删除成功"}
+
+
+@router.get("/sign-in/records")
+async def get_sign_in_records(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    user_id: Optional[int] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """获取签到记录列表（管理员）- 排除管理员"""
+    from fastapi.responses import JSONResponse
+    from sqlalchemy import desc
+    from datetime import datetime as dt
+    
+    query = db.query(SignInRecord).join(User).filter(User.is_admin == False)
+    
+    if user_id:
+        query = query.filter(SignInRecord.user_id == user_id)
+    
+    if start_date:
+        try:
+            start = dt.strptime(start_date, "%Y-%m-%d").date()
+            query = query.filter(SignInRecord.sign_date >= start)
+        except ValueError:
+            pass
+    
+    if end_date:
+        try:
+            end = dt.strptime(end_date, "%Y-%m-%d").date()
+            query = query.filter(SignInRecord.sign_date <= end)
+        except ValueError:
+            pass
+    
+    query = query.order_by(desc(SignInRecord.sign_date))
+    
+    total = query.count()
+    items = query.offset((page - 1) * page_size).limit(page_size).all()
+    
+    result = []
+    for item in items:
+        user = db.query(User).filter(User.id == item.user_id).first()
+        result.append({
+            "id": item.id,
+            "user_id": item.user_id,
+            "username": user.username if user else "未知用户",
+            "sign_date": item.sign_date.isoformat() if item.sign_date else None,
+            "points_earned": item.points_earned,
+            "continuous_days": item.continuous_days,
+            "created_at": item.created_at.isoformat() if item.created_at else None
+        })
+    
+    return JSONResponse(
+        status_code=200,
+        content={
+            "success": True,
+            "code": 200,
+            "message": "获取签到记录成功",
+            "data": {
+                "total": total,
+                "items": result,
+                "page": page,
+                "page_size": page_size
+            }
+        }
+    )
+
+
+@router.get("/points/records")
+async def get_points_records(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    user_id: Optional[int] = Query(None),
+    type: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """获取积分记录列表（管理员）- 排除管理员"""
+    from fastapi.responses import JSONResponse
+    from sqlalchemy import desc
+    
+    query = db.query(PointsRecord).join(User).filter(User.is_admin == False)
+    
+    if user_id:
+        query = query.filter(PointsRecord.user_id == user_id)
+    
+    if type:
+        query = query.filter(PointsRecord.type == type)
+    
+    query = query.order_by(desc(PointsRecord.created_at))
+    
+    total = query.count()
+    items = query.offset((page - 1) * page_size).limit(page_size).all()
+    
+    type_names = {1: "签到", 2: "兑换", 3: "系统赠送", 4: "消费", 5: "其他"}
+    
+    result = []
+    for item in items:
+        user = db.query(User).filter(User.id == item.user_id).first()
+        result.append({
+            "id": item.id,
+            "user_id": item.user_id,
+            "username": user.username if user else "未知用户",
+            "points": item.points,
+            "balance": item.balance,
+            "type": item.type,
+            "type_name": type_names.get(item.type, "未知"),
+            "description": item.description,
+            "created_at": item.created_at.isoformat() if item.created_at else None
+        })
+    
+    return JSONResponse(
+        status_code=200,
+        content={
+            "success": True,
+            "code": 200,
+            "message": "获取积分记录成功",
+            "data": {
+                "total": total,
+                "items": result,
+                "page": page,
+                "page_size": page_size
+            }
+        }
+    )
+
+
+@router.get("/sign-in/stats")
+async def get_sign_in_stats(
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """获取签到统计（管理员）- 排除管理员"""
+    from fastapi.responses import JSONResponse
+    from datetime import date, timedelta
+    from sqlalchemy import and_
+    
+    today = date.today()
+    yesterday = today - timedelta(days=1)
+    
+    today_count = db.query(SignInRecord).join(User).filter(
+        and_(SignInRecord.sign_date == today, User.is_admin == False)
+    ).count()
+    
+    yesterday_count = db.query(SignInRecord).join(User).filter(
+        and_(SignInRecord.sign_date == yesterday, User.is_admin == False)
+    ).count()
+    
+    total_count = db.query(SignInRecord).join(User).filter(
+        User.is_admin == False
+    ).count()
+    
+    total_points = db.query(User).filter(User.is_admin == False).all()
+    total_points_sum = sum(u.points or 0 for u in total_points)
+    
+    return JSONResponse(
+        status_code=200,
+        content={
+            "success": True,
+            "code": 200,
+            "message": "获取签到统计成功",
+            "data": {
+                "today_count": today_count,
+                "yesterday_count": yesterday_count,
+                "total_count": total_count,
+                "total_points": total_points_sum
+            }
+        }
+    )
+
+
+@router.get("/community/groups", response_model=List[GroupResponse])
+async def get_community_groups(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
+    status: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """获取社区小组列表（管理员）"""
+    query = db.query(Group)
+    
+    if status is not None:
+        query = query.filter(Group.status == status)
+    
+    groups = query.offset(skip).limit(limit).all()
+    return groups
+
+
+@router.get("/community/questions", response_model=List[QuestionResponse])
+async def get_community_questions(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
+    status: Optional[int] = Query(None),
+    category: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """获取社区问题列表（管理员）"""
+    query = db.query(Question)
+    
+    if status is not None:
+        query = query.filter(Question.status == status)
+    if category:
+        query = query.filter(Question.category == category)
+    
+    questions = query.offset(skip).limit(limit).all()
+    return questions
+
+
+@router.get("/community/answers", response_model=List[AnswerResponse])
+async def get_community_answers(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
+    status: Optional[int] = Query(None),
+    question_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """获取社区回答列表（管理员）"""
+    query = db.query(Answer)
+    
+    if status is not None:
+        query = query.filter(Answer.status == status)
+    if question_id:
+        query = query.filter(Answer.question_id == question_id)
+    
+    answers = query.offset(skip).limit(limit).all()
+    return answers
+
+
+@router.get("/community/reports")
+async def get_community_reports(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
+    status: Optional[int] = Query(None),
+    target_type: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """获取社区举报列表（管理员）"""
+    query = db.query(Report)
+    
+    if status is not None:
+        query = query.filter(Report.status == status)
+    if target_type is not None:
+        query = query.filter(Report.target_type == target_type)
+    
+    reports = query.offset(skip).limit(limit).all()
+    
+    # 构建返回数据
+    result = []
+    for report in reports:
+        # 获取举报者信息
+        reporter = db.query(User).filter(User.id == report.reporter_id).first()
+        # 获取处理者信息
+        handler = db.query(User).filter(User.id == report.handler_id).first()
+        
+        report_info = {
+            "id": report.id,
+            "reporter_id": report.reporter_id,
+            "reporter_name": reporter.username if reporter else "未知用户",
+            "target_type": report.target_type,
+            "target_id": report.target_id,
+            "reason": report.reason,
+            "status": report.status,
+            "handler_id": report.handler_id,
+            "handler_name": handler.username if handler else None,
+            "handle_time": report.handle_time,
+            "handle_note": report.handle_note,
+            "created_at": report.created_at
+        }
+        result.append(report_info)
+    
+    return result
+
+
+@router.put("/community/reports/{report_id}")
+async def handle_community_report(
+    report_id: int = Path(..., ge=1),
+    status: int = Body(..., ge=0, le=2, description="处理状态: 0-待处理, 1-已处理, 2-已驳回"),
+    handle_note: Optional[str] = Body(None, description="处理备注"),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """处理社区举报（管理员）"""
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="举报不存在")
+    
+    # 更新举报状态
+    report.status = status
+    report.handler_id = current_admin.id
+    report.handle_time = datetime.now()
+    if handle_note:
+        report.handle_note = handle_note
+    
+    db.commit()
+    db.refresh(report)
+    
+    return {"message": "举报处理成功"}

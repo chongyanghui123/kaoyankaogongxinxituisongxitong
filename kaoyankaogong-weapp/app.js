@@ -40,23 +40,40 @@ App({
     if (token && userInfo) {
       this.globalData.token = token;
       this.globalData.userInfo = userInfo;
+      wx.setStorageSync('isLoggedIn', true);
+      this.recordActivity();
     } else if (refreshToken && userInfo) {
-      // 如果有refreshToken但没有accessToken，尝试刷新token
       this.refreshToken(refreshToken).then(res => {
         if (res.success) {
           this.globalData.token = res.data.access_token;
           this.globalData.userInfo = userInfo;
           wx.setStorageSync('token', res.data.access_token);
+          wx.setStorageSync('isLoggedIn', true);
+          this.recordActivity();
         } else {
-          // 刷新失败，清除存储
           this.handleLoginExpired();
         }
       }).catch(() => {
-        // 刷新失败，清除存储
         this.handleLoginExpired();
       });
     } else {
+      wx.setStorageSync('isLoggedIn', false);
     }
+  },
+
+  recordActivity() {
+    const token = this.globalData.token;
+    if (!token) return;
+    wx.request({
+      url: this.globalData.baseUrl + '/auth/record-activity',
+      method: 'POST',
+      header: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      success: () => {},
+      fail: () => {}
+    });
   },
 
   // 登录方法
@@ -98,6 +115,7 @@ App({
         wx.setStorageSync('token', data.access_token);
         wx.setStorageSync('refresh_token', data.refresh_token);
         wx.setStorageSync('userInfo', this.globalData.userInfo);
+        wx.setStorageSync('isLoggedIn', true);
 
         if (data.need_change_password) {
           wx.showToast({
@@ -215,9 +233,8 @@ App({
         // 资源不存在
         throw new Error('请求的资源不存在');
       } else if (response.statusCode === 400) {
-        // 400错误，通常是业务逻辑错误
-        const errorMessage = response.data?.message || '请求参数错误';
-        throw new Error(errorMessage);
+        // 400错误，通常是业务逻辑错误，返回数据让调用方处理
+        return response.data;
       } else {
         throw new Error('网络请求失败');
       }
@@ -258,6 +275,7 @@ App({
     wx.removeStorageSync('token');
     wx.removeStorageSync('refresh_token');
     wx.removeStorageSync('userInfo');
+    wx.removeStorageSync('isLoggedIn');
     this.globalData.token = null;
     this.globalData.userInfo = null;
 
@@ -277,6 +295,7 @@ App({
     wx.removeStorageSync('token');
     wx.removeStorageSync('refresh_token');
     wx.removeStorageSync('userInfo');
+    wx.removeStorageSync('isLoggedIn');
     this.globalData.token = null;
     this.globalData.userInfo = null;
 

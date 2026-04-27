@@ -67,6 +67,26 @@ async def get_public_latest_info(
         all_info.sort(key=lambda x: x["time"], reverse=True)
         all_info = all_info[:limit]
 
+        # 计算今日情报数量
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        tomorrow = today + timedelta(days=1)
+        
+        # 计算今日考研情报数量
+        today_kaoyan_count = db_kaoyan.query(KaoyanInfo).filter(
+            KaoyanInfo.is_valid == True,
+            KaoyanInfo.created_at >= today,
+            KaoyanInfo.created_at < tomorrow
+        ).count()
+        
+        # 计算今日考公情报数量
+        today_kaogong_count = db_kaogong.query(KaogongInfo).filter(
+            KaogongInfo.is_valid == True,
+            KaogongInfo.created_at >= today,
+            KaogongInfo.created_at < tomorrow
+        ).count()
+        
+        today_count = today_kaoyan_count + today_kaogong_count
+
         kaoyan_total = db_kaoyan.query(KaoyanInfo).filter(KaoyanInfo.is_valid == True).count()
         kaogong_total = db_kaogong.query(KaogongInfo).filter(KaogongInfo.is_valid == True).count()
 
@@ -79,7 +99,8 @@ async def get_public_latest_info(
                 "data": {
                     "items": all_info,
                     "kaoyan_total": kaoyan_total,
-                    "kaogong_total": kaogong_total
+                    "kaogong_total": kaogong_total,
+                    "today_count": today_count
                 }
             }
         )

@@ -1,8 +1,80 @@
 <!-- index.wxml -->
 <view class="container">
-  <view class="placeholder">
-    <view class="placeholder-icon">📋</view>
-    <view class="placeholder-text">首页开发中，敬请期待</view>
-    <view class="placeholder-hint">请前往"情报"页面浏览内容</view>
+  <!-- 轮播图 -->
+  <swiper class="banner-swiper" 
+          indicator-dots="{{carousels.length > 1}}" 
+          autoplay="{{true}}" 
+          interval="{{5000}}" 
+          duration="{{500}}"
+          circular="{{true}}"
+          indicator-color="rgba(255, 255, 255, 0.5)"
+          indicator-active-color="#ffffff">
+    <swiper-item wx:for="{{carousels}}" wx:key="id">
+      <view class="banner-item">
+        <image class="banner-image" src="{{item.image_url}}" mode="aspectFill" />
+        <view class="banner-content" wx:if="{{item.title || item.subtitle}}">
+          <view class="banner-title" wx:if="{{item.title}}">{{item.title}}</view>
+          <view class="banner-subtitle" wx:if="{{item.subtitle}}">{{item.subtitle}}</view>
+        </view>
+      </view>
+    </swiper-item>
+  </swiper>
+
+  <!-- 轮播图为空时的占位 -->
+  <view class="banner-empty" wx:if="{{carousels.length === 0 && !loading}}">
+    <text>暂无轮播图</text>
+  </view>
+
+  <!-- 签到卡片 -->
+  <view class="sign-in-card" wx:if="{{isLoggedIn}}">
+    <view class="sign-in-header">
+      <view class="sign-in-title">
+        <text class="sign-in-icon">📅</text>
+        <text>每日签到</text>
+      </view>
+      <view class="sign-in-points">
+        <text class="points-num">{{signInStatus.total_points || 0}}</text>
+        <text class="points-label">积分</text>
+      </view>
+    </view>
+    <view class="sign-in-content">
+      <view class="sign-in-stats">
+        <view class="stat-item">
+          <text class="stat-value">{{signInStatus.continuous_days || 0}}</text>
+          <text class="stat-label">连续签到(天)</text>
+        </view>
+        <view class="stat-item">
+          <text class="stat-value">{{signInStatus.total_sign_days || 0}}</text>
+          <text class="stat-label">累计签到(天)</text>
+        </view>
+      </view>
+      <button class="sign-in-btn {{signInStatus.has_signed_today ? 'signed' : ''}}" 
+              bindtap="handleSignIn"
+              disabled="{{signInStatus.has_signed_today}}">
+        {{signInStatus.has_signed_today ? '今日已签到' : '立即签到 +10积分'}}
+      </button>
+    </view>
+  </view>
+
+  <!-- 未登录提示 -->
+  <view class="login-prompt" wx:else bindtap="goToLogin">
+    <text class="login-icon">🔐</text>
+    <text class="login-text">登录后可使用签到功能</text>
+    <text class="login-arrow">›</text>
+  </view>
+
+  <!-- 互动社区 -->
+  <view class="section">
+    <view class="section-title">互动社区</view>
+    <view class="community-grid">
+      <view class="community-item" bindtap="navigateToCommunity" data-type="groups">
+        <view class="community-icon">👥</view>
+        <view class="community-text">学习小组</view>
+      </view>
+      <view class="community-item" bindtap="navigateToCommunity" data-type="qa">
+        <view class="community-icon">❓</view>
+        <view class="community-text">问答板块</view>
+      </view>
+    </view>
   </view>
 </view>

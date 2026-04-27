@@ -1,0 +1,80 @@
+<!-- groups.wxml -->
+<view class="container">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <view class="header-title">学习小组</view>
+  </view>
+
+  <!-- 搜索栏 -->
+  <view class="search-bar">
+    <view class="search-input">
+      <text class="search-icon">🔍</text>
+      <input type="text" placeholder="搜索小组" placeholder-class="search-placeholder" bindinput="onSearch" value="{{searchText}}" />
+    </view>
+  </view>
+
+  <!-- 热门小组 -->
+  <view class="section" wx:if="{{hotGroups.length > 0}}">
+    <view class="section-title">
+      <text>热门小组</text>
+    </view>
+    <view class="group-list">
+      <view class="group-item" wx:for="{{hotGroups}}" wx:key="id">
+        <view class="group-avatar">{{item.avatar}}</view>
+        <view class="group-info">
+          <view class="group-name">{{item.name}}</view>
+          <view class="group-stats">
+            <text class="stat-item">{{item.members}}人</text>
+            <text class="stat-item">今日活跃: {{item.activeToday}}</text>
+          </view>
+        </view>
+        <view class="group-actions">
+          <button class="action-btn {{item.isMember ? 'leave-btn' : 'join-btn'}}" 
+                  catchtap="toggleMembership" 
+                  data-id="{{item.id}}"
+                  data-index="{{index}}">
+            {{item.isMember ? '退出' : '加入'}}
+          </button>
+          <button class="action-btn enter-btn" 
+                  catchtap="navigateToGroupDetail" 
+                  data-id="{{item.id}}">
+            进入
+          </button>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 推荐小组 -->
+  <view class="section" wx:if="{{recommendedGroups.length > 0}}">
+    <view class="section-title">
+      <text>推荐小组</text>
+    </view>
+    <view class="group-grid">
+      <view class="grid-group-item" wx:for="{{recommendedGroups}}" wx:key="id">
+        <view class="grid-group-avatar">{{item.avatar}}</view>
+        <view class="grid-group-name">{{item.name}}</view>
+        <view class="grid-group-members">{{item.members}}人</view>
+        <view class="grid-group-actions">
+          <button class="grid-action-btn {{item.isMember ? 'leave-btn' : 'join-btn'}}" 
+                  catchtap="toggleMembership" 
+                  data-id="{{item.id}}"
+                  data-index="{{index}}">
+            {{item.isMember ? '退出' : '加入'}}
+          </button>
+          <button class="grid-action-btn enter-btn" 
+                  catchtap="navigateToGroupDetail" 
+                  data-id="{{item.id}}">
+            进入
+          </button>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 创建小组按钮 -->
+  <view class="create-group-btn" bindtap="createGroup">
+    <text class="create-icon">➕</text>
+    <text>创建小组</text>
+  </view>
+</view>

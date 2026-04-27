@@ -1,0 +1,34 @@
+<view class="address-container">
+  <view class="form-card">
+    <view class="form-item">
+      <view class="form-label">
+        <text class="required">*</text>
+        <text>收货人</text>
+      </view>
+      <input class="form-input" placeholder="请输入收货人姓名" value="{{address.real_name}}" bindinput="onInputName" />
+    </view>
+    
+    <view class="form-item">
+      <view class="form-label">
+        <text class="required">*</text>
+        <text>手机号</text>
+      </view>
+      <input class="form-input" type="number" placeholder="请输入手机号" value="{{address.phone}}" bindinput="onInputPhone" maxlength="11" />
+    </view>
+    
+    <view class="form-item">
+      <view class="form-label">
+        <text class="required">*</text>
+        <text>详细地址</text>
+      </view>
+      <textarea class="form-textarea" placeholder="请输入详细地址（省市区街道门牌号）" value="{{address.address}}" bindinput="onInputAddress" maxlength="200" />
+    </view>
+  </view>
+  
+  <view class="tips">
+    <text class="tips-icon">💡</text>
+    <text>地址信息将用于礼品兑换，请确保信息准确无误</text>
+  </view>
+  
+  <button class="save-btn" bindtap="saveAddress" loading="{{saving}}">保存地址</button>
+</view>

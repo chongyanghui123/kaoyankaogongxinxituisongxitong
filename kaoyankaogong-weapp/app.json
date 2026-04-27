@@ -15,13 +15,25 @@
     "pages/download-history/download-history",
     "pages/edit-requirements/edit-requirements",
     "pages/change-password/change-password",
-    "pages/forgot-password/forgot-password"
+    "pages/forgot-password/forgot-password",
+    "pages/gift/gift",
+    "pages/exchange-history/exchange-history",
+    "pages/address/address",
+    "pages/community/groups/groups",
+    "pages/community/qa/qa",
+    "pages/community/group-detail/group-detail",
+    "pages/community/question-detail/question-detail",
+    "pages/community/group-posts/group-posts",
+    "pages/community/create-post/create-post",
+    "pages/community/create-group/create-group",
+    "pages/community/ask-question/ask-question"
   ],
   "window": {
-    "backgroundTextStyle": "light",
+    "backgroundTextStyle": "dark",
     "navigationBarBackgroundColor": "#1890ff",
     "navigationBarTitleText": "考研考公信息推送平台",
-    "navigationBarTextStyle": "white"
+    "navigationBarTextStyle": "white",
+    "enablePullDownRefresh": true
   },
   "tabBar": {
     "color": "#666666",

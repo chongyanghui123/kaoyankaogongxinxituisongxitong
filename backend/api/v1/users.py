@@ -44,6 +44,12 @@ class UpdateProfileRequest(BaseModel):
     avatar: Optional[str] = Field(None, description="头像URL")
     gender: Optional[int] = Field(None, ge=0, le=2, description="性别: 0-未知, 1-男, 2-女")
 
+class UpdateAddressRequest(BaseModel):
+    """更新地址请求模型"""
+    real_name: str = Field(..., max_length=50, description="真实姓名")
+    phone: str = Field(..., max_length=20, description="手机号")
+    address: str = Field(..., max_length=500, description="详细地址")
+
 class ChangePasswordRequest(BaseModel):
     """修改密码请求模型"""
     old_password: str = Field(..., description="旧密码")
@@ -250,6 +256,71 @@ async def update_profile(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="更新用户信息失败"
+        )
+
+@router.get("/address", summary="获取用户地址")
+async def get_address(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db_common)
+):
+    """获取用户收货地址"""
+    try:
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "获取地址成功",
+                "data": {
+                    "real_name": current_user.real_name or "",
+                    "phone": current_user.phone or "",
+                    "address": current_user.address or ""
+                }
+            }
+        )
+    except Exception as e:
+        log_error(f"获取用户地址失败: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "code": 500, "message": f"获取地址失败: {str(e)}", "data": None}
+        )
+
+@router.put("/address", summary="更新用户地址")
+async def update_address(
+    req: UpdateAddressRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db_common)
+):
+    """更新用户收货地址"""
+    try:
+        current_user.real_name = req.real_name
+        current_user.phone = req.phone
+        current_user.address = req.address
+        
+        db.commit()
+        db.refresh(current_user)
+        
+        log_user_action(current_user.id, "update_address", "更新收货地址")
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "更新地址成功",
+                "data": {
+                    "real_name": current_user.real_name,
+                    "phone": current_user.phone,
+                    "address": current_user.address
+                }
+            }
+        )
+    except Exception as e:
+        db.rollback()
+        log_error(f"更新用户地址失败: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "code": 500, "message": f"更新地址失败: {str(e)}", "data": None}
         )
 
 @router.post("/change-password", summary="修改密码")

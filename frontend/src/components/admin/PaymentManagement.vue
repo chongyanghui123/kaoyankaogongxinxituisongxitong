@@ -432,9 +432,9 @@ const getUserInfo = async (userId) => {
       }
     })
     
-    // admin接口直接返回用户对象，而不是包裹在data字段中
-    if (response.data) {
-      const userInfo = response.data
+    // admin接口返回统一格式的数据
+    if (response.data && response.data.success) {
+      const userInfo = response.data.data
       usersMap.value[userId] = userInfo.username || `用户${userId}`
       return usersMap.value[userId]
     }

@@ -1,0 +1,292 @@
+.question-detail-container {
+  padding: 20rpx;
+  background-color: #f5f7fa;
+  min-height: 100vh;
+  padding-bottom: 120rpx;
+}
+
+.question-header {
+  background-color: #fff;
+  border-radius: 12rpx;
+  padding: 20rpx;
+  margin-bottom: 20rpx;
+}
+
+.question-meta {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.author-avatar {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 50%;
+  margin-right: 15rpx;
+}
+
+.author-info {
+  flex: 1;
+}
+
+.author-name {
+  font-size: 26rpx;
+  color: #333;
+  display: block;
+  margin-bottom: 5rpx;
+}
+
+.question-time {
+  font-size: 22rpx;
+  color: #999;
+}
+
+.question-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+  display: block;
+  margin-bottom: 15rpx;
+  line-height: 1.5;
+}
+
+.question-content {
+  font-size: 28rpx;
+  color: #666;
+  line-height: 1.6;
+  display: block;
+  margin-bottom: 15rpx;
+}
+
+.question-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+  margin-bottom: 15rpx;
+}
+
+.tag {
+  background-color: #e8f4ff;
+  color: #1890ff;
+  padding: 8rpx 16rpx;
+  border-radius: 20rpx;
+  font-size: 22rpx;
+}
+
+.question-stats {
+  display: flex;
+  gap: 20rpx;
+  font-size: 24rpx;
+  color: #999;
+  padding-top: 15rpx;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.question-actions {
+  display: flex;
+  gap: 15rpx;
+  background-color: #fff;
+  border-radius: 12rpx;
+  padding: 20rpx;
+  margin-bottom: 20rpx;
+}
+
+.like-btn, .answer-btn, .share-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #f9f9f9;
+  border: none;
+  border-radius: 8rpx;
+  padding: 15rpx;
+}
+
+.like-btn.liked {
+  background-color: #fff0f0;
+}
+
+.btn-icon {
+  font-size: 36rpx;
+  margin-bottom: 5rpx;
+}
+
+.btn-text {
+  font-size: 22rpx;
+  color: #666;
+}
+
+.answers-section {
+  background-color: #fff;
+  border-radius: 12rpx;
+  padding: 20rpx;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.section-title {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.sort-btn {
+  font-size: 24rpx;
+  color: #1890ff;
+}
+
+.answers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.answer-item {
+  padding: 20rpx;
+  background-color: #f9f9f9;
+  border-radius: 8rpx;
+}
+
+.answer-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15rpx;
+}
+
+.answer-avatar {
+  width: 50rpx;
+  height: 50rpx;
+  border-radius: 50%;
+  margin-right: 12rpx;
+}
+
+.answer-meta {
+  flex: 1;
+}
+
+.answer-author {
+  font-size: 24rpx;
+  color: #333;
+  display: block;
+  margin-bottom: 3rpx;
+}
+
+.answer-time {
+  font-size: 20rpx;
+  color: #999;
+}
+
+.accepted-badge {
+  background-color: #52c41a;
+  color: #fff;
+  padding: 4rpx 12rpx;
+  border-radius: 12rpx;
+  font-size: 20rpx;
+}
+
+.answer-content {
+  font-size: 26rpx;
+  color: #666;
+  line-height: 1.6;
+  display: block;
+  margin-bottom: 15rpx;
+}
+
+.answer-actions {
+  display: flex;
+  gap: 20rpx;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  font-size: 22rpx;
+  color: #999;
+}
+
+.action-icon {
+  margin-right: 5rpx;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60rpx 0;
+}
+
+.empty-text {
+  font-size: 26rpx;
+  color: #999;
+}
+
+.answer-input-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+}
+
+.modal-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #fff;
+  border-radius: 20rpx 20rpx 0 0;
+  padding: 30rpx;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.modal-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.modal-close {
+  font-size: 48rpx;
+  color: #999;
+  line-height: 1;
+}
+
+.answer-textarea {
+  width: 100%;
+  height: 300rpx;
+  background-color: #f9f9f9;
+  border-radius: 8rpx;
+  padding: 20rpx;
+  font-size: 28rpx;
+  margin-bottom: 20rpx;
+}
+
+.submit-btn {
+  width: 100%;
+  background-color: #1890ff;
+  color: #fff;
+  border: none;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+  padding: 20rpx;
+}

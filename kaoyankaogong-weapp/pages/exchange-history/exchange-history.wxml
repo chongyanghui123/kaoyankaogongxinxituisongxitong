@@ -1,0 +1,27 @@
+<view class="history-container">
+  <view class="history-list" wx:if="{{records.length > 0}}">
+    <view class="history-item" wx:for="{{records}}" wx:key="id">
+      <image class="gift-image" src="{{item.gift_image || '/images/default-gift.png'}}" mode="aspectFill" />
+      <view class="history-info">
+        <view class="gift-name">{{item.gift_name}}</view>
+        <view class="history-meta">
+          <text class="points-used">-{{item.points_used}}积分</text>
+          <text class="status status-{{item.status}}">{{item.status_name}}</text>
+        </view>
+        <view class="history-time">{{item.created_at}}</view>
+        <view class="tracking" wx:if="{{item.tracking_number}}">
+          快递单号: {{item.tracking_number}}
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty" wx:if="{{records.length === 0 && !loading}}">
+    <text class="empty-icon">📋</text>
+    <text class="empty-text">暂无兑换记录</text>
+  </view>
+
+  <view class="loading" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+</view>

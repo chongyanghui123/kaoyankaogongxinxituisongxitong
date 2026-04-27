@@ -6,6 +6,11 @@ Page({
    */
   data: {
     cacheSize: '0.0MB',
+    address: {
+      real_name: '',
+      phone: '',
+      address: ''
+    },
     themeIndex: 0,
     themeOptions: [
       { name: '默认主题', value: 'default' },
@@ -43,6 +48,7 @@ Page({
    */
   onLoad(options) {
     this.calculateCacheSize();
+    this.loadAddress();
     
     // 读取本地存储中的主题设置
     const savedTheme = wx.getStorageSync('systemTheme');
@@ -152,7 +158,7 @@ Page({
    * 生命周期函数--监听页面显示
    */
   onShow() {
-
+    this.loadAddress()
   },
 
   /**
@@ -389,15 +395,39 @@ Page({
       content: '确定要退出登录吗？',
       success: (res) => {
         if (res.confirm) {
-          // 清除登录状态
-          wx.removeStorageSync('token');
-          wx.removeStorageSync('userInfo');
-          // 跳转到登录页面
+          const app = getApp()
+          app.logout()
           wx.reLaunch({
-            url: '../user/user'
-          });
+            url: '/pages/index/index'
+          })
         }
       }
-    });
+    })
+  },
+
+  // 加载用户地址
+  async loadAddress() {
+    try {
+      const app = getApp()
+      const response = await app.request({
+        url: '/users/address',
+        method: 'GET'
+      })
+      
+      if (response.success && response.data) {
+        this.setData({
+          address: response.data
+        })
+      }
+    } catch (error) {
+      console.error('加载地址失败:', error)
+    }
+  },
+
+  // 编辑地址
+  editAddress() {
+    wx.navigateTo({
+      url: '/pages/address/address'
+    })
   }
 })

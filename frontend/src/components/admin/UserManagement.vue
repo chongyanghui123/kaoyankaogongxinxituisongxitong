@@ -33,10 +33,10 @@
             </el-select>
           </el-col>
           <el-col :span="8">
-            <el-select v-model="userStatusFilter" placeholder="按状态筛选" clearable @change="getUsers">
+            <el-select v-model="userStatusFilter" placeholder="按今日活跃状态筛选" clearable @change="getUsers">
               <el-option label="全部" value="" />
-              <el-option label="活跃" value="true" />
-              <el-option label="禁用" value="false" />
+              <el-option label="今日活跃" value="true" />
+              <el-option label="今日不活跃" value="false" />
             </el-select>
           </el-col>
         </el-row>
@@ -77,10 +77,10 @@
             {{ scope.row.vip_start_time ? new Date(scope.row.vip_start_time).toLocaleString() : '无' }}
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="100">
+        <el-table-column label="今日活跃" width="100">
           <template #default="scope">
-            <el-tag :type="scope.row.is_active ? 'success' : 'danger'">
-              {{ scope.row.is_active ? '活跃' : '到期' }}
+            <el-tag :type="scope.row.is_active ? 'success' : 'info'">
+              {{ scope.row.is_active ? '活跃' : '不活跃' }}
             </el-tag>
           </template>
         </el-table-column>

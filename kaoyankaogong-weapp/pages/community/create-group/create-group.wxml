@@ -1,0 +1,28 @@
+<view class="create-group-container">
+  <view class="form-section">
+    <view class="form-item">
+      <text class="form-label">小组名称</text>
+      <input class="form-input" placeholder="请输入小组名称" bindinput="onNameInput" value="{{name}}" maxlength="50"></input>
+    </view>
+    
+    <view class="form-item">
+      <text class="form-label">小组简介</text>
+      <textarea class="form-textarea" placeholder="请输入小组简介" bindinput="onDescriptionInput" value="{{description}}" maxlength="500"></textarea>
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">标签</text>
+      <input class="form-input" placeholder="请输入标签，用逗号分隔" bindinput="onTagsInput" value="{{tags}}" maxlength="100"></input>
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">加入方式</text>
+      <radio-group bindchange="onJoinTypeChange">
+        <label class="radio-item"><radio value="1" checked="{{joinType === 1}}" />自由加入</label>
+        <label class="radio-item"><radio value="2" checked="{{joinType === 2}}" />审核加入</label>
+      </radio-group>
+    </view>
+  </view>
+
+  <button class="submit-btn" bindtap="submitGroup">创建小组</button>
+</view>

@@ -52,18 +52,26 @@ const login = async () => {
       loading.value = true
       try {
         // 调用真实登录API
-        const response = await axios.post('/api/v1/auth/login', {
-          username: loginForm.email,  // 后端接受用户名、邮箱或手机号
+        console.log('发送登录请求:', {
+          username: loginForm.email,
           password: loginForm.password
-        }, {
+        })
+        console.log('发送请求前的表单数据:', loginForm)
+        const requestData = {
+          username: loginForm.email,
+          password: loginForm.password
+        }
+        console.log('发送请求前的请求数据:', requestData)
+        const response = await axios.post('/api/v1/auth/login', requestData, {
           headers: {
             'Content-Type': 'application/json'
           },
           timeout: 10000
         })
+        console.log('登录响应:', response)
         
         // 检查登录是否成功
-        if (response.data.success) {
+        if (response.data && response.data.success) {
           const { access_token, user_id, username, email, is_admin } = response.data.data
           
           // 存储token和用户信息
@@ -88,13 +96,20 @@ const login = async () => {
           }, 1000)
         } else {
           // 登录失败，显示错误信息
-          ElMessage.error(response.data.message || '登录失败')
+          ElMessage.error(response.data?.message || '登录失败')
         }
       } catch (error) {
         // 处理后端返回的错误
-        if (error.response && error.response.data) {
+        console.error('完整的错误信息:', error)
+        if (error.response) {
+          console.error('响应状态:', error.response.status)
+          console.error('响应数据:', error.response.data)
           ElMessage.error(error.response.data.message || '登录失败')
+        } else if (error.request) {
+          console.error('请求信息:', error.request)
+          ElMessage.error('请求失败，请检查网络连接')
         } else {
+          console.error('请求配置错误:', error.message)
           ElMessage.error('登录失败，请检查网络连接或服务器状态')
         }
         loading.value = false

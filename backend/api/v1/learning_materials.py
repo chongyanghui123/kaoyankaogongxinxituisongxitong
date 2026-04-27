@@ -1,350 +1,121 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-学习资料下载功能API路由
-"""
-
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, Path
+from fastapi import APIRouter, Depends, HTTPException, Query, Path, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timedelta
-from fastapi.responses import JSONResponse, FileResponse
-import os
-import uuid
+from fastapi.responses import JSONResponse
+from sqlalchemy import desc, or_
 
 from core.database import get_db_common
 from core.security import get_current_user
-from core.logger import log_user_action, log_error
-from core.oss_uploader import oss_uploader
-from models.learning_materials import MaterialCategory, LearningMaterial, UserDownload, MaterialRating, MaterialComment, UserMaterialFavorite
-from models.users import User, UserSubscription
+from models.learning_materials import (
+    ExamSchedule, Carousel, MaterialCategory, LearningMaterial,
+    UserDownload, MaterialRating, MaterialComment
+)
+from models.users import User
+from schemas.learning_materials import (
+    ExamScheduleCreate, ExamScheduleUpdate, ExamScheduleResponse, 
+    ExamScheduleWithCountdown, ExamScheduleList,
+    CarouselCreate, CarouselUpdate, CarouselResponse, CarouselList
+)
 
 router = APIRouter(tags=["learning_materials"])
 
 
-# 资料分类相关API
-
-@router.get("/categories", summary="获取资料分类列表")
-async def get_material_categories(
-    type: Optional[int] = Query(None, description="分类类型：1-考研，2-考公，3-通用"),
+@router.get("/categories")
+async def get_categories(
     db: Session = Depends(get_db_common),
     current_user: User = Depends(get_current_user)
 ):
-    """获取资料分类列表"""
     try:
-        query = db.query(MaterialCategory)
-        
-        # 管理员用户可以看到所有分类，不需要过滤
-        if not current_user.is_admin:
-            # 获取用户订阅信息
-            user_subscription = db.query(UserSubscription).filter(
-                UserSubscription.user_id == current_user.id
-            ).first()
-            subscribe_type = user_subscription.subscribe_type if user_subscription else None
-            
-            # 根据用户类型自动过滤分类
-            # vip_type: 0-非VIP, 1-考研VIP, 2-考公VIP, 3-双赛道VIP
-            # subscribe_type: 1-考研, 2-考公, 3-双赛道
-            if current_user.vip_type == 1 or (subscribe_type and subscribe_type == 1):
-                # 考研用户只能看到考研分类和通用分类
-                query = query.filter(MaterialCategory.type.in_([1, 3]))
-            elif current_user.vip_type == 2 or (subscribe_type and subscribe_type == 2):
-                # 考公用户只能看到考公分类和通用分类
-                query = query.filter(MaterialCategory.type.in_([2, 3]))
-            # 双赛道用户（vip_type=3或subscribe_type=3）和非VIP用户可以看到所有分类
-        
-        if type is not None:
-            query = query.filter(MaterialCategory.type == type)
-        categories = query.all()
-        
+        categories = db.query(MaterialCategory).order_by(MaterialCategory.id).all()
+        result = []
+        for cat in categories:
+            result.append({
+                "id": cat.id,
+                "name": cat.name,
+                "type": cat.type,
+                "description": cat.description,
+                "created_at": cat.created_at.isoformat() if cat.created_at else None
+            })
         return JSONResponse(
             status_code=200,
             content={
                 "success": True,
                 "code": 200,
                 "message": "获取资料分类列表成功",
-                "data": [{
-                    "id": c.id,
-                    "name": c.name,
-                    "type": c.type,
-                    "description": c.description,
-                    "created_at": c.created_at.isoformat()
-                } for c in categories]
+                "data": result
             }
         )
     except Exception as e:
-        log_error(f"获取资料分类列表失败: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"获取资料分类列表失败: {str(e)}"
-        )
-
-
-@router.post("/categories", summary="创建资料分类")
-async def create_material_category(
-    name: str = Form(..., description="分类名称"),
-    type: int = Form(..., description="分类类型：1-考研，2-考公，3-通用"),
-    description: Optional[str] = Form(None, description="分类描述"),
-    db: Session = Depends(get_db_common),
-    current_user: User = Depends(get_current_user)
-):
-    """创建资料分类"""
-    try:
-        # 检查分类是否已存在
-        existing_category = db.query(MaterialCategory).filter(
-            MaterialCategory.name == name,
-            MaterialCategory.type == type
-        ).first()
-        if existing_category:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "code": 400,
-                    "message": "分类已存在",
-                    "data": None
-                }
-            )
-        
-        # 创建分类
-        category = MaterialCategory(
-            name=name,
-            type=type,
-            description=description
-        )
-        db.add(category)
-        db.commit()
-        db.refresh(category)
-        
-        log_user_action(current_user.id, "create_material_category", f"创建资料分类: {name}")
-        
         return JSONResponse(
-            status_code=200,
-            content={
-                "success": True,
-                "code": 200,
-                "message": "创建资料分类成功",
-                "data": {
-                    "id": category.id,
-                    "name": category.name,
-                    "type": category.type,
-                    "description": category.description,
-                    "created_at": category.created_at.isoformat()
-                }
-            }
-        )
-    except Exception as e:
-        log_error(f"创建资料分类失败: {str(e)}")
-        raise HTTPException(
             status_code=500,
-            detail="创建资料分类失败"
-        )
-
-
-@router.put("/categories/{category_id}", summary="更新资料分类")
-async def update_material_category(
-    category_id: int = Path(..., description="分类ID"),
-    name: Optional[str] = Form(None, description="分类名称"),
-    type: Optional[int] = Form(None, description="分类类型：1-考研，2-考公，3-通用"),
-    description: Optional[str] = Form(None, description="分类描述"),
-    db: Session = Depends(get_db_common),
-    current_user: User = Depends(get_current_user)
-):
-    """更新资料分类"""
-    try:
-        # 检查分类是否存在
-        category = db.query(MaterialCategory).filter(MaterialCategory.id == category_id).first()
-        if not category:
-            return JSONResponse(
-                status_code=404,
-                content={
-                    "success": False,
-                    "code": 404,
-                    "message": "分类不存在",
-                    "data": None
-                }
-            )
-        
-        # 更新分类
-        if name is not None:
-            category.name = name
-        if type is not None:
-            category.type = type
-        if description is not None:
-            category.description = description
-        
-        db.commit()
-        db.refresh(category)
-        
-        log_user_action(current_user.id, "update_material_category", f"更新资料分类: {category.name}")
-        
-        return JSONResponse(
-            status_code=200,
             content={
-                "success": True,
-                "code": 200,
-                "message": "更新资料分类成功",
-                "data": {
-                    "id": category.id,
-                    "name": category.name,
-                    "type": category.type,
-                    "description": category.description,
-                    "created_at": category.created_at.isoformat()
-                }
-            }
-        )
-    except Exception as e:
-        log_error(f"更新资料分类失败: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="更新资料分类失败"
-        )
-
-
-@router.delete("/categories/{category_id}", summary="删除资料分类")
-async def delete_material_category(
-    category_id: int = Path(..., description="分类ID"),
-    db: Session = Depends(get_db_common),
-    current_user: User = Depends(get_current_user)
-):
-    """删除资料分类"""
-    try:
-        # 检查分类是否存在
-        category = db.query(MaterialCategory).filter(MaterialCategory.id == category_id).first()
-        if not category:
-            return JSONResponse(
-                status_code=404,
-                content={
-                    "success": False,
-                    "code": 404,
-                    "message": "分类不存在",
-                    "data": None
-                }
-            )
-        
-        # 检查是否有资料使用该分类
-        materials = db.query(LearningMaterial).filter(LearningMaterial.category_id == category_id).all()
-        if materials:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "code": 400,
-                    "message": "该分类下有资料，无法删除",
-                    "data": None
-                }
-            )
-        
-        # 删除分类
-        db.delete(category)
-        db.commit()
-        
-        log_user_action(current_user.id, "delete_material_category", f"删除资料分类: {category.name}")
-        
-        return JSONResponse(
-            status_code=200,
-            content={
-                "success": True,
-                "code": 200,
-                "message": "删除资料分类成功",
+                "success": False,
+                "code": 500,
+                "message": f"获取资料分类列表失败: {str(e)}",
                 "data": None
             }
         )
-    except Exception as e:
-        log_error(f"删除资料分类失败: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="删除资料分类失败"
-        )
 
 
-# 学习资料相关API
-
-@router.get("/materials", summary="获取学习资料列表")
-async def get_learning_materials(
-    page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(10, ge=1, le=100, description="每页数量"),
-    type: Optional[int] = Query(None, description="资料类型：1-考研，2-考公"),
-    category_id: Optional[int] = Query(None, description="分类ID"),
-    subject: Optional[str] = Query(None, description="科目"),
-    keyword: Optional[str] = Query(None, description="关键词"),
+@router.get("/materials")
+async def get_materials(
     db: Session = Depends(get_db_common),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    keyword: Optional[str] = Query(None),
+    type: Optional[str] = Query(None),
+    category_id: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user)
 ):
-    """获取学习资料列表"""
     try:
-        query = db.query(LearningMaterial).filter(LearningMaterial.is_valid == True)
-        
-        # 管理员用户可以看到所有资料，不需要过滤
-        if not current_user.is_admin:
-            # 获取用户订阅信息
-            user_subscription = db.query(UserSubscription).filter(
-                UserSubscription.user_id == current_user.id
-            ).first()
-            subscribe_type = user_subscription.subscribe_type if user_subscription else None
-            
-            # 根据用户类型自动过滤资料类型
-            # vip_type: 0-非VIP, 1-考研VIP, 2-考公VIP, 3-双赛道VIP
-            # subscribe_type: 1-考研, 2-考公, 3-双赛道
-            if current_user.vip_type == 1 or (subscribe_type and subscribe_type == 1):
-                # 考研用户只能看到考研资料
-                query = query.filter(LearningMaterial.type == 1)
-            elif current_user.vip_type == 2 or (subscribe_type and subscribe_type == 2):
-                # 考公用户只能看到考公资料
-                query = query.filter(LearningMaterial.type == 2)
-            # 双赛道用户（vip_type=3或subscribe_type=3）和非VIP用户可以看到所有资料
-        
-        # 过滤条件
-        if type is not None:
-            query = query.filter(LearningMaterial.type == type)
-        if category_id is not None:
-            query = query.filter(LearningMaterial.category_id == category_id)
-        if subject:
-            query = query.filter(LearningMaterial.subject == subject)
+        query = db.query(LearningMaterial)
+
         if keyword:
-            query = query.filter(
-                LearningMaterial.title.contains(keyword) | 
-                LearningMaterial.description.contains(keyword)
-            )
-        
-        # 计算总数
+            query = query.filter(LearningMaterial.title.contains(keyword))
+        if type:
+            try:
+                type_int = int(type)
+                query = query.filter(LearningMaterial.type == type_int)
+            except (ValueError, TypeError):
+                pass
+        if category_id:
+            try:
+                cat_id = int(category_id)
+                query = query.filter(LearningMaterial.category_id == cat_id)
+            except (ValueError, TypeError):
+                pass
+
+        query = query.filter(LearningMaterial.is_valid == True)
+        query = query.order_by(desc(LearningMaterial.created_at))
+
         total = query.count()
-        
-        # 分页
-        offset = (page - 1) * page_size
-        materials = query.order_by(
-            LearningMaterial.upload_time.desc()
-        ).offset(offset).limit(page_size).all()
-        
-        # 计算每个资料的平均评分
-        material_items = []
-        for m in materials:
-            # 获取该资料的所有评分
-            ratings = db.query(MaterialRating).filter(MaterialRating.material_id == m.id).all()
-            average_rating = 0.0
-            if ratings:
-                total_rating = sum(r.rating for r in ratings)
-                average_rating = round(total_rating / len(ratings), 1)
-            
-            material_items.append({
-                "id": m.id,
-                "title": m.title,
-                "description": m.description,
-                "type": m.type,
-                "category_id": m.category_id,
-                "category_name": m.category.name if m.category else "",
-                "subject": m.subject,
-                "file_url": m.file_url,
-                "file_size": m.file_size,
-                "file_extension": m.file_extension,
-                "cover_image": m.cover_image,
-                "uploader_id": m.uploader_id,
-                "uploader_name": m.uploader.username if m.uploader else "",
-                "upload_time": m.upload_time.isoformat(),
-                "download_count": m.download_count,
-                "rating": average_rating
+        items = query.offset((page - 1) * page_size).limit(page_size).all()
+
+        result = []
+        for item in items:
+            category_name = None
+            if item.category:
+                category_name = item.category.name
+            result.append({
+                "id": item.id,
+                "title": item.title,
+                "description": item.description,
+                "category_id": item.category_id,
+                "category_name": category_name,
+                "type": item.type,
+                "subject": item.subject,
+                "file_url": item.file_url,
+                "cover_image": item.cover_image,
+                "file_size": item.file_size,
+                "file_extension": item.file_extension,
+                "download_count": item.download_count,
+                "rating": item.rating,
+                "is_valid": item.is_valid,
+                "created_at": item.created_at.isoformat() if item.created_at else None,
+                "updated_at": item.updated_at.isoformat() if item.updated_at else None
             })
-            
+
         return JSONResponse(
             status_code=200,
             content={
@@ -353,335 +124,178 @@ async def get_learning_materials(
                 "message": "获取学习资料列表成功",
                 "data": {
                     "total": total,
-                    "items": material_items
+                    "items": result,
+                    "page": page,
+                    "page_size": page_size
                 }
             }
         )
     except Exception as e:
-        log_error(f"获取学习资料列表失败: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="获取学习资料列表失败"
-        )
-
-
-@router.get("/materials/{material_id}", summary="获取学习资料详情")
-async def get_learning_material_detail(
-    material_id: int = Path(..., description="资料ID"),
-    db: Session = Depends(get_db_common),
-    current_user: User = Depends(get_current_user)
-):
-    """获取学习资料详情"""
-    try:
-        material = db.query(LearningMaterial).filter(
-            LearningMaterial.id == material_id,
-            LearningMaterial.is_valid == True
-        ).first()
-        
-        if not material:
-            return JSONResponse(
-                status_code=404,
-                content={
-                    "success": False,
-                    "code": 404,
-                    "message": "资料不存在",
-                    "data": None
-                }
-            )
-        
-        # 计算平均评分
-        ratings = db.query(MaterialRating).filter(MaterialRating.material_id == material.id).all()
-        average_rating = 0.0
-        if ratings:
-            total_rating = sum(r.rating for r in ratings)
-            average_rating = round(total_rating / len(ratings), 1)
-            
         return JSONResponse(
-            status_code=200,
+            status_code=500,
             content={
-                "success": True,
-                "code": 200,
-                "message": "获取学习资料详情成功",
-                "data": {
-                    "id": material.id,
-                    "title": material.title,
-                    "description": material.description,
-                    "type": material.type,
-                    "category_id": material.category_id,
-                    "category_name": material.category.name if material.category else "",
-                    "subject": material.subject,
-                    "file_path": material.file_path,
-                    "file_url": material.file_url,
-                    "file_size": material.file_size,
-                    "file_extension": material.file_extension,
-                    "cover_image": material.cover_image,
-                    "uploader_id": material.uploader_id,
-                    "uploader_name": material.uploader.username if material.uploader else "",
-                    "upload_time": material.upload_time.isoformat(),
-                    "download_count": material.download_count,
-                    "rating": average_rating
-                }
+                "success": False,
+                "code": 500,
+                "message": f"获取学习资料列表失败: {str(e)}",
+                "data": None
             }
         )
-    except Exception as e:
-        log_error(f"获取学习资料详情失败: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="获取学习资料详情失败"
-        )
 
 
-@router.post("/materials", summary="上传学习资料")
-async def upload_learning_material(
-    title: str = Form(..., description="资料标题"),
-    description: str = Form(..., description="资料描述"),
-    type: int = Form(..., description="资料类型：1-考研，2-考公"),
-    category_id: int = Form(..., description="分类ID"),
-    subject: str = Form(..., description="科目"),
-    file: UploadFile = File(..., description="资料文件"),
-    cover_image: Optional[UploadFile] = File(None, description="封面图片"),
+@router.post("/materials")
+async def create_material(
+    title: str = Form(...),
+    description: str = Form(...),
+    type: str = Form(...),
+    category_id: str = Form(...),
+    subject: str = Form(None),
+    file: UploadFile = File(None),
+    cover_image: UploadFile = File(None),
     db: Session = Depends(get_db_common),
     current_user: User = Depends(get_current_user)
 ):
-    """上传学习资料"""
     try:
-        # 检查分类是否存在
-        category = db.query(MaterialCategory).filter(MaterialCategory.id == category_id).first()
-        if not category:
-            return JSONResponse(
-                status_code=404,
-                content={
-                    "success": False,
-                    "code": 404,
-                    "message": "分类不存在",
-                    "data": None
-                }
-            )
-        
-        # 上传文件到OSS或本地
-        file_extension = os.path.splitext(file.filename)[1]
-        file_data = await file.read()
-        
-        # 优先使用OSS
-        file_url = oss_uploader.upload_file(file_data, file.filename)
-        
-        if file_url:
-            # 使用OSS存储
-            file_path = file_url
-        else:
-            # 回退到本地存储
-            upload_dir = "uploads"
-            if not os.path.exists(upload_dir):
-                os.makedirs(upload_dir)
-            file_name = f"{uuid.uuid4()}{file_extension}"
-            file_path = os.path.join(upload_dir, file_name)
+        file_url = None
+        if file:
+            import os
+            upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads", "materials")
+            os.makedirs(upload_dir, exist_ok=True)
+            file_path = os.path.join(upload_dir, file.filename)
             with open(file_path, "wb") as f:
-                f.write(file_data)
-            file_url = f"/uploads/{file_name}"
-        
-        # 保存封面图片（如果有）
+                content = await file.read()
+                f.write(content)
+            file_url = f"/uploads/materials/{file.filename}"
+
         cover_image_url = None
         if cover_image:
-            cover_image_data = await cover_image.read()
-            cover_extension = os.path.splitext(cover_image.filename)[1]
-            cover_image_url = oss_uploader.upload_file(cover_image_data, cover_image.filename)
-            
-            if not cover_image_url:
-                # 回退到本地存储
-                if not os.path.exists(upload_dir):
-                    os.makedirs(upload_dir)
-                cover_name = f"{uuid.uuid4()}{cover_extension}"
-                cover_path = os.path.join(upload_dir, cover_name)
-                with open(cover_path, "wb") as f:
-                    f.write(cover_image_data)
-                cover_image_url = f"/uploads/{cover_name}"
-        
-        # 创建资料
+            import os
+            upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads", "covers")
+            os.makedirs(upload_dir, exist_ok=True)
+            cover_path = os.path.join(upload_dir, cover_image.filename)
+            with open(cover_path, "wb") as f:
+                content = await cover_image.read()
+                f.write(content)
+            cover_image_url = f"/uploads/covers/{cover_image.filename}"
+
+        try:
+            cat_id = int(category_id)
+        except (ValueError, TypeError):
+            cat_id = None
+
+        try:
+            type_int = int(type)
+        except (ValueError, TypeError):
+            type_int = 0
+
         material = LearningMaterial(
             title=title,
             description=description,
-            type=type,
-            category_id=category_id,
+            type=type_int,
+            category_id=cat_id,
             subject=subject,
-            file_path=file_path,
             file_url=file_url,
-            file_size=len(file_data),
-            file_extension=file_extension,
             cover_image=cover_image_url,
             uploader_id=current_user.id,
-            upload_time=datetime.now()
+            upload_time=datetime.now(),
+            is_valid=True
         )
         db.add(material)
         db.commit()
         db.refresh(material)
-        
-        log_user_action(current_user.id, "upload_learning_material", f"上传学习资料: {title}")
-        
-        # 推送消息给对应类型的用户
-        from models.users import PushLog, UserSubscription, User
-        
-        # 构建用户查询
-        user_query = db.query(User)
-        
-        # 为了简化逻辑，我们先获取所有用户，然后在内存中过滤
-        all_users = user_query.all()
-        target_users = []
-        
-        # 遍历所有用户，根据资料类型和用户类型进行过滤
-        for user in all_users:
-            # 检查用户的VIP类型
-            if type == 1:  # 考研资料
-                # 考研用户、双赛道用户可以接收
-                if user.vip_type in [1, 3]:
-                    target_users.append(user)
-                else:
-                    # 检查用户的订阅类型
-                    user_subscription = db.query(UserSubscription).filter(
-                        UserSubscription.user_id == user.id
-                    ).first()
-                    if user_subscription and user_subscription.subscribe_type in [1, 3]:
-                        target_users.append(user)
-            elif type == 2:  # 考公资料
-                # 考公用户、双赛道用户可以接收
-                if user.vip_type in [2, 3]:
-                    target_users.append(user)
-                else:
-                    # 检查用户的订阅类型
-                    user_subscription = db.query(UserSubscription).filter(
-                        UserSubscription.user_id == user.id
-                    ).first()
-                    if user_subscription and user_subscription.subscribe_type in [2, 3]:
-                        target_users.append(user)
-        
-        # 为目标用户创建推送记录
-        for user in target_users:
-            # 创建推送记录
-            push_log = PushLog(
-                user_id=user.id,
-                info_id=material.id,
-                category=type,
-                push_type=1,
-                push_status=1,
-                push_content=f"管理员上传了新的学习资料：{title}\n\n{description}",
-                push_time=datetime.now(),
-                is_processed=False
-            )
-            db.add(push_log)
-        db.commit()
-        
+
         return JSONResponse(
             status_code=200,
             content={
                 "success": True,
                 "code": 200,
-                "message": "上传学习资料成功",
+                "message": "创建学习资料成功",
                 "data": {
                     "id": material.id,
                     "title": material.title,
-                    "file_url": material.file_url
+                    "description": material.description,
+                    "category_id": material.category_id,
+                    "type": material.type,
+                    "file_url": material.file_url,
+                    "cover_image": material.cover_image,
+                    "is_valid": material.is_valid,
+                    "created_at": material.created_at.isoformat() if material.created_at else None
                 }
             }
         )
     except Exception as e:
-        log_error(f"上传学习资料失败: {str(e)}")
-        raise HTTPException(
+        db.rollback()
+        return JSONResponse(
             status_code=500,
-            detail="上传学习资料失败"
+            content={
+                "success": False,
+                "code": 500,
+                "message": f"创建学习资料失败: {str(e)}",
+                "data": None
+            }
         )
 
 
-@router.put("/materials/{material_id}", summary="更新学习资料")
-async def update_learning_material(
-    material_id: int = Path(..., description="资料ID"),
-    title: Optional[str] = Form(None, description="资料标题"),
-    description: Optional[str] = Form(None, description="资料描述"),
-    type: Optional[int] = Form(None, description="资料类型：1-考研，2-考公"),
-    category_id: Optional[int] = Form(None, description="分类ID"),
-    subject: Optional[str] = Form(None, description="科目"),
-    file: Optional[UploadFile] = File(None, description="资料文件"),
-    cover_image: Optional[UploadFile] = File(None, description="封面图片"),
+@router.put("/materials/{material_id}")
+async def update_material(
+    material_id: int,
+    title: str = Form(None),
+    description: str = Form(None),
+    type: str = Form(None),
+    category_id: str = Form(None),
+    subject: str = Form(None),
+    file: UploadFile = File(None),
+    cover_image: UploadFile = File(None),
     db: Session = Depends(get_db_common),
     current_user: User = Depends(get_current_user)
 ):
-    """更新学习资料"""
     try:
-        # 检查资料是否存在
         material = db.query(LearningMaterial).filter(LearningMaterial.id == material_id).first()
         if not material:
             return JSONResponse(
                 status_code=404,
-                content={
-                    "success": False,
-                    "code": 404,
-                    "message": "资料不存在",
-                    "data": None
-                }
+                content={"success": False, "code": 404, "message": "学习资料不存在", "data": None}
             )
-        
-        # 检查分类是否存在（如果更新分类）
-        if category_id is not None:
-            category = db.query(MaterialCategory).filter(MaterialCategory.id == category_id).first()
-            if not category:
-                return JSONResponse(
-                    status_code=404,
-                    content={
-                        "success": False,
-                        "code": 404,
-                        "message": "分类不存在",
-                        "data": None
-                    }
-                )
-        
-        # 更新资料信息
+
         if title is not None:
             material.title = title
         if description is not None:
             material.description = description
         if type is not None:
-            material.type = type
+            try:
+                material.type = int(type)
+            except (ValueError, TypeError):
+                pass
         if category_id is not None:
-            material.category_id = category_id
+            try:
+                material.category_id = int(category_id)
+            except (ValueError, TypeError):
+                pass
         if subject is not None:
             material.subject = subject
-        
-        # 更新文件（如果有）
+
         if file:
-            # 删除旧文件
-            if os.path.exists(material.file_path):
-                os.remove(material.file_path)
-            
-            # 保存新文件
-            file_extension = os.path.splitext(file.filename)[1]
-            file_name = f"{uuid.uuid4()}{file_extension}"
-            file_path = os.path.join("uploads", file_name)
+            import os
+            upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads", "materials")
+            os.makedirs(upload_dir, exist_ok=True)
+            file_path = os.path.join(upload_dir, file.filename)
             with open(file_path, "wb") as f:
-                f.write(await file.read())
-            
-            material.file_path = file_path
-            material.file_url = f"/uploads/{file_name}"
-            material.file_size = os.path.getsize(file_path)
-            material.file_extension = file_extension
-        
-        # 更新封面图片（如果有）
+                content = await file.read()
+                f.write(content)
+            material.file_url = f"/uploads/materials/{file.filename}"
+
         if cover_image:
-            # 删除旧封面图片
-            if material.cover_image and os.path.exists(os.path.join("uploads", os.path.basename(material.cover_image))):
-                os.remove(os.path.join("uploads", os.path.basename(material.cover_image)))
-            
-            # 保存新封面图片
-            cover_extension = os.path.splitext(cover_image.filename)[1]
-            cover_name = f"{uuid.uuid4()}{cover_extension}"
-            cover_path = os.path.join("uploads", cover_name)
+            import os
+            upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads", "covers")
+            os.makedirs(upload_dir, exist_ok=True)
+            cover_path = os.path.join(upload_dir, cover_image.filename)
             with open(cover_path, "wb") as f:
-                f.write(await cover_image.read())
-            
-            material.cover_image = f"/uploads/{cover_name}"
-        
+                content = await cover_image.read()
+                f.write(content)
+            material.cover_image = f"/uploads/covers/{cover_image.filename}"
+
         db.commit()
         db.refresh(material)
-        
-        log_user_action(current_user.id, "update_learning_material", f"更新学习资料: {material.title}")
-        
+
         return JSONResponse(
             status_code=200,
             content={
@@ -691,1145 +305,932 @@ async def update_learning_material(
                 "data": {
                     "id": material.id,
                     "title": material.title,
-                    "file_url": material.file_url
+                    "description": material.description,
+                    "category_id": material.category_id,
+                    "type": material.type,
+                    "file_url": material.file_url,
+                    "cover_image": material.cover_image,
+                    "is_valid": material.is_valid,
+                    "updated_at": material.updated_at.isoformat() if material.updated_at else None
                 }
             }
         )
     except Exception as e:
-        log_error(f"更新学习资料失败: {str(e)}")
-        raise HTTPException(
+        db.rollback()
+        return JSONResponse(
             status_code=500,
-            detail="更新学习资料失败"
+            content={"success": False, "code": 500, "message": f"更新学习资料失败: {str(e)}", "data": None}
         )
 
 
-@router.delete("/materials/{material_id}", summary="删除学习资料")
-async def delete_learning_material(
-    material_id: int = Path(..., description="资料ID"),
+@router.delete("/materials/{material_id}")
+async def delete_material(
+    material_id: int,
     db: Session = Depends(get_db_common),
     current_user: User = Depends(get_current_user)
 ):
-    """删除学习资料"""
     try:
-        # 检查资料是否存在
         material = db.query(LearningMaterial).filter(LearningMaterial.id == material_id).first()
         if not material:
             return JSONResponse(
                 status_code=404,
-                content={
-                    "success": False,
-                    "code": 404,
-                    "message": "资料不存在",
-                    "data": None
-                }
+                content={"success": False, "code": 404, "message": "学习资料不存在", "data": None}
             )
-        
-        # 删除相关记录
-        from models.learning_materials import UserDownload, MaterialRating, MaterialComment, UserMaterialFavorite
-        
-        # 删除下载记录
-        db.query(UserDownload).filter(UserDownload.material_id == material_id).delete()
-        
-        # 删除评分记录
-        db.query(MaterialRating).filter(MaterialRating.material_id == material_id).delete()
-        
-        # 删除评论记录
-        db.query(MaterialComment).filter(MaterialComment.material_id == material_id).delete()
-        
-        # 删除收藏记录
-        db.query(UserMaterialFavorite).filter(UserMaterialFavorite.material_id == material_id).delete()
-        
-        # 删除文件
-        if os.path.exists(material.file_path):
-            os.remove(material.file_path)
-        
-        # 删除封面图片
-        if material.cover_image and os.path.exists(os.path.join("uploads", os.path.basename(material.cover_image))):
-            os.remove(os.path.join("uploads", os.path.basename(material.cover_image)))
-        
-        # 删除资料
-        db.delete(material)
+        material.is_valid = False
         db.commit()
-        
-        log_user_action(current_user.id, "delete_learning_material", f"删除学习资料: {material.title}")
-        
         return JSONResponse(
             status_code=200,
-            content={
-                "success": True,
-                "code": 200,
-                "message": "删除学习资料成功",
-                "data": None
-            }
+            content={"success": True, "code": 200, "message": "删除学习资料成功", "data": None}
         )
     except Exception as e:
-        log_error(f"删除学习资料失败: {str(e)}")
-        raise HTTPException(
+        db.rollback()
+        return JSONResponse(
             status_code=500,
-            detail="删除学习资料失败"
+            content={"success": False, "code": 500, "message": f"删除学习资料失败: {str(e)}", "data": None}
         )
 
 
-@router.get("/materials/{material_id}/download", summary="下载学习资料")
-async def download_learning_material(
-    material_id: int = Path(..., description="资料ID"),
+@router.get("/materials/{material_id}/download")
+async def download_material(
+    material_id: int,
     db: Session = Depends(get_db_common),
     current_user: User = Depends(get_current_user)
 ):
-    """下载学习资料"""
     try:
-        # 检查资料是否存在
-        material = db.query(LearningMaterial).filter(
-            LearningMaterial.id == material_id,
-            LearningMaterial.is_valid == True
-        ).first()
-        
+        material = db.query(LearningMaterial).filter(LearningMaterial.id == material_id).first()
         if not material:
             return JSONResponse(
                 status_code=404,
-                content={
-                    "success": False,
-                    "code": 404,
-                    "message": "资料不存在",
-                    "data": None
-                }
+                content={"success": False, "code": 404, "message": "学习资料不存在", "data": None}
             )
-        
-        file_path = material.file_path
-        if not os.path.isabs(file_path):
-            file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), file_path)
-        
-        if not os.path.exists(file_path):
-            return JSONResponse(
-                status_code=404,
-                content={
-                    "success": False,
-                    "code": 404,
-                    "message": "文件不存在",
-                    "data": None
-                }
-            )
-        
-        # 增加下载次数
-        material.download_count += 1
-        
-        # 记录下载记录
+
+        material.download_count = (material.download_count or 0) + 1
+
         download_record = UserDownload(
             user_id=current_user.id,
             material_id=material_id,
             download_time=datetime.now()
         )
         db.add(download_record)
-        
         db.commit()
-        
-        log_user_action(current_user.id, "download_learning_material", f"下载学习资料: {material.title}")
-        
-        return FileResponse(
-            path=file_path,
-            filename=material.title + material.file_extension,
-            media_type="application/octet-stream"
-        )
-    except Exception as e:
-        log_error(f"下载学习资料失败: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="下载学习资料失败"
-        )
 
-
-# 用户下载记录相关API
-
-@router.post("/materials/{material_id}/favorite", summary="添加收藏")
-async def add_material_favorite(
-    material_id: int = Path(..., description="资料ID"),
-    db: Session = Depends(get_db_common),
-    current_user: User = Depends(get_current_user)
-):
-    """添加学习资料收藏"""
-    try:
-        # 检查资料是否存在
-        material = db.query(LearningMaterial).filter(
-            LearningMaterial.id == material_id,
-            LearningMaterial.is_valid == True
-        ).first()
-        
-        if not material:
-            return JSONResponse(
-                status_code=404,
-                content={
-                    "success": False,
-                    "code": 404,
-                    "message": "资料不存在",
-                    "data": None
-                }
-            )
-        
-        # 检查是否已经收藏过
-        existing_favorite = db.query(UserMaterialFavorite).filter(
-            UserMaterialFavorite.user_id == current_user.id,
-            UserMaterialFavorite.material_id == material_id
-        ).first()
-        
-        if existing_favorite:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "code": 400,
-                    "message": "您已收藏过该资料",
-                    "data": None
-                }
-            )
-        
-        # 添加收藏
-        favorite = UserMaterialFavorite(
-            user_id=current_user.id,
-            material_id=material_id
-        )
-        
-        db.add(favorite)
-        db.commit()
-        db.refresh(favorite)
-        
-        log_user_action(current_user.id, "add_material_favorite", f"收藏学习资料: {material.title}")
-        
         return JSONResponse(
             status_code=200,
             content={
                 "success": True,
                 "code": 200,
-                "message": "收藏成功",
-                "data": None
-            }
-        )
-    except Exception as e:
-        log_error(f"添加收藏失败: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="添加收藏失败"
-        )
-
-
-@router.delete("/materials/{material_id}/favorite", summary="取消收藏")
-async def remove_material_favorite(
-    material_id: int = Path(..., description="资料ID"),
-    db: Session = Depends(get_db_common),
-    current_user: User = Depends(get_current_user)
-):
-    """取消学习资料收藏"""
-    try:
-        # 检查收藏是否存在
-        favorite = db.query(UserMaterialFavorite).filter(
-            UserMaterialFavorite.user_id == current_user.id,
-            UserMaterialFavorite.material_id == material_id
-        ).first()
-        
-        if not favorite:
-            return JSONResponse(
-                status_code=404,
-                content={
-                    "success": False,
-                    "code": 404,
-                    "message": "收藏不存在",
-                    "data": None
-                }
-            )
-        
-        # 删除收藏
-        db.delete(favorite)
-        db.commit()
-        
-        log_user_action(current_user.id, "remove_material_favorite", f"取消收藏学习资料: {material_id}")
-        
-        return JSONResponse(
-            status_code=200,
-            content={
-                "success": True,
-                "code": 200,
-                "message": "取消收藏成功",
-                "data": None
-            }
-        )
-    except Exception as e:
-        log_error(f"取消收藏失败: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="取消收藏失败"
-        )
-
-
-@router.get("/favorites", summary="获取用户收藏的学习资料")
-async def get_user_material_favorites(
-    page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(10, ge=1, le=100, description="每页数量"),
-    type: Optional[int] = Query(None, description="资料类型：1-考研，2-考公"),
-    db: Session = Depends(get_db_common),
-    current_user: User = Depends(get_current_user)
-):
-    """获取用户收藏的学习资料"""
-    try:
-        query = db.query(LearningMaterial).join(
-            UserMaterialFavorite,
-            LearningMaterial.id == UserMaterialFavorite.material_id
-        ).filter(
-            UserMaterialFavorite.user_id == current_user.id,
-            LearningMaterial.is_valid == True
-        )
-        
-        # 根据用户类型自动过滤资料类型
-        if not current_user.is_admin:
-            user_subscription = db.query(UserSubscription).filter(
-                UserSubscription.user_id == current_user.id
-            ).first()
-            subscribe_type = user_subscription.subscribe_type if user_subscription else None
-            
-            if current_user.vip_type == 1 or (subscribe_type and subscribe_type == 1):
-                query = query.filter(LearningMaterial.type == 1)
-            elif current_user.vip_type == 2 or (subscribe_type and subscribe_type == 2):
-                query = query.filter(LearningMaterial.type == 2)
-        
-        # 按资料类型过滤（如果有明确指定）
-        if type is not None:
-            query = query.filter(LearningMaterial.type == type)
-        
-        # 计算总数
-        total = query.count()
-        
-        # 分页
-        offset = (page - 1) * page_size
-        materials = query.order_by(
-            UserMaterialFavorite.created_at.desc()
-        ).offset(offset).limit(page_size).all()
-        
-        return JSONResponse(
-            status_code=200,
-            content={
-                "success": True,
-                "code": 200,
-                "message": "获取收藏资料成功",
+                "message": "获取下载链接成功",
                 "data": {
-                    "total": total,
-                    "items": [{
-                        "id": m.id,
-                        "title": m.title,
-                        "description": m.description,
-                        "type": m.type,
-                        "category_id": m.category_id,
-                        "category_name": m.category.name if m.category else "",
-                        "subject": m.subject,
-                        "file_url": m.file_url,
-                        "file_size": m.file_size,
-                        "file_extension": m.file_extension,
-                        "cover_image": m.cover_image,
-                        "uploader_id": m.uploader_id,
-                        "uploader_name": m.uploader.username if m.uploader else "",
-                        "upload_time": m.upload_time.isoformat(),
-                        "download_count": m.download_count,
-                        "rating": m.rating
-                    } for m in materials]
+                    "id": material.id,
+                    "title": material.title,
+                    "file_url": material.file_url,
+                    "file_size": material.file_size,
+                    "download_count": material.download_count
                 }
             }
         )
     except Exception as e:
-        log_error(f"获取收藏资料失败: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="获取收藏资料失败"
-        )
-
-
-@router.get("/materials/{material_id}/favorite", summary="检查是否已收藏")
-async def check_material_favorite(
-    material_id: int = Path(..., description="资料ID"),
-    db: Session = Depends(get_db_common),
-    current_user: User = Depends(get_current_user)
-):
-    """检查学习资料是否已收藏"""
-    try:
-        # 检查收藏是否存在
-        favorite = db.query(UserMaterialFavorite).filter(
-            UserMaterialFavorite.user_id == current_user.id,
-            UserMaterialFavorite.material_id == material_id
-        ).first()
-        
         return JSONResponse(
-            status_code=200,
-            content={
-                "success": True,
-                "code": 200,
-                "message": "检查收藏状态成功",
-                "data": {
-                    "is_favorite": favorite is not None
-                }
-            }
-        )
-    except Exception as e:
-        log_error(f"检查收藏状态失败: {str(e)}")
-        raise HTTPException(
             status_code=500,
-            detail="检查收藏状态失败"
+            content={"success": False, "code": 500, "message": f"下载学习资料失败: {str(e)}", "data": None}
         )
 
 
-@router.get("/downloads", summary="获取用户下载记录")
-async def get_user_downloads(
-    page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(10, ge=1, le=100, description="每页数量"),
-    type: Optional[int] = Query(None, description="资料类型：1-考研，2-考公"),
-    db: Session = Depends(get_db_common),
-    current_user: User = Depends(get_current_user)
-):
-    """获取用户下载记录"""
-    try:
-        query = db.query(UserDownload).filter(UserDownload.user_id == current_user.id)
-        
-        # 获取用户订阅信息
-        user_subscription = db.query(UserSubscription).filter(
-            UserSubscription.user_id == current_user.id
-        ).first()
-        subscribe_type = user_subscription.subscribe_type if user_subscription else None
-        
-        # 根据用户类型自动过滤下载记录
-        # vip_type: 0-非VIP, 1-考研VIP, 2-考公VIP, 3-双赛道VIP
-        # subscribe_type: 1-考研, 2-考公, 3-双赛道
-        if current_user.vip_type == 1 or (subscribe_type and subscribe_type == 1):
-            # 考研用户只能看到考研资料的下载记录
-            query = query.join(LearningMaterial).filter(LearningMaterial.type == 1)
-        elif current_user.vip_type == 2 or (subscribe_type and subscribe_type == 2):
-            # 考公用户只能看到考公资料的下载记录
-            query = query.join(LearningMaterial).filter(LearningMaterial.type == 2)
-        # 双赛道用户（vip_type=3或subscribe_type=3）和非VIP用户可以看到所有下载记录
-        
-        # 按资料类型过滤（如果有明确指定）
-        if type is not None:
-            query = query.join(LearningMaterial).filter(LearningMaterial.type == type)
-        
-        # 计算总数
-        total = query.count()
-        
-        # 分页
-        offset = (page - 1) * page_size
-        downloads = query.order_by(
-            UserDownload.download_time.desc()
-        ).offset(offset).limit(page_size).all()
-        
-        return JSONResponse(
-            status_code=200,
-            content={
-                "success": True,
-                "code": 200,
-                "message": "获取用户下载记录成功",
-                "data": {
-                    "total": total,
-                    "items": [{
-                        "id": d.id,
-                        "material_id": d.material_id,
-                        "material_title": d.material.title if d.material else "",
-                        "material_type": d.material.type if d.material else 0,
-                        "download_time": d.download_time.isoformat()
-                    } for d in downloads]
-                }
-            }
-        )
-    except Exception as e:
-        log_error(f"获取用户下载记录失败: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="获取用户下载记录失败"
-        )
-
-
-@router.delete("/downloads/{download_id}", summary="删除下载记录")
-async def delete_download_record(
-    download_id: int = Path(..., description="下载记录ID"),
-    db: Session = Depends(get_db_common),
-    current_user: User = Depends(get_current_user)
-):
-    """删除下载记录"""
-    try:
-        # 检查下载记录是否存在且属于当前用户
-        download_record = db.query(UserDownload).filter(
-            UserDownload.id == download_id,
-            UserDownload.user_id == current_user.id
-        ).first()
-        
-        if not download_record:
-            return JSONResponse(
-                status_code=404,
-                content={
-                    "success": False,
-                    "code": 404,
-                    "message": "下载记录不存在",
-                    "data": None
-                }
-            )
-        
-        # 删除下载记录
-        db.delete(download_record)
-        db.commit()
-        
-        log_user_action(current_user.id, "delete_download_record", f"删除下载记录: {download_record.id}")
-        
-        return JSONResponse(
-            status_code=200,
-            content={
-                "success": True,
-                "code": 200,
-                "message": "删除下载记录成功",
-                "data": None
-            }
-        )
-    except Exception as e:
-        log_error(f"删除下载记录失败: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="删除下载记录失败"
-        )
-
-
-# 资料评分和评论相关API
-
-@router.get("/materials/{material_id}/rating", summary="检查是否已评分")
-async def check_material_rating(
-    material_id: int = Path(..., description="资料ID"),
-    db: Session = Depends(get_db_common),
-    current_user: User = Depends(get_current_user)
-):
-    """检查学习资料是否已评分"""
-    try:
-        # 检查评分是否存在
-        rating = db.query(MaterialRating).filter(
-            MaterialRating.user_id == current_user.id,
-            MaterialRating.material_id == material_id
-        ).first()
-        
-        return JSONResponse(
-            status_code=200,
-            content={
-                "success": True,
-                "code": 200,
-                "message": "检查评分状态成功",
-                "data": {
-                    "has_rated": rating is not None,
-                    "rating": rating.rating if rating else None
-                }
-            }
-        )
-    except Exception as e:
-        log_error(f"检查评分状态失败: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="检查评分状态失败"
-        )
-
-
-@router.post("/materials/{material_id}/rating", summary="给资料评分")
+@router.post("/materials/{material_id}/rating")
 async def rate_material(
-    material_id: int = Path(..., description="资料ID"),
-    rating: int = Form(..., ge=1, le=10, description="评分，1-10分"),
+    material_id: int,
+    rating_data: dict,
     db: Session = Depends(get_db_common),
     current_user: User = Depends(get_current_user)
 ):
-    """给资料评分"""
     try:
-        # 检查资料是否存在
         material = db.query(LearningMaterial).filter(LearningMaterial.id == material_id).first()
         if not material:
             return JSONResponse(
                 status_code=404,
-                content={
-                    "success": False,
-                    "code": 404,
-                    "message": "资料不存在",
-                    "data": None
-                }
+                content={"success": False, "code": 404, "message": "学习资料不存在", "data": None}
             )
-        
-        # 检查是否已经评分
+
+        rating_value = rating_data.get("rating", 0)
         existing_rating = db.query(MaterialRating).filter(
             MaterialRating.user_id == current_user.id,
             MaterialRating.material_id == material_id
         ).first()
-        
+
         if existing_rating:
-            # 用户已经评价过，返回提示
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "code": 400,
-                    "message": "您已经评价过该资料，不能重复评价",
-                    "data": None
-                }
-            )
+            existing_rating.rating = rating_value
         else:
-            # 创建评分
             new_rating = MaterialRating(
                 user_id=current_user.id,
                 material_id=material_id,
-                rating=rating
+                rating=rating_value
             )
             db.add(new_rating)
-        
-        # 更新资料的平均评分
-        ratings = db.query(MaterialRating).filter(MaterialRating.material_id == material_id).all()
-        if ratings:
-            average_rating = sum(r.rating for r in ratings) / len(ratings)
-            material.rating = average_rating
-        else:
-            material.rating = 0
-        
+
         db.commit()
-        
-        log_user_action(current_user.id, "rate_material", f"给资料评分: {material.title}, 评分: {rating}")
-        
+        return JSONResponse(
+            status_code=200,
+            content={"success": True, "code": 200, "message": "评分成功", "data": {"rating": rating_value}}
+        )
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "code": 500, "message": f"评分失败: {str(e)}", "data": None}
+        )
+
+
+@router.get("/materials/{material_id}/comments")
+async def get_material_comments(
+    material_id: int,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        query = db.query(MaterialComment).filter(MaterialComment.material_id == material_id)
+        query = query.order_by(desc(MaterialComment.created_at))
+
+        total = query.count()
+        items = query.offset((page - 1) * page_size).limit(page_size).all()
+
+        result = []
+        for item in items:
+            user = db.query(User).filter(User.id == item.user_id).first()
+            result.append({
+                "id": item.id,
+                "material_id": item.material_id,
+                "user_id": item.user_id,
+                "username": user.username if user else "未知用户",
+                "avatar": user.avatar if user else None,
+                "content": item.comment,
+                "created_at": item.created_at.isoformat() if item.created_at else None
+            })
+
         return JSONResponse(
             status_code=200,
             content={
                 "success": True,
                 "code": 200,
-                "message": "评分成功",
+                "message": "获取评论列表成功",
                 "data": {
-                    "material_id": material_id,
-                    "rating": rating,
-                    "average_rating": material.rating
+                    "total": total,
+                    "items": result,
+                    "page": page,
+                    "page_size": page_size
                 }
             }
         )
     except Exception as e:
-        log_error(f"给资料评分失败: {str(e)}")
-        raise HTTPException(
+        return JSONResponse(
             status_code=500,
-            detail="给资料评分失败"
+            content={"success": False, "code": 500, "message": f"获取评论列表失败: {str(e)}", "data": None}
         )
 
 
-@router.post("/materials/{material_id}/comment", summary="给资料评论")
-async def comment_material(
-    material_id: int = Path(..., description="资料ID"),
-    comment: str = Form(..., description="评论内容"),
-    parent_comment_id: Optional[int] = Form(None, description="父评论ID（回复功能）"),
+@router.post("/materials/{material_id}/comment")
+async def add_material_comment(
+    material_id: int,
+    comment_data: dict,
     db: Session = Depends(get_db_common),
     current_user: User = Depends(get_current_user)
 ):
-    """给资料评论"""
     try:
-        # 检查资料是否存在
         material = db.query(LearningMaterial).filter(LearningMaterial.id == material_id).first()
         if not material:
             return JSONResponse(
                 status_code=404,
-                content={
-                    "success": False,
-                    "code": 404,
-                    "message": "资料不存在",
-                    "data": None
-                }
+                content={"success": False, "code": 404, "message": "学习资料不存在", "data": None}
             )
-        
-        # 检查用户类型和资料类型是否匹配
-        # 考研用户只能评论考研资料，考公用户只能评论考公资料
-        # 双赛道用户和管理员可以评论所有类型
-        if not (current_user.is_admin or current_user.vip_type == 3):
-            # 普通用户只能评论对应类型的资料
-            if current_user.vip_type == 1 and material.type != 1:
-                return JSONResponse(
-                    status_code=403,
-                    content={
-                        "success": False,
-                        "code": 403,
-                        "message": "考研用户只能评论考研相关的学习资料",
-                        "data": None
-                    }
-                )
-            elif current_user.vip_type == 2 and material.type != 2:
-                return JSONResponse(
-                    status_code=403,
-                    content={
-                        "success": False,
-                        "code": 403,
-                        "message": "考公用户只能评论考公相关的学习资料",
-                        "data": None
-                    }
-                )
-        
-        # 检查是否是回复评论，如果是，检查父评论是否存在
-        if parent_comment_id:
-            parent_comment = db.query(MaterialComment).filter(
-                MaterialComment.id == parent_comment_id,
-                MaterialComment.material_id == material_id
-            ).first()
-            if not parent_comment:
-                return JSONResponse(
-                    status_code=404,
-                    content={
-                        "success": False,
-                        "code": 404,
-                        "message": "父评论不存在",
-                        "data": None
-                    }
-                )
-        
-        # 创建评论（允许重复评论和回复）
-        new_comment = MaterialComment(
+
+        content = comment_data.get("comment", "")
+        if not content:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "code": 400, "message": "评论内容不能为空", "data": None}
+            )
+
+        comment = MaterialComment(
             user_id=current_user.id,
             material_id=material_id,
-            parent_comment_id=parent_comment_id,
-            comment=comment
+            comment=content
         )
-        db.add(new_comment)
+        db.add(comment)
         db.commit()
-        db.refresh(new_comment)
-        
-        log_user_action(current_user.id, "comment_material", f"给资料评论: {material.title}")
-        
-        from fastapi.responses import JSONResponse
-        
-        response_data = {
-            "success": True,
-            "code": 200,
-            "message": "评论成功",
-            "data": {
-                "id": new_comment.id,
-                "comment": new_comment.comment,
-                "created_at": new_comment.created_at.isoformat()
-            }
-        }
-        
-        print(f"响应数据: {response_data}")
-        print(f"评论内容类型: {type(new_comment.comment)}")
-        
-        return JSONResponse(
-            status_code=200,
-            content=response_data,
-            headers={"Content-Type": "application/json; charset=utf-8"}
-        )
-    except Exception as e:
-        log_error(f"给资料评论失败: {str(e)}")
-        import traceback
-        log_error(f"详细错误信息: {traceback.format_exc()}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"给资料评论失败: {str(e)}"
-        )
+        db.refresh(comment)
 
-
-@router.delete("/materials/{material_id}/comments/{comment_id}", summary="删除资料评论")
-async def delete_material_comment(
-    material_id: int = Path(..., description="资料ID"),
-    comment_id: int = Path(..., description="评论ID"),
-    db: Session = Depends(get_db_common),
-    current_user: User = Depends(get_current_user)
-):
-    """删除资料评论"""
-    try:
-        # 检查评论是否存在
-        comment = db.query(MaterialComment).filter(
-            MaterialComment.id == comment_id,
-            MaterialComment.material_id == material_id
-        ).first()
-        
-        if not comment:
-            return JSONResponse(
-                status_code=404,
-                content={
-                    "success": False,
-                    "code": 404,
-                    "message": "评论不存在",
-                    "data": None
-                }
-            )
-        
-        # 检查用户是否有权限删除该评论
-        if not (current_user.is_admin or comment.user_id == current_user.id):
-            return JSONResponse(
-                status_code=403,
-                content={
-                    "success": False,
-                    "code": 403,
-                    "message": "您没有权限删除该评论",
-                    "data": None
-                }
-            )
-        
-        # 删除该评论及其所有子评论（递归删除）
-        def delete_comment_recursive(comment_id):
-            # 删除所有子评论
-            child_comments = db.query(MaterialComment).filter(
-                MaterialComment.parent_comment_id == comment_id
-            ).all()
-            for child in child_comments:
-                delete_comment_recursive(child.id)
-            # 删除当前评论
-            comment_to_delete = db.query(MaterialComment).filter(
-                MaterialComment.id == comment_id
-            ).first()
-            if comment_to_delete:
-                db.delete(comment_to_delete)
-        
-        # 开始递归删除
-        delete_comment_recursive(comment_id)
-        db.commit()
-        
-        log_user_action(current_user.id, "delete_comment", f"删除评论: {material_id}")
-        
         return JSONResponse(
             status_code=200,
             content={
                 "success": True,
                 "code": 200,
-                "message": "删除评论成功",
-                "data": None
+                "message": "评论成功",
+                "data": {
+                    "id": comment.id,
+                    "material_id": comment.material_id,
+                    "user_id": comment.user_id,
+                    "username": current_user.username,
+                    "content": comment.comment,
+                    "created_at": comment.created_at.isoformat() if comment.created_at else None
+                }
             }
         )
-        
     except Exception as e:
-        log_error(f"删除评论失败: {str(e)}")
-        raise HTTPException(
+        db.rollback()
+        return JSONResponse(
             status_code=500,
-            detail="删除评论失败"
+            content={"success": False, "code": 500, "message": f"评论失败: {str(e)}", "data": None}
         )
 
-@router.get("/comments", summary="获取所有评论")
-async def get_all_comments(
-    page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(10, ge=1, le=100, description="每页数量"),
-    keyword: Optional[str] = Query(None, description="关键词搜索"),
-    type: Optional[int] = Query(None, description="资料类型：1-考研，2-考公"),
-    date: Optional[str] = Query(None, description="时间筛选：today/week/month"),
+
+@router.get("/comments")
+async def get_comments(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    keyword: Optional[str] = Query(None),
+    type: Optional[str] = Query(None),
+    date: Optional[str] = Query(None),
     db: Session = Depends(get_db_common),
     current_user: User = Depends(get_current_user)
 ):
-    """获取所有评论"""
     try:
-        # 检查用户是否是管理员
-        if not current_user.is_admin:
-            return JSONResponse(
-                status_code=403,
-                content={
-                    "success": False,
-                    "code": 403,
-                    "message": "您没有权限访问此API",
-                    "data": None
-                }
-            )
-        
-        query = db.query(MaterialComment).join(
-            LearningMaterial, MaterialComment.material_id == LearningMaterial.id
-        )
-        
-        # 关键词搜索
+        query = db.query(MaterialComment)
+
         if keyword:
-            query = query.filter(
-                MaterialComment.comment.contains(keyword) | 
-                MaterialComment.user.has(username.contains(keyword))
-            )
-        
-        # 类型筛选
-        if type:
-            query = query.filter(LearningMaterial.type == type)
-        
-        # 时间筛选
+            query = query.filter(MaterialComment.comment.contains(keyword))
         if date:
-            now = datetime.now()
-            if date == "today":
-                query = query.filter(MaterialComment.created_at >= now.replace(hour=0, minute=0, second=0, microsecond=0))
-            elif date == "week":
-                week_ago = now - timedelta(days=7)
-                query = query.filter(MaterialComment.created_at >= week_ago)
-            elif date == "month":
-                month_ago = now - timedelta(days=30)
-                query = query.filter(MaterialComment.created_at >= month_ago)
-        
-        # 计算总数
+            try:
+                filter_date = datetime.strptime(date, "%Y-%m-%d")
+                next_date = filter_date + timedelta(days=1)
+                query = query.filter(
+                    MaterialComment.created_at >= filter_date,
+                    MaterialComment.created_at < next_date
+                )
+            except ValueError:
+                pass
+
+        query = query.order_by(desc(MaterialComment.created_at))
+
         total = query.count()
-        
-        # 分页
-        offset = (page - 1) * page_size
-        comments = query.order_by(
-            MaterialComment.created_at.desc()
-        ).offset(offset).limit(page_size).all()
-        
-        # 构建评论数据
-        comment_items = []
-        for comment in comments:
-            # 获取父评论内容
-            parent_comment = None
-            if comment.parent_comment_id:
-                parent = db.query(MaterialComment).filter(MaterialComment.id == comment.parent_comment_id).first()
-                if parent:
-                    parent_comment = parent.comment
-            
-            # 计算评论层级
-            depth = 0
-            temp_comment = comment
-            while temp_comment.parent_comment_id:
-                depth += 1
-                temp_comment = db.query(MaterialComment).filter(MaterialComment.id == temp_comment.parent_comment_id).first()
-            
-            comment_items.append({
-                "id": comment.id,
-                "user_id": comment.user_id,
-                "user_name": comment.user.username if comment.user else "",
-                "material_id": comment.material_id,
-                "material_title": comment.material.title if comment.material else "",
-                "material_type": comment.material.type if comment.material else 0,
-                "comment": comment.comment,
-                "parent_comment_id": comment.parent_comment_id,
-                "parent_comment": parent_comment,
-                "depth": depth,
-                "created_at": comment.created_at.isoformat()
+        items = query.offset((page - 1) * page_size).limit(page_size).all()
+
+        result = []
+        for item in items:
+            user = db.query(User).filter(User.id == item.user_id).first()
+            material = db.query(LearningMaterial).filter(LearningMaterial.id == item.material_id).first()
+            result.append({
+                "id": item.id,
+                "material_id": item.material_id,
+                "material_title": material.title if material else "未知资料",
+                "user_id": item.user_id,
+                "username": user.username if user else "未知用户",
+                "avatar": user.avatar if user else None,
+                "content": item.comment,
+                "created_at": item.created_at.isoformat() if item.created_at else None
             })
-        
+
         return JSONResponse(
             status_code=200,
             content={
                 "success": True,
                 "code": 200,
-                "message": "获取评论成功",
+                "message": "获取评论列表成功",
                 "data": {
                     "total": total,
-                    "items": comment_items
+                    "items": result,
+                    "page": page,
+                    "page_size": page_size
                 }
             }
         )
     except Exception as e:
-        log_error(f"获取评论失败: {str(e)}")
-        raise HTTPException(
+        return JSONResponse(
             status_code=500,
-            detail="获取评论失败"
+            content={"success": False, "code": 500, "message": f"获取评论列表失败: {str(e)}", "data": None}
         )
 
 
-@router.delete("/comments/{comment_id}", summary="删除评论")
+@router.delete("/comments/{comment_id}")
 async def delete_comment(
-    comment_id: int = Path(..., description="评论ID"),
+    comment_id: int,
     db: Session = Depends(get_db_common),
     current_user: User = Depends(get_current_user)
 ):
-    """删除评论"""
     try:
-        # 检查评论是否存在
         comment = db.query(MaterialComment).filter(MaterialComment.id == comment_id).first()
-        
         if not comment:
             return JSONResponse(
                 status_code=404,
-                content={
-                    "success": False,
-                    "code": 404,
-                    "message": "评论不存在",
-                    "data": None
-                }
+                content={"success": False, "code": 404, "message": "评论不存在", "data": None}
             )
-        
-        # 检查用户是否有权限删除该评论
-        if not current_user.is_admin:
-            return JSONResponse(
-                status_code=403,
-                content={
-                    "success": False,
-                    "code": 403,
-                    "message": "您没有权限删除该评论",
-                    "data": None
-                }
-            )
-        
-        # 删除该评论及其所有子评论（递归删除）
-        def delete_comment_recursive(comment_id):
-            # 删除所有子评论
-            child_comments = db.query(MaterialComment).filter(
-                MaterialComment.parent_comment_id == comment_id
-            ).all()
-            for child in child_comments:
-                delete_comment_recursive(child.id)
-            # 删除当前评论
-            comment_to_delete = db.query(MaterialComment).filter(
-                MaterialComment.id == comment_id
-            ).first()
-            if comment_to_delete:
-                db.delete(comment_to_delete)
-        
-        # 开始递归删除
-        delete_comment_recursive(comment_id)
+        db.delete(comment)
         db.commit()
-        
-        log_user_action(current_user.id, "delete_comment", f"删除评论: {comment_id}")
-        
         return JSONResponse(
             status_code=200,
-            content={
-                "success": True,
-                "code": 200,
-                "message": "删除评论成功",
-                "data": None
-            }
+            content={"success": True, "code": 200, "message": "删除评论成功", "data": None}
         )
     except Exception as e:
-        log_error(f"删除评论失败: {str(e)}")
-        raise HTTPException(
+        db.rollback()
+        return JSONResponse(
             status_code=500,
-            detail="删除评论失败"
+            content={"success": False, "code": 500, "message": f"删除评论失败: {str(e)}", "data": None}
         )
 
 
-@router.get("/comments/export", summary="导出评论")
+@router.get("/comments/export")
 async def export_comments(
     db: Session = Depends(get_db_common),
     current_user: User = Depends(get_current_user)
 ):
-    """导出评论"""
     try:
-        # 检查用户是否是管理员
-        if not current_user.is_admin:
-            return JSONResponse(
-                status_code=403,
-                content={
-                    "success": False,
-                    "code": 403,
-                    "message": "您没有权限导出评论",
-                    "data": None
-                }
-            )
-        
-        # 获取所有评论
-        comments = db.query(MaterialComment).join(
-            LearningMaterial, MaterialComment.material_id == LearningMaterial.id
-        ).all()
-        
-        # 构建评论数据
-        comment_data = []
-        for comment in comments:
-            # 获取父评论内容
-            parent_comment = None
-            if comment.parent_comment_id:
-                parent = db.query(MaterialComment).filter(MaterialComment.id == comment.parent_comment_id).first()
-                if parent:
-                    parent_comment = parent.comment
-            
-            # 计算评论层级
-            depth = 0
-            temp_comment = comment
-            while temp_comment.parent_comment_id:
-                depth += 1
-                temp_comment = db.query(MaterialComment).filter(MaterialComment.id == temp_comment.parent_comment_id).first()
-            
-            comment_data.append({
-                "ID": comment.id,
-                "用户名": comment.user.username if comment.user else "",
-                "用户ID": comment.user_id,
-                "资料标题": comment.material.title if comment.material else "",
-                "资料ID": comment.material_id,
-                "资料类型": "考研" if comment.material.type == 1 else "考公" if comment.material.type == 2 else "未知",
-                "评论内容": comment.comment,
-                "父评论ID": comment.parent_comment_id,
-                "父评论内容": parent_comment,
-                "评论层级": depth,
-                "评论时间": comment.created_at.isoformat()
+        comments = db.query(MaterialComment).order_by(desc(MaterialComment.created_at)).all()
+
+        result = []
+        for item in comments:
+            user = db.query(User).filter(User.id == item.user_id).first()
+            material = db.query(LearningMaterial).filter(LearningMaterial.id == item.material_id).first()
+            result.append({
+                "id": item.id,
+                "material_title": material.title if material else "未知资料",
+                "username": user.username if user else "未知用户",
+                "content": item.comment,
+                "created_at": item.created_at.isoformat() if item.created_at else None
             })
-        
-        # 导出为CSV
-        from io import StringIO
-        import csv
-        
-        output = StringIO()
-        writer = csv.DictWriter(output, fieldnames=comment_data[0].keys() if comment_data else [])
-        writer.writeheader()
-        writer.writerows(comment_data)
-        
-        output.seek(0)
-        
-        from fastapi.responses import StreamingResponse
-        
-        return StreamingResponse(
-            iter([output.getvalue()]),
-            media_type="text/csv",
-            headers={
-                "Content-Disposition": f"attachment; filename=comments_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "导出评论成功",
+                "data": result
             }
         )
     except Exception as e:
-        log_error(f"导出评论失败: {str(e)}")
-        raise HTTPException(
+        return JSONResponse(
             status_code=500,
-            detail="导出评论失败"
+            content={"success": False, "code": 500, "message": f"导出评论失败: {str(e)}", "data": None}
         )
 
 
-@router.get("/materials/{material_id}/comments", summary="获取资料评论")
-async def get_material_comments(
-    material_id: int = Path(..., description="资料ID"),
+@router.get("/downloads")
+async def get_downloads(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db_common),
     current_user: User = Depends(get_current_user)
 ):
-    """获取资料评论"""
     try:
-        # 检查资料是否存在
-        material = db.query(LearningMaterial).filter(LearningMaterial.id == material_id).first()
-        if not material:
-            return JSONResponse(
-                status_code=404,
-                content={
-                    "success": False,
-                    "code": 404,
-                    "message": "资料不存在",
-                    "data": None
-                }
-            )
-        
-        # 获取该资料的所有评论（不分页，确保嵌套回复结构完整）
-        query = db.query(MaterialComment).filter(MaterialComment.material_id == material_id)
-        comments = query.order_by(
-            MaterialComment.created_at.desc()
-        ).all()
-        
-        # 构建评论树（支持嵌套回复）
-        comment_tree = []
-        comment_map = {}
-        
-        # 先将所有评论存入map
-        for comment in comments:
-            comment_map[comment.id] = {
-                "id": comment.id,
-                "user_id": comment.user_id,
-                "user_name": comment.user.username if comment.user else "",
-                "comment": comment.comment,
-                "created_at": comment.created_at.isoformat(),
-                "parent_comment_id": comment.parent_comment_id,
-                "replies": []
-            }
-        
-        # 构建树结构
-        for comment in comments:
-            if comment.parent_comment_id is None:
-                # 顶级评论
-                comment_tree.append(comment_map[comment.id])
-            else:
-                # 回复评论
-                if comment.parent_comment_id in comment_map:
-                    comment_map[comment.parent_comment_id]["replies"].append(comment_map[comment.id])
-        
-        from fastapi.responses import JSONResponse
-        
-        response_data = {
-            "success": True,
-            "code": 200,
-            "message": "获取资料评论成功",
-            "data": {
-                "total": len(comments),
-                "items": comment_tree
-            }
-        }
-        
+        query = db.query(UserDownload).filter(UserDownload.user_id == current_user.id)
+        query = query.order_by(desc(UserDownload.download_time))
+
+        total = query.count()
+        items = query.offset((page - 1) * page_size).limit(page_size).all()
+
+        result = []
+        for item in items:
+            material = db.query(LearningMaterial).filter(LearningMaterial.id == item.material_id).first()
+            result.append({
+                "id": item.id,
+                "material_id": item.material_id,
+                "material_title": material.title if material else "未知资料",
+                "download_time": item.download_time.isoformat() if item.download_time else None
+            })
+
         return JSONResponse(
             status_code=200,
-            content=response_data,
-            headers={"Content-Type": "application/json; charset=utf-8"}
+            content={
+                "success": True,
+                "code": 200,
+                "message": "获取下载记录成功",
+                "data": {
+                    "total": total,
+                    "items": result,
+                    "page": page,
+                    "page_size": page_size
+                }
+            }
         )
     except Exception as e:
-        log_error(f"获取资料评论失败: {str(e)}")
-        raise HTTPException(
+        return JSONResponse(
             status_code=500,
-            detail="获取资料评论失败"
+            content={"success": False, "code": 500, "message": f"获取下载记录失败: {str(e)}", "data": None}
+        )
+
+
+@router.get("/exam-schedules")
+async def get_exam_schedules(
+    db: Session = Depends(get_db_common),
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(10, ge=1, le=100, description="每页数量"),
+    name: Optional[str] = Query(None, description="考试名称搜索"),
+    exam_type: Optional[str] = Query(None, description="考试类型"),
+    is_active: Optional[str] = Query(None, description="是否启用")
+):
+    try:
+        query = db.query(ExamSchedule)
+
+        if name:
+            query = query.filter(ExamSchedule.name.contains(name))
+
+        if exam_type:
+            try:
+                exam_type_int = int(exam_type)
+                query = query.filter(ExamSchedule.exam_type == exam_type_int)
+            except (ValueError, TypeError):
+                pass
+
+        if is_active is not None and is_active != "":
+            if is_active.lower() in ("true", "1", "yes"):
+                query = query.filter(ExamSchedule.is_active == True)
+            elif is_active.lower() in ("false", "0", "no"):
+                query = query.filter(ExamSchedule.is_active == False)
+
+        query = query.order_by(desc(ExamSchedule.exam_date))
+
+        total = query.count()
+        items = query.offset((page - 1) * page_size).limit(page_size).all()
+
+        result = []
+        for item in items:
+            result.append({
+                "id": item.id,
+                "name": item.name,
+                "exam_type": item.exam_type,
+                "exam_date": item.exam_date.isoformat() if item.exam_date else None,
+                "description": item.description,
+                "is_active": item.is_active,
+                "created_at": item.created_at.isoformat() if item.created_at else None,
+                "updated_at": item.updated_at.isoformat() if item.updated_at else None
+            })
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "获取考试日程列表成功",
+                "data": {
+                    "total": total,
+                    "items": result,
+                    "page": page,
+                    "page_size": page_size
+                }
+            }
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "code": 500, "message": f"获取考试日程列表失败: {str(e)}", "data": None}
+        )
+
+
+@router.get("/exam-schedules/active")
+async def get_active_exam_schedules(
+    db: Session = Depends(get_db_common)
+):
+    try:
+        query = db.query(ExamSchedule).filter(
+            ExamSchedule.is_active == True
+        ).order_by(desc(ExamSchedule.exam_date))
+
+        schedules = query.all()
+
+        now = datetime.now()
+        result = []
+        for schedule in schedules:
+            countdown = {}
+            if schedule.exam_date > now:
+                delta = schedule.exam_date - now
+                countdown = {
+                    "days": delta.days,
+                    "hours": delta.seconds // 3600,
+                    "minutes": (delta.seconds % 3600) // 60,
+                    "seconds": delta.seconds % 60
+                }
+
+            result.append({
+                "id": schedule.id,
+                "name": schedule.name,
+                "exam_type": schedule.exam_type,
+                "exam_date": schedule.exam_date.isoformat() if schedule.exam_date else None,
+                "description": schedule.description,
+                "is_active": schedule.is_active,
+                "created_at": schedule.created_at.isoformat() if schedule.created_at else None,
+                "updated_at": schedule.updated_at.isoformat() if schedule.updated_at else None,
+                "countdown": countdown
+            })
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "获取启用的考试日程成功",
+                "data": result
+            }
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "code": 500, "message": f"获取启用的考试日程失败: {str(e)}", "data": None}
+        )
+
+
+@router.get("/exam-schedules/{id}")
+async def get_exam_schedule(
+    id: int = Path(..., description="考试日程ID"),
+    db: Session = Depends(get_db_common)
+):
+    try:
+        schedule = db.query(ExamSchedule).filter(ExamSchedule.id == id).first()
+        if not schedule:
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "code": 404, "message": "考试日程不存在", "data": None}
+            )
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "获取考试日程详情成功",
+                "data": {
+                    "id": schedule.id,
+                    "name": schedule.name,
+                    "exam_type": schedule.exam_type,
+                    "exam_date": schedule.exam_date.isoformat() if schedule.exam_date else None,
+                    "description": schedule.description,
+                    "is_active": schedule.is_active,
+                    "created_at": schedule.created_at.isoformat() if schedule.created_at else None,
+                    "updated_at": schedule.updated_at.isoformat() if schedule.updated_at else None
+                }
+            }
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "code": 500, "message": f"获取考试日程详情失败: {str(e)}", "data": None}
+        )
+
+
+@router.post("/exam-schedules")
+async def create_exam_schedule(
+    schedule_data: ExamScheduleCreate,
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        schedule = ExamSchedule(**schedule_data.dict())
+        db.add(schedule)
+        db.commit()
+        db.refresh(schedule)
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "创建考试日程成功",
+                "data": {
+                    "id": schedule.id,
+                    "name": schedule.name,
+                    "exam_type": schedule.exam_type,
+                    "exam_date": schedule.exam_date.isoformat() if schedule.exam_date else None,
+                    "description": schedule.description,
+                    "is_active": schedule.is_active,
+                    "created_at": schedule.created_at.isoformat() if schedule.created_at else None,
+                    "updated_at": schedule.updated_at.isoformat() if schedule.updated_at else None
+                }
+            }
+        )
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "code": 500, "message": f"创建考试日程失败: {str(e)}", "data": None}
+        )
+
+
+@router.put("/exam-schedules/{id}")
+async def update_exam_schedule(
+    id: int = Path(..., description="考试日程ID"),
+    update_data: ExamScheduleUpdate = None,
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        schedule = db.query(ExamSchedule).filter(ExamSchedule.id == id).first()
+        if not schedule:
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "code": 404, "message": "考试日程不存在", "data": None}
+            )
+
+        update_dict = update_data.dict(exclude_unset=True)
+        for key, value in update_dict.items():
+            setattr(schedule, key, value)
+
+        db.commit()
+        db.refresh(schedule)
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "更新考试日程成功",
+                "data": {
+                    "id": schedule.id,
+                    "name": schedule.name,
+                    "exam_type": schedule.exam_type,
+                    "exam_date": schedule.exam_date.isoformat() if schedule.exam_date else None,
+                    "description": schedule.description,
+                    "is_active": schedule.is_active,
+                    "created_at": schedule.created_at.isoformat() if schedule.created_at else None,
+                    "updated_at": schedule.updated_at.isoformat() if schedule.updated_at else None
+                }
+            }
+        )
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "code": 500, "message": f"更新考试日程失败: {str(e)}", "data": None}
+        )
+
+
+@router.delete("/exam-schedules/{id}")
+async def delete_exam_schedule(
+    id: int = Path(..., description="考试日程ID"),
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        schedule = db.query(ExamSchedule).filter(ExamSchedule.id == id).first()
+        if not schedule:
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "code": 404, "message": "考试日程不存在", "data": None}
+            )
+        db.delete(schedule)
+        db.commit()
+        return JSONResponse(
+            status_code=200,
+            content={"success": True, "code": 200, "message": "删除考试日程成功", "data": None}
+        )
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "code": 500, "message": f"删除考试日程失败: {str(e)}", "data": None}
+        )
+
+
+@router.get("/carousels")
+async def get_carousels(
+    db: Session = Depends(get_db_common),
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(10, ge=1, le=100, description="每页数量"),
+    title: Optional[str] = Query(None, description="标题搜索"),
+    is_active: Optional[str] = Query(None, description="是否启用")
+):
+    try:
+        query = db.query(Carousel)
+
+        if title:
+            query = query.filter(Carousel.title.contains(title))
+
+        if is_active is not None and is_active != "":
+            if is_active.lower() in ("true", "1", "yes"):
+                query = query.filter(Carousel.is_active == True)
+            elif is_active.lower() in ("false", "0", "no"):
+                query = query.filter(Carousel.is_active == False)
+
+        query = query.order_by(Carousel.sort_order, desc(Carousel.created_at))
+
+        total = query.count()
+        items = query.offset((page - 1) * page_size).limit(page_size).all()
+
+        result = []
+        for item in items:
+            result.append({
+                "id": item.id,
+                "title": item.title,
+                "subtitle": item.subtitle,
+                "image_url": item.image_url,
+                "link_url": item.link_url,
+                "sort_order": item.sort_order,
+                "is_active": item.is_active,
+                "created_at": item.created_at.isoformat() if item.created_at else None,
+                "updated_at": item.updated_at.isoformat() if item.updated_at else None
+            })
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "获取轮播图列表成功",
+                "data": {
+                    "total": total,
+                    "items": result,
+                    "page": page,
+                    "page_size": page_size
+                }
+            }
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "code": 500, "message": f"获取轮播图列表失败: {str(e)}", "data": None}
+        )
+
+
+@router.get("/carousels/active")
+async def get_active_carousels(
+    db: Session = Depends(get_db_common)
+):
+    try:
+        carousels = db.query(Carousel).filter(
+            Carousel.is_active == True
+        ).order_by(Carousel.sort_order, desc(Carousel.created_at)).all()
+
+        result = []
+        for item in carousels:
+            result.append({
+                "id": item.id,
+                "title": item.title,
+                "subtitle": item.subtitle,
+                "image_url": item.image_url,
+                "link_url": item.link_url,
+                "sort_order": item.sort_order,
+                "is_active": item.is_active,
+                "created_at": item.created_at.isoformat() if item.created_at else None,
+                "updated_at": item.updated_at.isoformat() if item.updated_at else None
+            })
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "获取启用的轮播图成功",
+                "data": result
+            }
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "code": 500, "message": f"获取启用的轮播图失败: {str(e)}", "data": None}
+        )
+
+
+@router.get("/carousels/{id}")
+async def get_carousel(
+    id: int = Path(..., description="轮播图ID"),
+    db: Session = Depends(get_db_common)
+):
+    try:
+        carousel = db.query(Carousel).filter(Carousel.id == id).first()
+        if not carousel:
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "code": 404, "message": "轮播图不存在", "data": None}
+            )
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "获取轮播图详情成功",
+                "data": {
+                    "id": carousel.id,
+                    "title": carousel.title,
+                    "subtitle": carousel.subtitle,
+                    "image_url": carousel.image_url,
+                    "link_url": carousel.link_url,
+                    "sort_order": carousel.sort_order,
+                    "is_active": carousel.is_active,
+                    "created_at": carousel.created_at.isoformat() if carousel.created_at else None,
+                    "updated_at": carousel.updated_at.isoformat() if carousel.updated_at else None
+                }
+            }
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "code": 500, "message": f"获取轮播图详情失败: {str(e)}", "data": None}
+        )
+
+
+@router.post("/carousels")
+async def create_carousel(
+    carousel_data: CarouselCreate,
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        carousel = Carousel(**carousel_data.dict())
+        db.add(carousel)
+        db.commit()
+        db.refresh(carousel)
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "创建轮播图成功",
+                "data": {
+                    "id": carousel.id,
+                    "title": carousel.title,
+                    "subtitle": carousel.subtitle,
+                    "image_url": carousel.image_url,
+                    "link_url": carousel.link_url,
+                    "sort_order": carousel.sort_order,
+                    "is_active": carousel.is_active,
+                    "created_at": carousel.created_at.isoformat() if carousel.created_at else None,
+                    "updated_at": carousel.updated_at.isoformat() if carousel.updated_at else None
+                }
+            }
+        )
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "code": 500, "message": f"创建轮播图失败: {str(e)}", "data": None}
+        )
+
+
+@router.put("/carousels/{id}")
+async def update_carousel(
+    update_data: CarouselUpdate,
+    id: int = Path(..., description="轮播图ID"),
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        carousel = db.query(Carousel).filter(Carousel.id == id).first()
+        if not carousel:
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "code": 404, "message": "轮播图不存在", "data": None}
+            )
+
+        update_dict = update_data.dict(exclude_unset=True)
+        for key, value in update_dict.items():
+            setattr(carousel, key, value)
+
+        db.commit()
+        db.refresh(carousel)
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "更新轮播图成功",
+                "data": {
+                    "id": carousel.id,
+                    "title": carousel.title,
+                    "subtitle": carousel.subtitle,
+                    "image_url": carousel.image_url,
+                    "link_url": carousel.link_url,
+                    "sort_order": carousel.sort_order,
+                    "is_active": carousel.is_active,
+                    "created_at": carousel.created_at.isoformat() if carousel.created_at else None,
+                    "updated_at": carousel.updated_at.isoformat() if carousel.updated_at else None
+                }
+            }
+        )
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "code": 500, "message": f"更新轮播图失败: {str(e)}", "data": None}
+        )
+
+
+@router.delete("/carousels/{id}")
+async def delete_carousel(
+    id: int = Path(..., description="轮播图ID"),
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        carousel = db.query(Carousel).filter(Carousel.id == id).first()
+        if not carousel:
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "code": 404, "message": "轮播图不存在", "data": None}
+            )
+        db.delete(carousel)
+        db.commit()
+        return JSONResponse(
+            status_code=200,
+            content={"success": True, "code": 200, "message": "删除轮播图成功", "data": None}
+        )
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "code": 500, "message": f"删除轮播图失败: {str(e)}", "data": None}
         )

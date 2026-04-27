@@ -6,7 +6,7 @@
 
 from datetime import datetime
 from sqlalchemy import (
-    Column, Integer, String, Boolean, DateTime, Float, Text, JSON
+    Column, Integer, String, Boolean, DateTime, Float, Text, JSON, Date, ForeignKey
 )
 from sqlalchemy.ext.declarative import declarative_base
 from core.database import BaseCommon
@@ -34,6 +34,12 @@ class User(BaseCommon):
     vip_start_time = Column(DateTime, nullable=True, comment="VIP开始时间")
     vip_end_time = Column(DateTime, nullable=True, comment="VIP结束时间")
     vip_type = Column(Integer, default=0, comment="VIP类型: 0-非VIP, 1-考研VIP, 2-考公VIP, 3-双赛道VIP")
+    points = Column(Integer, default=0, comment="积分")
+    continuous_sign_days = Column(Integer, default=0, comment="连续签到天数")
+    last_sign_date = Column(DateTime, nullable=True, comment="最后签到日期")
+    real_name = Column(String(50), nullable=True, comment="真实姓名")
+    phone = Column(String(20), nullable=True, comment="手机号")
+    address = Column(String(500), nullable=True, comment="详细地址")
     trial_status = Column(Integer, default=0, comment="试用状态: 0-未试用, 1-试用中, 2-已过期")
     need_change_password = Column(Boolean, default=True, comment="是否需要修改密码: 1-是, 0-否")
     created_at = Column(DateTime, default=datetime.now, comment="创建时间")
@@ -214,3 +220,17 @@ class PushLog(BaseCommon):
     
     def __repr__(self):
         return f"<PushLog(id={self.id}, user_id={self.user_id}, info_id={self.info_id})>"
+
+
+class UserLoginRecord(BaseCommon):
+    """用户登录记录表"""
+    __tablename__ = "user_login_records"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True, comment="记录ID")
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, comment="用户ID")
+    login_date = Column(Date, nullable=False, comment="登录日期")
+    login_time = Column(DateTime, default=datetime.now, comment="登录时间")
+    login_ip = Column(String(45), nullable=True, comment="登录IP")
+    
+    def __repr__(self):
+        return f"<UserLoginRecord(id={self.id}, user_id={self.user_id}, login_date={self.login_date})>"

@@ -111,9 +111,7 @@ def get_current_user(
     # 检查服务到期时间
     if user.is_vip and user.vip_end_time:
         if datetime.now() > user.vip_end_time:
-            # 服务到期，更新用户状态
             user.is_vip = False
-            user.is_active = False  # 设置为非活跃，在用户管理页面显示为"到期"
             db.commit()
         
     return user

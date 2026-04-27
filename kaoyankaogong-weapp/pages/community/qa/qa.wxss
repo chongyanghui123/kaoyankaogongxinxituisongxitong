@@ -1,0 +1,194 @@
+/* qa.wxss */
+
+.container {
+  padding: 0;
+  padding-bottom: 100rpx;
+  background-color: #f5f7fa;
+}
+
+/* 页面标题 */
+.page-header {
+  padding: 24rpx;
+  background-color: #ffffff;
+  border-bottom: 1rpx solid #e5e5e5;
+}
+
+.header-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #333333;
+  text-align: center;
+}
+
+/* 搜索栏 */
+.search-bar {
+  padding: 16rpx 24rpx;
+  background-color: #ffffff;
+  border-bottom: 1rpx solid #e5e5e5;
+}
+
+.search-input {
+  display: flex;
+  align-items: center;
+  background-color: #f5f7fa;
+  border-radius: 40rpx;
+  padding: 12rpx 20rpx;
+}
+
+.search-icon {
+  font-size: 24rpx;
+  color: #999999;
+  margin-right: 12rpx;
+}
+
+.search-input input {
+  flex: 1;
+  font-size: 28rpx;
+  color: #333333;
+  background: transparent;
+}
+
+.search-placeholder {
+  color: #999999;
+}
+
+/* 问题分类 */
+.category-bar {
+  background-color: #ffffff;
+  border-bottom: 1rpx solid #e5e5e5;
+  padding: 16rpx 0;
+}
+
+.category-scroll {
+  white-space: nowrap;
+  padding: 0 24rpx;
+}
+
+.category-item {
+  display: inline-block;
+  padding: 12rpx 24rpx;
+  margin-right: 16rpx;
+  font-size: 28rpx;
+  color: #666666;
+  border-radius: 40rpx;
+  background-color: #f5f7fa;
+}
+
+.category-item.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 4rpx 12rpx rgba(102, 126, 234, 0.3);
+}
+
+/* 问题列表 */
+.question-list {
+  padding: 20rpx 24rpx;
+}
+
+.question-item {
+  background-color: #ffffff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
+}
+
+.question-content {
+  margin-bottom: 16rpx;
+}
+
+.question-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333333;
+  margin-bottom: 12rpx;
+  line-height: 1.4;
+}
+
+.question-desc {
+  font-size: 24rpx;
+  color: #666666;
+  line-height: 1.5;
+}
+
+.question-stats {
+  display: flex;
+  gap: 32rpx;
+  margin-bottom: 16rpx;
+  padding-bottom: 16rpx;
+  border-bottom: 1rpx solid #e5e5e5;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.stat-icon {
+  font-size: 24rpx;
+}
+
+.stat-text {
+  font-size: 22rpx;
+  color: #999999;
+}
+
+.question-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.user-avatar {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20rpx;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.user-name {
+  font-size: 24rpx;
+  color: #333333;
+}
+
+.question-time {
+  font-size: 20rpx;
+  color: #999999;
+}
+
+/* 提问按钮 */
+.ask-btn {
+  position: fixed;
+  bottom: 40rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #ffffff;
+  font-size: 28rpx;
+  font-weight: 600;
+  padding: 20rpx 64rpx;
+  border-radius: 40rpx;
+  box-shadow: 0 4rpx 16rpx rgba(102, 126, 234, 0.4);
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.ask-icon {
+  font-size: 32rpx;
+  font-weight: bold;
+}

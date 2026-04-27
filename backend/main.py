@@ -50,6 +50,9 @@ from api.v1.admin import router as admin_router
 from api.v1.utils import router as utils_router
 from api.v1.school_management import router as school_management_router
 from api.v1.learning_materials import router as learning_materials_router
+from api.v1.sign_in import router as sign_in_router
+from api.v1.gift import router as gift_router
+from api.v1.community import router as community_router
 
 # 初始化日志
 setup_logging()
@@ -254,7 +257,10 @@ app.include_router(info_router, prefix="/api/v1/info", tags=["情报"])
 app.include_router(admin_router, prefix="/api/v1/admin", tags=["管理后台"])
 app.include_router(school_management_router, prefix="/api/v1/school-management", tags=["学校管理"])
 app.include_router(learning_materials_router, prefix="/api/v1/learning_materials", tags=["学习资料"])
+app.include_router(sign_in_router, prefix="/api/v1/sign-in", tags=["签到"])
+app.include_router(gift_router, prefix="/api/v1", tags=["礼品"])
 app.include_router(feedback_router, prefix="/api/v1/feedback", tags=["反馈"])
+app.include_router(community_router, prefix="/api/v1", tags=["社区"])
 app.include_router(utils_router, prefix="/api/v1/utils", tags=["工具"])
 
 # 启动事件
@@ -270,10 +276,10 @@ async def startup_event():
         try:
             from core.database import BaseCommon, BaseKaoyan, BaseKaogong, common_db_engine, kaoyan_db_engine, kaogong_db_engine
             from core.models.school import School  # 导入学校模型
-            from models.users import User, UserSubscription, UserKeyword, UserReadInfo, UserFavorite, Order, Product, SystemConfig, PushTemplate, PushLog  # 导入用户相关模型
+            from models.users import User, UserSubscription, UserKeyword, UserReadInfo, UserFavorite, Order, Product, SystemConfig, PushTemplate, PushLog, UserLoginRecord  # 导入用户相关模型
             from models.kaoyan import KaoyanInfo, KaoyanCrawlerConfig, KaoyanCrawlerLog  # 导入考研相关模型
             from models.kaogong import KaogongInfo, KaogongCrawlerConfig, KaogongCrawlerLog  # 导入考公相关模型
-            from models.learning_materials import MaterialCategory, LearningMaterial, UserDownload, MaterialRating, MaterialComment  # 导入学习资料相关模型
+            from models.learning_materials import MaterialCategory, LearningMaterial, UserDownload, MaterialRating, MaterialComment, ExamSchedule, Carousel  # 导入学习资料相关模型
             from models.feedback import Feedback  # 导入反馈相关模型
             BaseCommon.metadata.create_all(bind=common_db_engine)
             BaseKaoyan.metadata.create_all(bind=kaoyan_db_engine)
@@ -327,6 +333,20 @@ async def startup_event():
                 logger.error(f"堆栈信息: {traceback.format_exc()}")
             
             logger.info("数据库连接成功")
+            
+            # 修复被错误设置is_active=False的用户
+            try:
+                from sqlalchemy.orm import Session
+                fix_db = Session(bind=common_db_engine)
+                inactive_users = fix_db.query(User).filter(User.is_active == False).all()
+                if inactive_users:
+                    for u in inactive_users:
+                        u.is_active = True
+                    fix_db.commit()
+                    logger.info(f"已修复 {len(inactive_users)} 个被错误设置is_active=False的用户")
+                fix_db.close()
+            except Exception as e:
+                logger.error(f"修复is_active数据失败: {str(e)}")
         except Exception as e:
             logger.error(f"初始化数据库失败: {str(e)}")
             logger.error(f"堆栈信息: {traceback.format_exc()}")

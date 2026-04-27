@@ -1,0 +1,41 @@
+<view class="gift-container">
+  <view class="points-header">
+    <view class="points-info">
+      <text class="points-label">我的积分</text>
+      <text class="points-value">{{userPoints}}</text>
+    </view>
+    <view class="points-action" bindtap="goToExchangeHistory">
+      <text>兑换记录</text>
+      <text class="arrow">›</text>
+    </view>
+  </view>
+
+  <view class="gift-list" wx:if="{{gifts.length > 0}}">
+    <view class="gift-item" wx:for="{{gifts}}" wx:key="id">
+      <image class="gift-image" src="{{item.image_url || '/images/default-gift.png'}}" mode="aspectFill" />
+      <view class="gift-info">
+        <view class="gift-name">{{item.name}}</view>
+        <view class="gift-desc">{{item.description}}</view>
+        <view class="gift-bottom">
+          <view class="gift-points">
+            <text class="points-icon">💎</text>
+            <text>{{item.points_required}}积分</text>
+          </view>
+          <view class="gift-stock">库存: {{item.stock}}</view>
+        </view>
+      </view>
+      <button class="exchange-btn" bindtap="handleExchange" data-item="{{item}}" disabled="{{userPoints < item.points_required || item.stock <= 0}}">
+        {{userPoints < item.points_required ? '积分不足' : (item.stock <= 0 ? '已兑完' : '立即兑换')}}
+      </button>
+    </view>
+  </view>
+
+  <view class="empty" wx:if="{{gifts.length === 0 && !loading}}">
+    <text class="empty-icon">🎁</text>
+    <text class="empty-text">暂无可兑换礼品</text>
+  </view>
+
+  <view class="loading" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+</view>

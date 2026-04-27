@@ -1,5 +1,21 @@
 <!--pages/settings/settings.wxml-->
 <view class="settings-container">
+  <!-- 收货地址 -->
+  <view class="settings-section">
+    <view class="section-title">收货地址</view>
+    <view class="address-card" bindtap="editAddress">
+      <view class="address-info" wx:if="{{address.real_name}}">
+        <view class="address-name">{{address.real_name}} {{address.phone}}</view>
+        <view class="address-detail">{{address.address}}</view>
+      </view>
+      <view class="address-empty" wx:else>
+        <text class="empty-icon">📍</text>
+        <text>点击添加收货地址</text>
+      </view>
+      <view class="setting-arrow">></view>
+    </view>
+  </view>
+
   <view class="settings-section">
     <view class="section-title">通知设置</view>
     <view class="setting-item">

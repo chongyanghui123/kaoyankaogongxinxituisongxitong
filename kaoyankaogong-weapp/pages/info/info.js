@@ -166,7 +166,7 @@ Page({
           infoList: this.data.page === 1 ? items : [...this.data.infoList, ...items],
           kaoyanTotal: data.kaoyan_total || 0,
           kaogongTotal: data.kaogong_total || 0,
-          todayCount: items.length,
+          todayCount: data.today_count || 0,
           hasMore: false,
           loading: false
         });

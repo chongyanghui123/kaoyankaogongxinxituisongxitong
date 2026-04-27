@@ -156,3 +156,39 @@ page.eye .setting-value {
 switch {
   transform: scale(0.8);
 }
+
+/* 地址卡片样式 */
+.address-card {
+  display: flex;
+  align-items: center;
+  padding: 25rpx 20rpx;
+  min-height: 100rpx;
+}
+
+.address-info {
+  flex: 1;
+}
+
+.address-name {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 8rpx;
+}
+
+.address-detail {
+  font-size: 26rpx;
+  color: #666;
+}
+
+.address-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  color: #999;
+  font-size: 28rpx;
+}
+
+.address-empty .empty-icon {
+  margin-right: 10rpx;
+}

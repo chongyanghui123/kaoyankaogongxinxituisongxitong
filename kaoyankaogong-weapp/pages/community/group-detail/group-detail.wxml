@@ -1,0 +1,47 @@
+<view class="chat-container">
+  <!-- 加入提示遮罩 -->
+  <view class="join-tip-mask" wx:if="{{showJoinTip}}">
+    <view class="join-tip-content">
+      <view class="tip-icon">🔒</view>
+      <text class="tip-title">加入小组后才能聊天</text>
+      <text class="tip-desc">加入小组，与小组成员一起交流讨论</text>
+      <button class="join-btn" bindtap="joinGroup">立即加入</button>
+    </view>
+  </view>
+
+  <scroll-view class="message-list" scroll-y scroll-into-view="{{scrollToView}}" scroll-with-animation>
+    <view class="message-item" wx:for="{{messages}}" wx:key="id" id="msg-{{item.id}}">
+      <view class="message-wrapper {{item.isSelf ? 'self' : 'other'}}">
+        <image class="avatar" src="{{item.avatar || '/images/default-avatar.png'}}" mode="aspectFill" wx:if="{{!item.isSelf}}"></image>
+        
+        <view class="message-content">
+          <view class="sender-name" wx:if="{{!item.isSelf}}">{{item.senderName}}</view>
+          <view class="message-bubble">
+            <text class="message-text" wx:if="{{item.message_type === 1}}">{{item.content}}</text>
+            <image class="message-image" src="{{item.image_url}}" mode="widthFix" wx:if="{{item.message_type === 2}}" bindtap="previewImage" data-url="{{item.image_url}}"></image>
+            <text class="system-message" wx:if="{{item.message_type === 3}}">{{item.content}}</text>
+          </view>
+          <text class="message-time">{{item.time}}</text>
+        </view>
+        
+        <image class="avatar" src="{{item.avatar || '/images/default-avatar.png'}}" mode="aspectFill" wx:if="{{item.isSelf}}"></image>
+      </view>
+    </view>
+    
+    <view class="empty-state" wx:if="{{messages.length === 0 && !loading}}">
+      <text class="empty-text">暂无消息，快来发送第一条消息吧！</text>
+    </view>
+  </scroll-view>
+
+  <view class="input-area">
+    <view class="input-wrapper">
+      <input class="message-input" placeholder="输入消息..." bindinput="onInput" value="{{inputText}}" confirm-type="send" bindconfirm="sendMessage"></input>
+      <button class="image-btn" bindtap="chooseImage">
+        <text class="btn-icon">📷</text>
+      </button>
+      <button class="send-btn" bindtap="sendMessage">
+        <text class="btn-text">发送</text>
+      </button>
+    </view>
+  </view>
+</view>

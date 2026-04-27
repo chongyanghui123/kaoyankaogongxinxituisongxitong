@@ -4,7 +4,7 @@
 双赛道情报通 - 认证路由
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import os
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
@@ -16,11 +16,12 @@ from config import settings
 from core.database import get_db_common
 from core.security import (
     verify_password, get_password_hash, create_access_token,
-    create_refresh_token, validate_email, validate_phone, validate_password as validate_pwd
+    create_refresh_token, validate_email, validate_phone, validate_password as validate_pwd,
+    get_current_user
 )
 from core.logger import log_user_action, log_error
 
-from models.users import User, UserSubscription
+from models.users import User, UserSubscription, UserLoginRecord
 import asyncio
 
 router = APIRouter()
@@ -400,6 +401,15 @@ async def login(
 ):
     """用户登录接口"""
     try:
+        # 打印详细的请求信息用于调试
+        import sys
+        print(f"=== 登录请求调试信息 ===", file=sys.stderr)
+        print(f"请求方法: {request.method}", file=sys.stderr)
+        print(f"请求路径: {request.url}", file=sys.stderr)
+        print(f"请求体: {req}", file=sys.stderr)
+        print(f"用户名参数: '{req.username}'", file=sys.stderr)
+        print(f"密码参数长度: {len(req.password)} 字符", file=sys.stderr)
+        
         # 检查是否是管理员登录（只有邮箱和密码）
         # 如果是邮箱格式，则可能是管理员登录
         import re
@@ -448,9 +458,19 @@ async def login(
         # 验证密码
         password_valid = False
         if user:
+            print(f"=== 密码验证调试信息 ===", file=sys.stderr)
+            print(f"数据库存储的密码: '{user.password}'", file=sys.stderr)
+            print(f"数据库密码类型: {type(user.password)}", file=sys.stderr)
+            print(f"传入的密码: '{req.password}'", file=sys.stderr)
+            print(f"传入密码类型: {type(req.password)}", file=sys.stderr)
+            
             password_valid = verify_password(req.password, user.password)
+            print(f"密码验证结果: {password_valid}", file=sys.stderr)
         
         if not password_valid:
+            print(f"=== 登录失败调试信息 ===", file=sys.stderr)
+            print(f"用户: '{user.username}'")
+            print(f"密码验证失败", file=sys.stderr)
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 content={
@@ -464,16 +484,37 @@ async def login(
         # 检查服务到期时间
         if user.is_vip and user.vip_end_time:
             if datetime.now() > user.vip_end_time:
-                # 服务到期，更新用户状态
                 user.is_vip = False
-                user.is_active = False  # 设置为非活跃，在用户管理页面显示为"到期"
                 db.commit()
+        
         
 
         
         # 更新登录信息
         user.last_login_ip = request.client.host
         user.last_login_time = datetime.now()
+        
+        # 记录每日登录
+        from models.users import UserLoginRecord
+        from datetime import date
+        today = date.today()
+        
+        # 检查今天是否已经记录过登录
+        existing_record = db.query(UserLoginRecord).filter(
+            UserLoginRecord.user_id == user.id,
+            UserLoginRecord.login_date == today
+        ).first()
+        
+        # 如果今天还没有记录，则添加登录记录
+        if not existing_record:
+            login_record = UserLoginRecord(
+                user_id=user.id,
+                login_date=today,
+                login_time=datetime.now(),
+                login_ip=request.client.host
+            )
+            db.add(login_record)
+        
         db.commit()
         
         # 生成令牌
@@ -605,14 +646,34 @@ async def wechat_login(
         # 检查服务到期时间
         if user.is_vip and user.vip_end_time:
             if datetime.now() > user.vip_end_time:
-                # 服务到期，更新用户状态
                 user.is_vip = False
-                user.is_active = False  # 设置为非活跃，在用户管理页面显示为"到期"
                 db.commit()
         
         # 更新登录信息
         user.last_login_ip = request.client.host
         user.last_login_time = datetime.now()
+        
+        # 记录每日登录
+        from models.users import UserLoginRecord
+        from datetime import date
+        today = date.today()
+        
+        # 检查今天是否已经记录过登录
+        existing_record = db.query(UserLoginRecord).filter(
+            UserLoginRecord.user_id == user.id,
+            UserLoginRecord.login_date == today
+        ).first()
+        
+        # 如果今天还没有记录，则添加登录记录
+        if not existing_record:
+            login_record = UserLoginRecord(
+                user_id=user.id,
+                login_date=today,
+                login_time=datetime.now(),
+                login_ip=request.client.host
+            )
+            db.add(login_record)
+        
         db.commit()
         
         # 生成令牌
@@ -708,9 +769,7 @@ async def refresh_token(
         # 检查服务到期时间
         if user and user.is_vip and user.vip_end_time:
             if datetime.now() > user.vip_end_time:
-                # 服务到期，更新用户状态
                 user.is_vip = False
-                user.is_active = False  # 设置为非活跃，在用户管理页面显示为"到期"
                 db.commit()
         
         if not user:
@@ -881,9 +940,7 @@ async def get_current_user(
     # 检查服务到期时间
     if user.is_vip and user.vip_end_time:
         if datetime.now() > user.vip_end_time:
-            # 服务到期，更新用户状态
             user.is_vip = False
-            user.is_active = False  # 设置为非活跃，在用户管理页面显示为"到期"
             db.commit()
     
     return user
@@ -1226,9 +1283,7 @@ async def get_current_admin(
     # 检查服务到期时间（管理员也需要检查）
     if user.is_vip and user.vip_end_time:
         if datetime.now() > user.vip_end_time:
-            # 服务到期，更新用户状态
             user.is_vip = False
-            user.is_active = False  # 设置为非活跃，在用户管理页面显示为"到期"
             db.commit()
     
     if not user.is_admin:
@@ -1323,6 +1378,27 @@ async def wechat_login(
                     user.real_name = request.userInfo.get("nickName")
             
             user.last_login_time = datetime.now()
+            
+            # 记录每日登录
+            from models.users import UserLoginRecord
+            from datetime import date
+            today = date.today()
+            
+            # 检查今天是否已经记录过登录
+            existing_record = db.query(UserLoginRecord).filter(
+                UserLoginRecord.user_id == user.id,
+                UserLoginRecord.login_date == today
+            ).first()
+            
+            # 如果今天还没有记录，则添加登录记录
+            if not existing_record:
+                login_record = UserLoginRecord(
+                    user_id=user.id,
+                    login_date=today,
+                    login_time=datetime.now()
+                )
+                db.add(login_record)
+            
             db.commit()
         else:
             # 创建新用户
@@ -1344,6 +1420,19 @@ async def wechat_login(
             db.add(user)
             db.commit()
             db.refresh(user)
+            
+            # 记录每日登录
+            from models.users import UserLoginRecord
+            from datetime import date
+            today = date.today()
+            
+            login_record = UserLoginRecord(
+                user_id=user.id,
+                login_date=today,
+                login_time=datetime.now()
+            )
+            db.add(login_record)
+            db.commit()
         
         # 3. 生成token
         access_token = create_access_token(data={"sub": str(user.id)})
@@ -1381,5 +1470,52 @@ async def wechat_login(
                 "code": 500,
                 "message": f"登录失败: {str(e)}",
                 "data": None
+            }
+        )
+
+
+@router.post("/record-activity", summary="记录用户活跃")
+async def record_activity(
+    request: Request,
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    """记录用户今日活跃（小程序打开时调用）"""
+    try:
+        today = date.today()
+        
+        existing_record = db.query(UserLoginRecord).filter(
+            UserLoginRecord.user_id == current_user.id,
+            UserLoginRecord.login_date == today
+        ).first()
+        
+        if not existing_record:
+            login_record = UserLoginRecord(
+                user_id=current_user.id,
+                login_date=today,
+                login_time=datetime.now(),
+                login_ip=request.client.host if request.client else None
+            )
+            db.add(login_record)
+            db.commit()
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "活跃记录成功",
+                "data": {"is_active_today": True}
+            }
+        )
+    except Exception as e:
+        log_error(f"记录活跃失败: {str(e)}")
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "记录活跃失败但不影响使用",
+                "data": {"is_active_today": False}
             }
         )

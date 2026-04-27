@@ -1,0 +1,27 @@
+<view class="posts-container">
+  <view class="posts-list">
+    <view class="post-item" wx:for="{{posts}}" wx:key="id" bindtap="navigateToPost" data-id="{{item.id}}">
+      <view class="post-header">
+        <image class="post-avatar" src="{{item.author_avatar || '/images/default-avatar.png'}}" mode="aspectFill"></image>
+        <view class="post-meta">
+          <text class="post-author">{{item.author_name}}</text>
+          <text class="post-time">{{item.created_at}}</text>
+        </view>
+      </view>
+      <text class="post-title">{{item.title}}</text>
+      <text class="post-content">{{item.content}}</text>
+      <view class="post-stats">
+        <text class="stat">👍 {{item.like_count}}</text>
+        <text class="stat">💬 {{item.comment_count}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty-state" wx:if="{{posts.length === 0 && !loading}}">
+    <text class="empty-text">暂无帖子，快来发第一篇吧！</text>
+  </view>
+
+  <view class="create-post-btn" bindtap="createPost">
+    <text class="btn-text">发帖</text>
+  </view>
+</view>

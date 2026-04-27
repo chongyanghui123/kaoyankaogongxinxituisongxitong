@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, HTTPException, Query, Depends, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from core.database import get_db_common
@@ -7,6 +7,7 @@ from typing import List
 
 import asyncio
 from datetime import datetime
+import os
 
 router = APIRouter()
 
@@ -249,5 +250,54 @@ async def analyze_and_generate_crawler_configs(
                     "demand_analysis": {},
                     "crawler_configs": []
                 }
+            }
+        )
+
+
+@router.post("/upload")
+async def upload_file(
+    file: UploadFile = File(...),
+):
+    """
+    上传文件
+    """
+    try:
+        # 确保上传目录存在
+        upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads", "carousels")
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        # 生成文件名
+        file_extension = os.path.splitext(file.filename)[1]
+        file_name = f"carousel_{datetime.now().strftime('%Y%m%d%H%M%S')}{file_extension}"
+        file_path = os.path.join(upload_dir, file_name)
+        
+        # 保存文件
+        with open(file_path, "wb") as f:
+            content = await file.read()
+            f.write(content)
+        
+        # 生成文件URL
+        file_url = f"/uploads/carousels/{file_name}"
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "文件上传成功",
+                "data": {
+                    "file_url": file_url,
+                    "file_name": file_name
+                }
+            }
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "code": 500,
+                "message": f"文件上传失败: {str(e)}",
+                "data": None
             }
         )

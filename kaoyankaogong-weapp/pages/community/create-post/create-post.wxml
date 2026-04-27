@@ -1,0 +1,31 @@
+<view class="create-post-container">
+  <view class="form-section">
+    <view class="form-item">
+      <text class="form-label">标题</text>
+      <input class="form-input" placeholder="请输入帖子标题" bindinput="onTitleInput" value="{{title}}" maxlength="100"></input>
+    </view>
+    
+    <view class="form-item">
+      <text class="form-label">内容</text>
+      <textarea class="form-textarea" placeholder="请输入帖子内容" bindinput="onContentInput" value="{{content}}" maxlength="5000"></textarea>
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">图片</text>
+      <view class="image-upload">
+        <view class="image-list">
+          <view class="image-item" wx:for="{{images}}" wx:key="index">
+            <image class="preview-image" src="{{item}}" mode="aspectFill"></image>
+            <text class="remove-image" bindtap="removeImage" data-index="{{index}}">×</text>
+          </view>
+          <view class="upload-btn" wx:if="{{images.length < 9}}" bindtap="chooseImage">
+            <text class="upload-icon">+</text>
+            <text class="upload-text">添加图片</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <button class="submit-btn" bindtap="submitPost">发布帖子</button>
+</view>
