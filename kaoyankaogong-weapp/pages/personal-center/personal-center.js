@@ -48,7 +48,7 @@ Page({
           phone: userData.phone || '',
           real_name: userData.real_name || '',
           avatar: userData.avatar || '',
-          is_vip_active: userData.is_vip || false,
+          is_vip: userData.is_vip || false,
           vip_type: userData.vip_type || 0,
           vip_end_time: userData.vip_end_time ? userData.vip_end_time : '',
           created_at: userData.created_at ? userData.created_at : '',
@@ -56,6 +56,8 @@ Page({
           kaogong_requirements: userData.kaogong_requirements || {}
         }
         
+        console.log('用户信息数据:', userData);
+        console.log('格式化后的用户信息:', formattedData);
         this.setData({
           userInfo: formattedData
         })
@@ -73,10 +75,10 @@ Page({
     wx.navigateBack()
   },
 
-  // 跳转到修改需求页面
-  navigateToEditRequirements() {
+  // 跳转到续费页面
+  navigateToRenewal() {
     wx.navigateTo({
-      url: '/pages/edit-requirements/edit-requirements'
+      url: '/pages/renewal/renewal'
     })
   }
 })

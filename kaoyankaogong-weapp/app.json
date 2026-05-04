@@ -16,6 +16,7 @@
     "pages/edit-requirements/edit-requirements",
     "pages/change-password/change-password",
     "pages/forgot-password/forgot-password",
+    "pages/renewal/renewal",
     "pages/gift/gift",
     "pages/exchange-history/exchange-history",
     "pages/address/address",

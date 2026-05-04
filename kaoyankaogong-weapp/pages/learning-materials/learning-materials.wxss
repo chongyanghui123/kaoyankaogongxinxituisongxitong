@@ -140,6 +140,16 @@
   margin-right: 20rpx;
 }
 
+.vip-tag {
+  background-color: #ff4d4f;
+  color: #fff;
+  font-size: 24rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 12rpx;
+  margin-right: 20rpx;
+  font-weight: 500;
+}
+
 .material-info {
   display: flex;
   align-items: center;

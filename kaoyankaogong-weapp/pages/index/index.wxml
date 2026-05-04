@@ -63,6 +63,120 @@
     <text class="login-arrow">›</text>
   </view>
 
+  <!-- 备考倒计时 -->
+  <view class="section countdown-section">
+    <view class="section-header">
+      <view class="section-title">⏰ 备考倒计时</view>
+      <view class="section-more" bindtap="navigateToExamSchedule">设置 ›</view>
+    </view>
+    <view class="countdown-grid">
+      <view class="countdown-item" wx:for="{{examCountdowns}}" wx:key="id">
+        <view class="countdown-name">{{item.name}}</view>
+        <view class="countdown-date">{{item.date}}</view>
+        <view class="countdown-days">
+          <text class="days-num">{{item.days}}</text>
+          <text class="days-label">天</text>
+        </view>
+      </view>
+      <view class="countdown-empty" wx:if="{{examCountdowns.length === 0}}">
+        <text>暂无考试安排</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 每日一练 -->
+  <view class="section daily-practice-section">
+    <view class="section-header">
+      <view class="section-title">🎯 每日一练</view>
+      <view class="section-controls">
+        <view class="category-tabs">
+          <view class="tab-item {{currentCategory === 'kaoyan' ? 'active' : ''}}" bindtap="switchCategory" data-category="kaoyan">考研</view>
+          <view class="tab-item {{currentCategory === 'kaogong' ? 'active' : ''}}" bindtap="switchCategory" data-category="kaogong">考公</view>
+        </view>
+      </view>
+    </view>
+    <view class="practice-card" wx:if="{{dailyPractice}}">
+      <view class="practice-type">{{dailyPractice.type}}</view>
+      <view class="practice-question">{{dailyPractice.question}}</view>
+      <view class="practice-options">
+        <view class="option-item {{selectedOption === index ? 'selected' : ''}}" 
+              wx:for="{{dailyPractice.options}}" wx:key="index"
+              bindtap="{{dailyPractice.has_answered ? '' : 'selectOption'}}" 
+              style="{{dailyPractice.has_answered ? 'opacity: 0.6; pointer-events: none;' : ''}}"
+              data-index="{{index}}">
+          <text class="option-label">{{item.label}}.</text>
+          <text class="option-text">{{item.text}}</text>
+        </view>
+      </view>
+      <view class="practice-actions">
+        <button class="submit-answer-btn {{submitted || dailyPractice.has_answered ? 'disabled' : ''}}" 
+                bindtap="submitAnswer"
+                disabled="{{submitted || dailyPractice.has_answered}}">
+          {{submitted || dailyPractice.has_answered ? '已答题' : '提交答案'}}
+        </button>
+        <button class="show-answer-btn {{!submitted && !dailyPractice.has_answered ? 'disabled' : ''}}" 
+                bindtap="{{showAnswerFlag ? 'hideAnswer' : 'showAnswer'}}"
+                disabled="{{!submitted && !dailyPractice.has_answered}}">{{showAnswerFlag ? '收起答案' : '查看答案'}}</button>
+      </view>
+      <view class="practice-answer" wx:if="{{showAnswerFlag}}">
+        <view class="answer-label">正确答案：{{dailyPractice.answer}}</view>
+        <view class="answer-analysis">{{dailyPractice.analysis}}</view>
+      </view>
+    </view>
+    <view class="practice-empty" wx:else>
+      <text>今日练习已更新，敬请期待！</text>
+    </view>
+  </view>
+
+  <!-- 今日热点排行 -->
+  <view class="section hot-rank-section">
+    <view class="section-header">
+      <view class="section-title">🔥 今日热点</view>
+    </view>
+    <view class="hot-list">
+      <view class="hot-item" wx:for="{{hotList}}" wx:key="id" bindtap="navigateToInfoDetail" data-id="{{item.id}}">
+        <view class="hot-rank {{index < 3 ? 'top' : ''}}">{{index + 1}}</view>
+        <view class="hot-content">
+          <view class="hot-title">{{item.title}}</view>
+          <view class="hot-meta">
+            <text class="hot-category">{{item.category}}</text>
+            <text class="hot-views">{{item.views}}浏览</text>
+          </view>
+        </view>
+      </view>
+      <view class="hot-empty" wx:if="{{hotList.length === 0}}">
+        <text>暂无热点资讯</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 学习排行榜 -->
+  <view class="section rank-section">
+    <view class="section-header">
+      <view class="section-title">🏆 积分排行榜</view>
+      <view class="section-more" bindtap="navigateToRankList">完整榜单 ›</view>
+    </view>
+    <view class="rank-list">
+      <view class="rank-item {{index < 3 ? 'top' : ''}}" wx:for="{{rankList}}" wx:key="user_id">
+        <view class="rank-medal">
+          <text wx:if="{{index === 0}}">🥇</text>
+          <text wx:elif="{{index === 1}}">🥈</text>
+          <text wx:elif="{{index === 2}}">🥉</text>
+          <text wx:else>{{index + 1}}</text>
+        </view>
+        <image class="rank-avatar" src="{{item.avatar || '/images/default-avatar.png'}}" mode="aspectFill"></image>
+        <view class="rank-info">
+          <view class="rank-name">{{item.username}}</view>
+          <view class="rank-points">{{item.points}}积分</view>
+        </view>
+        <view class="rank-badge" wx:if="{{item.is_vip}}">VIP</view>
+      </view>
+      <view class="rank-empty" wx:if="{{rankList.length === 0}}">
+        <text>暂无排行数据</text>
+      </view>
+    </view>
+  </view>
+
   <!-- 互动社区 -->
   <view class="section">
     <view class="section-title">互动社区</view>
@@ -75,6 +189,41 @@
         <view class="community-icon">❓</view>
         <view class="community-text">问答板块</view>
       </view>
+      <view class="community-item" bindtap="navigateToGift">
+        <view class="community-icon">🎁</view>
+        <view class="community-text">礼品兑换</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 完整榜单弹窗 -->
+  <view class="rank-modal" wx:if="{{showRankModal}}" bindtap="hideRankModal">
+    <view class="rank-modal-content" catchtap="">
+      <view class="rank-modal-header">
+        <text class="rank-modal-title">🏆 积分排行榜</text>
+        <text class="rank-modal-subtitle">TOP 20 积分榜</text>
+        <text class="rank-modal-close" bindtap="hideRankModal">×</text>
+      </view>
+      <scroll-view scroll-y class="rank-modal-body">
+        <view class="rank-modal-item {{index === 0 ? 'first' : index === 1 ? 'second' : index === 2 ? 'third' : ''}}" 
+              wx:for="{{fullRankList}}" wx:key="user_id">
+          <view class="rank-modal-rank">
+            <text wx:if="{{index === 0}}">🥇</text>
+            <text wx:elif="{{index === 1}}">🥈</text>
+            <text wx:elif="{{index === 2}}">🥉</text>
+            <text wx:else>{{index + 1}}</text>
+          </view>
+          <image class="rank-modal-avatar" src="{{item.avatar || '/images/default-avatar.png'}}" mode="aspectFill"></image>
+          <view class="rank-modal-info">
+            <view class="rank-modal-name">{{item.username}}</view>
+            <view class="rank-modal-points">{{item.points}} 积分</view>
+          </view>
+          <view class="rank-modal-badge vip" wx:if="{{item.is_vip}}">VIP</view>
+        </view>
+        <view class="rank-modal-empty" wx:if="{{fullRankList.length === 0}}">
+          <text>暂无排行数据</text>
+        </view>
+      </scroll-view>
     </view>
   </view>
 </view>

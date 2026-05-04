@@ -132,6 +132,9 @@
         <p>7×24小时自动抓取、分类、推送考研+考公官方关键信息的情报平台</p>
       </div>
     </el-footer>
+
+    <!-- 移动端底部导航 -->
+    <MobileTabBar />
   </div>
 </template>
 
@@ -140,7 +143,8 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowDown, Search, Star, Collection } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import axios from 'axios'
+import axios from '@/utils/axios'
+import MobileTabBar from '@/components/MobileTabBar.vue'
 
 const router = useRouter()
 const activeIndex = ref('/kaoyan')
@@ -256,11 +260,11 @@ const likeInfo = async (id) => {
       }
     })
     
-    if (response.data.success) {
+    if (response.success) {
       ElMessage.success('点赞成功')
       const item = kaoyanInfoList.value.find(item => item.id === id)
       if (item) {
-        item.like_count = response.data.data.like_count
+        item.like_count = response.data.like_count
       }
     } else {
       ElMessage.error('点赞失败')

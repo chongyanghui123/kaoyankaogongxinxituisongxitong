@@ -49,8 +49,8 @@ Page({
           views: question.view_count,
           answers: question.answer_count,
           likes: question.like_count,
-          author: '用户' + question.user_id, // 模拟用户名
-          avatar: question.title.charAt(0), // 模拟头像
+          author: question.username || '匿名用户',
+          avatar: question.avatar || question.title.charAt(0),
           time: this.formatTime(question.created_at)
         }));
         this.setData({ questions });

@@ -48,8 +48,8 @@ const carousels = ref([])
 const getCarousels = async () => {
   try {
     const response = await axios.get('/api/v1/learning_materials/carousels/active')
-    if (response.data.success) {
-      carousels.value = response.data.data
+    if (response.success) {
+      carousels.value = response.data
     }
   } catch (error) {
     console.error('获取轮播图数据失败:', error)

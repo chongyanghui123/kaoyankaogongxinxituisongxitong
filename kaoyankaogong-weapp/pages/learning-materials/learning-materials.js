@@ -165,7 +165,7 @@ Page({
         },
         success: (res) => {
           if (res.data.success && res.data.data) {
-            resolve(res.data.data.has_rated) // 返回是否已评分
+            resolve(res.data.data.is_rated)
           } else {
             resolve(false)
           }
@@ -187,7 +187,7 @@ Page({
         },
         success: (res) => {
           if (res.data.success) {
-            resolve(res.data.data.is_favorite)
+            resolve(res.data.data.is_favorited)
           } else {
             resolve(false)
           }
@@ -451,11 +451,11 @@ Page({
       method: 'POST',
       header: {
         'Authorization': 'Bearer ' + app.globalData.token,
-        'Content-Type': 'application/x-www-form-urlencoded'
+        'Content-Type': 'application/json'
       },
-      data: {
+      data: JSON.stringify({
         rating: actualScore
-      },
+      }),
       success: (res) => {
         wx.hideLoading()
         if (res.statusCode === 400) {
@@ -558,9 +558,9 @@ Page({
       method: 'POST',
       header: {
         'Authorization': 'Bearer ' + app.globalData.token,
-        'Content-Type': 'application/x-www-form-urlencoded'
+        'Content-Type': 'application/json'
       },
-      data: data,
+      data: JSON.stringify(data),
       success: (res) => {
 
         wx.hideLoading()

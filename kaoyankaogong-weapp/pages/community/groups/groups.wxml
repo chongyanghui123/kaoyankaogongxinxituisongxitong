@@ -24,8 +24,8 @@
         <view class="group-info">
           <view class="group-name">{{item.name}}</view>
           <view class="group-stats">
-            <text class="stat-item">{{item.members}}人</text>
-            <text class="stat-item">今日活跃: {{item.activeToday}}</text>
+            <text class="stat-item">{{item.member_count}}人</text>
+            <text class="stat-item">今日活跃: {{item.active_today || 0}}</text>
           </view>
         </view>
         <view class="group-actions">
@@ -54,7 +54,7 @@
       <view class="grid-group-item" wx:for="{{recommendedGroups}}" wx:key="id">
         <view class="grid-group-avatar">{{item.avatar}}</view>
         <view class="grid-group-name">{{item.name}}</view>
-        <view class="grid-group-members">{{item.members}}人</view>
+        <view class="grid-group-members">{{item.member_count}}人</view>
         <view class="grid-group-actions">
           <button class="grid-action-btn {{item.isMember ? 'leave-btn' : 'join-btn'}}" 
                   catchtap="toggleMembership" 

@@ -180,6 +180,11 @@ def send_payment_users_notifications():
 def send_kaoyan_notifications(db, user, subscription):
     """发送考研通知"""
     try:
+        # 检查用户是否是VIP用户，只有VIP用户才能接收情报推送
+        if not user.is_vip:
+            logger.info(f"用户 {user.username} 不是VIP用户，不发送考研情报推送")
+            return
+            
         # 获取用户的关键词
         keywords = [kw.keyword for kw in db.query(UserKeyword).filter(
             UserKeyword.user_id == user.id,
@@ -297,6 +302,11 @@ def send_kaoyan_notifications(db, user, subscription):
 def send_kaogong_notifications(db, user, subscription):
     """发送考公通知"""
     try:
+        # 检查用户是否是VIP用户，只有VIP用户才能接收情报推送
+        if not user.is_vip:
+            logger.info(f"用户 {user.username} 不是VIP用户，不发送考公情报推送")
+            return
+            
         # 获取用户的关键词
         keywords = [kw.keyword for kw in db.query(UserKeyword).filter(
             UserKeyword.user_id == user.id,

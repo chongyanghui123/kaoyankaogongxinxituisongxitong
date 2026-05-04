@@ -162,7 +162,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import axios from 'axios'
+import axios from '@/utils/axios'
 
 const feedbacks = ref([])
 const total = ref(0)
@@ -185,7 +185,7 @@ const fetchFeedbacks = async () => {
       }
     })
     
-    let filteredFeedbacks = response.data.data || []
+    let filteredFeedbacks = response.data || []
     
     // 应用搜索和筛选
     if (searchKeyword.value) {

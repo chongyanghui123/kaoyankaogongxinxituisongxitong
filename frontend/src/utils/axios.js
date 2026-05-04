@@ -21,7 +21,8 @@ service.interceptors.request.use(
 
 service.interceptors.response.use(
   response => {
-    return response
+    console.log('axios响应:', response.config.url, response.status, response.data)
+    return response.data
   },
   error => {
     console.error('响应错误:', error)

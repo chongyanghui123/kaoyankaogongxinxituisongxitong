@@ -107,8 +107,10 @@ App({
           phone: data.phone,
           is_vip: data.is_vip,
           is_admin: data.is_admin,
+          user_type: data.user_type || (data.is_vip ? 2 : 1),
           vip_type: data.vip_type,
           vip_end_time: data.vip_end_time,
+          phone_bound: data.phone_bound,
           need_change_password: data.need_change_password
         };
 
@@ -139,6 +141,217 @@ App({
       }
     } catch (error) {
       console.error('登录失败:', error);
+      throw error;
+    }
+  },
+
+  async wechatLogin() {
+    try {
+      const loginRes = await new Promise((resolve, reject) => {
+        wx.login({
+          success: resolve,
+          fail: reject
+        });
+      });
+
+      if (!loginRes.code) {
+        throw new Error('微信登录code获取失败');
+      }
+
+      const url = this.globalData.baseUrl + '/auth/wechat-login';
+      const response = await new Promise((resolve, reject) => {
+        wx.request({
+          url: url,
+          method: 'POST',
+          data: {
+            code: loginRes.code
+          },
+          header: {
+            'Content-Type': 'application/json'
+          },
+          timeout: 30000,
+          success: (res) => resolve(res),
+          fail: (err) => reject(err)
+        });
+      });
+
+      if (response.statusCode === 200 && response.data.success) {
+        const data = response.data.data;
+        this.globalData.token = data.access_token;
+        this.globalData.userInfo = {
+          id: data.user_id,
+          username: data.username,
+          email: data.email,
+          phone: data.phone,
+          avatar: data.avatar,
+          real_name: data.real_name,
+          is_vip: data.is_vip,
+          is_admin: data.is_admin,
+          user_type: data.user_type || (data.is_vip ? 2 : 1),
+          vip_type: data.vip_type,
+          vip_end_time: data.vip_end_time,
+          phone_bound: data.phone_bound || false
+        };
+
+        wx.setStorageSync('token', data.access_token);
+        wx.setStorageSync('refresh_token', data.refresh_token);
+        wx.setStorageSync('userInfo', this.globalData.userInfo);
+        wx.setStorageSync('isLoggedIn', true);
+
+        this.recordActivity();
+
+        return { success: true, phone_bound: data.phone_bound || false };
+      } else {
+        throw new Error(response.data?.message || '微信登录失败');
+      }
+    } catch (error) {
+      console.error('微信登录失败:', error);
+      throw error;
+    }
+  },
+
+  async phoneLogin(phone, code) {
+    try {
+      const url = this.globalData.baseUrl + '/auth/phone-login';
+      const response = await new Promise((resolve, reject) => {
+        wx.request({
+          url: url,
+          method: 'POST',
+          data: { phone: phone, code: code },
+          header: { 'Content-Type': 'application/json' },
+          timeout: 30000,
+          success: (res) => resolve(res),
+          fail: (err) => reject(err)
+        });
+      });
+
+      if (response.statusCode === 200 && response.data.success) {
+        const data = response.data.data;
+        this.globalData.token = data.access_token;
+        this.globalData.userInfo = {
+          id: data.user_id,
+          username: data.username,
+          email: data.email,
+          phone: data.phone,
+          avatar: data.avatar,
+          real_name: data.real_name,
+          is_vip: data.is_vip,
+          is_admin: data.is_admin,
+          user_type: data.user_type || (data.is_vip ? 2 : 1),
+          vip_type: data.vip_type,
+          vip_end_time: data.vip_end_time,
+          phone_bound: data.phone_bound || false
+        };
+
+        wx.setStorageSync('token', data.access_token);
+        wx.setStorageSync('refresh_token', data.refresh_token);
+        wx.setStorageSync('userInfo', this.globalData.userInfo);
+        wx.setStorageSync('isLoggedIn', true);
+
+        this.recordActivity();
+        return true;
+      } else {
+        throw new Error(response.data?.message || '登录失败');
+      }
+    } catch (error) {
+      console.error('手机号登录失败:', error);
+      throw error;
+    }
+  },
+
+  async bindPhone(phone, code) {
+    try {
+      const url = this.globalData.baseUrl + '/auth/bind-phone';
+      const response = await new Promise((resolve, reject) => {
+        wx.request({
+          url: url,
+          method: 'POST',
+          data: { phone: phone, code: code },
+          header: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.globalData.token}`
+          },
+          timeout: 30000,
+          success: (res) => resolve(res),
+          fail: (err) => reject(err)
+        });
+      });
+
+      if (response.statusCode === 200 && response.data.success) {
+        if (this.globalData.userInfo) {
+          this.globalData.userInfo.phone = phone;
+          this.globalData.userInfo.phone_bound = true;
+          wx.setStorageSync('userInfo', this.globalData.userInfo);
+        }
+        return true;
+      } else {
+        throw new Error(response.data?.message || '绑定失败');
+      }
+    } catch (error) {
+      console.error('绑定手机号失败:', error);
+      throw error;
+    }
+  },
+
+  async sendPhoneCode(phone, type) {
+    try {
+      const url = this.globalData.baseUrl + '/auth/send-phone-code';
+      const response = await new Promise((resolve, reject) => {
+        wx.request({
+          url: url,
+          method: 'POST',
+          data: { phone: phone, type: type || 'bind_phone' },
+          header: { 'Content-Type': 'application/json' },
+          timeout: 30000,
+          success: (res) => resolve(res),
+          fail: (err) => reject(err)
+        });
+      });
+
+      if (response.statusCode === 200 && response.data.success) {
+        return true;
+      } else {
+        throw new Error(response.data?.message || '发送验证码失败');
+      }
+    } catch (error) {
+      console.error('发送验证码失败:', error);
+      throw error;
+    }
+  },
+
+  // 从服务器获取最新用户信息
+  async fetchUserInfo() {
+    try {
+      const response = await this.request({
+        url: '/users/profile',
+        method: 'GET'
+      });
+
+      if (response.success && response.data) {
+        const data = response.data;
+        this.globalData.userInfo = {
+          id: data.user_id || data.id,
+          username: data.username,
+          email: data.email,
+          phone: data.phone,
+          avatar: data.avatar,
+          real_name: data.real_name,
+          is_vip: data.is_vip,
+          is_admin: data.is_admin,
+          user_type: data.user_type || (data.is_vip ? 2 : 1),
+          vip_type: data.vip_type,
+          vip_end_time: data.vip_end_time,
+          phone_bound: data.phone_bound || false,
+          points: data.points
+        };
+
+        wx.setStorageSync('userInfo', this.globalData.userInfo);
+        return this.globalData.userInfo;
+      } else {
+        throw new Error(response.message || '获取用户信息失败');
+      }
+    } catch (error) {
+      console.error('获取用户信息失败:', error);
       throw error;
     }
   },
@@ -230,7 +443,9 @@ App({
         this.handleLoginExpired();
         throw new Error('登录已失效');
       } else if (response.statusCode === 404) {
-        // 资源不存在
+        if (response.data && typeof response.data === 'object') {
+          return response.data
+        }
         throw new Error('请求的资源不存在');
       } else if (response.statusCode === 400) {
         // 400错误，通常是业务逻辑错误，返回数据让调用方处理
@@ -248,7 +463,7 @@ App({
   refreshToken(refreshToken) {
     return new Promise((resolve, reject) => {
       wx.request({
-        url: this.globalData.baseUrl + '/refresh',
+        url: this.globalData.baseUrl + '/auth/refresh',
         method: 'POST',
         data: {
           refresh_token: refreshToken

@@ -134,7 +134,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import axios from 'axios'
+import axios from '@/utils/axios'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -216,8 +216,8 @@ const loading = ref(false)
 const getProvinces = async () => {
   try {
     const response = await axios.get('/api/v1/utils/provinces')
-    if (response.data && response.data.success) {
-      provinces.value = response.data.data
+    if (response && response.success) {
+      provinces.value = response.data
     }
   } catch (error) {
     console.error('获取省份列表失败', error)
@@ -250,8 +250,8 @@ const handleProvinceChange = async (value) => {
       
       // 合并所有省份的学校
       responses.forEach(response => {
-        if (response.data && response.data.success) {
-          allSchools = [...allSchools, ...response.data.data]
+        if (response && response.success) {
+          allSchools = [...allSchools, ...response.data]
         }
       })
       
@@ -348,7 +348,7 @@ const submitForm = async () => {
         // 调用API创建用户
         const registerResponse = await axios.post('/api/v1/auth/register', submitData)
         
-        if (registerResponse.data && (registerResponse.data.code === 200 || registerResponse.data.code === 201)) {
+        if (registerResponse && (registerResponse.code === 200 || registerResponse.code === 201)) {
           ElMessage.success('学生信息录入成功！')
           
           // 自动登录
@@ -357,26 +357,26 @@ const submitForm = async () => {
             // 普通用户不需要密码字段
           })
           
-          if (loginResponse.data && loginResponse.data.success) {
+          if (loginResponse && loginResponse.success) {
             // 保存登录信息
-            localStorage.setItem('token', loginResponse.data.data.access_token)
+            localStorage.setItem('token', loginResponse.data.access_token)
             localStorage.setItem('userInfo', JSON.stringify({
-              id: loginResponse.data.data.user_id,
-              username: loginResponse.data.data.username,
-              email: loginResponse.data.data.email,
-              phone: loginResponse.data.data.phone,
-              is_admin: loginResponse.data.data.is_admin
+              id: loginResponse.data.user_id,
+              username: loginResponse.data.username,
+              email: loginResponse.data.email,
+              phone: loginResponse.data.phone,
+              is_admin: loginResponse.data.is_admin
             }))
             
             // 设置已提交状态，显示支付按钮
             hasSubmitted.value = true
           } else {
-            ElMessage.error('自动登录失败：' + (loginResponse.data?.message || '未知错误'))
+            ElMessage.error('自动登录失败：' + (loginResponse?.message || '未知错误'))
           }
           
           resetForm()
         } else {
-          ElMessage.error('录入失败：' + (registerResponse.data?.message || '未知错误'))
+          ElMessage.error('录入失败：' + (registerResponse?.message || '未知错误'))
         }
       } catch (error) {
         console.error('录入失败', error)

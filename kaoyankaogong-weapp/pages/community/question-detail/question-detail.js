@@ -7,7 +7,9 @@ Page({
     isLiked: false,
     showAnswerModal: false,
     answerContent: '',
-    loading: false
+    loading: false,
+    sortBy: 'time',
+    sortOrder: 'desc'
   },
 
   onLoad(options) {
@@ -33,8 +35,8 @@ Page({
         if (res.statusCode === 200) {
           const question = res.data;
           const tagsArray = question.tags ? question.tags.split(',') : [];
-          question.author_name = '用户' + question.user_id;
-          question.author_avatar = '/images/default-avatar.png';
+          question.author_name = question.username || '匿名用户';
+          question.author_avatar = question.avatar || '/images/default-avatar.png';
           
           this.setData({ 
             question, 
@@ -61,8 +63,9 @@ Page({
 
   loadAnswers() {
     const app = getApp();
+    const { sortBy, sortOrder } = this.data;
     wx.request({
-      url: `${app.globalData.baseUrl}/community/questions/${this.data.questionId}/answers`,
+      url: `${app.globalData.baseUrl}/community/questions/${this.data.questionId}/answers?sort_by=${sortBy}&sort_order=${sortOrder}`,
       method: 'GET',
       header: {
         'Content-Type': 'application/json',
@@ -71,14 +74,32 @@ Page({
       success: (res) => {
         if (res.statusCode === 200) {
           const answers = (res.data || []).map(answer => {
-            answer.author_name = '用户' + answer.user_id;
-            answer.author_avatar = '/images/default-avatar.png';
+            answer.author_name = answer.username || '匿名用户';
+            answer.author_avatar = answer.author_avatar || '/images/default-avatar.png';
             return answer;
           });
           this.setData({ answers });
         }
       }
     });
+  },
+
+  setSort(e) {
+    const sortBy = e.currentTarget.dataset.sort;
+    if (this.data.sortBy === sortBy) {
+      // 切换排序顺序
+      this.setData({
+        sortOrder: this.data.sortOrder === 'desc' ? 'asc' : 'desc'
+      });
+    } else {
+      // 切换排序方式，默认降序
+      this.setData({
+        sortBy: sortBy,
+        sortOrder: 'desc'
+      });
+    }
+    // 重新加载回答
+    this.loadAnswers();
   },
 
   toggleLike() {
@@ -217,13 +238,6 @@ Page({
   showCommentInput(e) {
     wx.showToast({
       title: '评论功能开发中',
-      icon: 'none'
-    });
-  },
-
-  toggleSort() {
-    wx.showToast({
-      title: '排序功能开发中',
       icon: 'none'
     });
   },

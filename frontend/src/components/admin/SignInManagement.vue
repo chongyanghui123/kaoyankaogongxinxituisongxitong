@@ -200,8 +200,8 @@ const loadStats = async () => {
     const response = await axios.get('/api/v1/admin/sign-in/stats', {
       headers: { 'Authorization': `Bearer ${token}` }
     })
-    if (response.data.success) {
-      stats.value = response.data.data
+    if (response.success) {
+      stats.value = response.data
     }
   } catch (error) {
     console.error('获取签到统计失败:', error)
@@ -230,9 +230,9 @@ const loadRecords = async () => {
       headers: { 'Authorization': `Bearer ${token}` }
     })
 
-    if (response.data.success) {
-      records.value = response.data.data.items
-      pagination.total = response.data.data.total
+    if (response.success) {
+      records.value = response.data.items
+      pagination.total = response.data.total
     }
   } catch (error) {
     console.error('获取签到记录失败:', error)
@@ -263,9 +263,9 @@ const loadPointsRecords = async () => {
       headers: { 'Authorization': `Bearer ${token}` }
     })
 
-    if (response.data.success) {
-      pointsRecords.value = response.data.data.items
-      pointsPagination.total = response.data.data.total
+    if (response.success) {
+      pointsRecords.value = response.data.items
+      pointsPagination.total = response.data.total
     }
   } catch (error) {
     console.error('获取积分记录失败:', error)

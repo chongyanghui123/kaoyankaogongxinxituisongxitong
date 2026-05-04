@@ -2,46 +2,66 @@
 <view class="container">
   <!-- 用户信息 -->
   <view class="user-info" wx:if="{{userInfo}}">
-    <view class="user-avatar">{{userInfo.username.charAt(0)}}</view>
+    <view class="user-avatar">{{userInfo.real_name ? userInfo.real_name.charAt(0) : userInfo.username.charAt(0)}}</view>
     <view class="user-details">
-      <view class="user-name">{{userInfo.username}}</view>
-      <view class="user-email">{{userInfo.email}}</view>
+      <view class="user-name">{{userInfo.real_name || userInfo.username}}</view>
+      <view class="user-phone" wx:if="{{userInfo.phone}}">{{userInfo.phone}}</view>
     </view>
-    <view class="user-vip" wx:if="{{userInfo.is_vip_active}}">
-      <text class="vip-text">VIP会员</text>
+    <view class="user-tag {{userInfo.is_vip ? 'tag-vip' : 'tag-normal'}}">
+      <text class="tag-text">{{userInfo.is_vip ? 'VIP会员' : '普通用户'}}</text>
+    </view>
+    <view class="user-vip-detail" wx:if="{{userInfo.is_vip && userInfo.vip_end_time}}">
       <text class="vip-expiry">有效期至: {{userInfo.vip_end_time}}</text>
     </view>
   </view>
-  
+
+  <!-- 绑定手机号提示 -->
+  <view class="bind-phone-section" wx:if="{{showBindPhone && userInfo}}">
+    <view class="bind-phone-header">
+      <text class="bind-phone-icon">📱</text>
+      <text class="bind-phone-title">绑定手机号</text>
+      <text class="bind-phone-desc">绑定手机号后可使用手机号登录，并享受更多功能</text>
+    </view>
+    <view class="bind-phone-form">
+      <view class="code-form-item">
+        <input class="code-input" placeholder="请输入手机号" bindinput="bindPhoneNoInput" value="{{bindPhone}}" type="number" maxlength="11" />
+      </view>
+      <view class="code-form-item">
+        <input class="code-input code-input-small" placeholder="验证码" bindinput="bindCodeInput" value="{{bindCode}}" type="number" maxlength="6" />
+        <button class="code-btn" bindtap="sendBindCode" disabled="{{countdown > 0}}">{{countdown > 0 ? countdown + 's' : '获取验证码'}}</button>
+      </view>
+      <button class="bind-btn" bindtap="bindPhoneSubmit">绑定手机号</button>
+    </view>
+  </view>
+
   <!-- 未登录状态 -->
-  <view class="login-prompt" wx:else>
-    <view class="login-icon">🔐</view>
-    <view class="login-text">请登录以使用更多功能</view>
+  <view class="login-prompt" wx:if="{{!userInfo}}">
+    <view class="login-icon">🎓</view>
+    <view class="login-text">考研考公双赛道情报监控系统</view>
+    <view class="login-desc">登录后可使用学习小组、问答、礼品兑换等功能</view>
+
     <view class="login-form">
-      <view class="form-item">
-        <input placeholder="请输入手机号" bindinput="bindPhoneInput" value="{{phone}}" />
-      </view>
-      <view class="form-item">
-        <input placeholder="请输入密码" bindinput="bindPasswordInput" value="{{password}}" password />
-      </view>
-      <button class="login-btn" bindtap="login">登录</button>
+      <button class="wechat-login-btn" bindtap="wechatLogin">
+        <text class="wechat-icon">微信</text> 一键登录
+      </button>
+      <view class="login-hint">使用微信账号快速登录，登录后可绑定手机号</view>
     </view>
   </view>
 
   <!-- 功能菜单 -->
-  <view class="menu-section">
+  <view class="menu-section" wx:if="{{userInfo}}">
     <view class="menu-item" bindtap="navigateToSubscription">
       <view class="menu-icon">💎</view>
       <view class="menu-text">订阅管理</view>
       <view class="menu-arrow">→</view>
     </view>
-    
+
     <view class="menu-item" bindtap="navigateToPersonalCenter">
       <view class="menu-icon">👤</view>
       <view class="menu-text">个人中心</view>
       <view class="menu-arrow">→</view>
     </view>
-    
+
     <view class="menu-item" bindtap="navigateToMessage">
       <view class="menu-icon">📢</view>
       <view class="menu-text">消息中心</view>
@@ -57,17 +77,27 @@
       <view class="menu-text">学习资料</view>
       <view class="menu-arrow">→</view>
     </view>
+    <view class="menu-item" bindtap="navigateToGift">
+      <view class="menu-icon">🎁</view>
+      <view class="menu-text">礼品兑换</view>
+      <view class="menu-arrow">→</view>
+    </view>
     <view class="menu-item" bindtap="navigateToFeedback">
       <view class="menu-icon">📝</view>
       <view class="menu-text">体验反馈</view>
       <view class="menu-arrow">→</view>
     </view>
-    
+
     <view class="menu-item" bindtap="navigateToSettings">
       <view class="menu-icon">⚙️</view>
       <view class="menu-text">设置</view>
       <view class="menu-arrow">→</view>
     </view>
+  </view>
+
+  <!-- 退出登录按钮 -->
+  <view class="logout-section" wx:if="{{userInfo}}">
+    <button class="logout-btn" bindtap="logout">退出登录</button>
   </view>
 
   <!-- 管理员入口 -->
@@ -80,5 +110,12 @@
     </view>
   </view>
 
-
+  <!-- VIP功能提示 -->
+  <view class="vip-section" wx:if="{{userInfo && !userInfo.is_vip}}">
+    <view class="vip-card">
+      <view class="vip-card-title">升级为VIP会员</view>
+      <view class="vip-card-desc">解锁情报推送、VIP专属学习资料等高级功能</view>
+      <button class="vip-card-btn" bindtap="navigateToSubscription">立即升级</button>
+    </view>
+  </view>
 </view>

@@ -395,9 +395,12 @@
     <el-footer height="120px" class="footer">
       <div class="container">
         <p>© 2026 双赛道情报通 版权所有</p>
-        <p>7×24小时自动抓取、分类、推送考研+考公官方关键信息的情报平台</p>
+      <p>7×24小时自动抓取、分类、推送考研+考公官方关键信息的情报平台</p>
       </div>
     </el-footer>
+
+    <!-- 移动端底部导航 -->
+    <MobileTabBar />
   </div>
 </template>
 
@@ -407,6 +410,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Ticket, Search, Collection, Document, ArrowDown, Setting, Download } from '@element-plus/icons-vue'
 import axios from 'axios'
+import MobileTabBar from '@/components/MobileTabBar.vue'
 import LearningMaterialDownload from '../components/LearningMaterialDownload.vue'
 
 const router = useRouter()
@@ -601,14 +605,14 @@ const savePushSettings = async () => {
       time: timeStr
     })
     
-    if (response.data.success) {
+    if (response.success) {
       ElMessage.success('推送设置保存成功')
     } else {
-      ElMessage.error(response.data.message || '保存失败')
+      ElMessage.error(response.message || '保存失败')
     }
   } catch (error) {
     console.error('保存推送设置失败:', error)
-    console.error('错误详情:', error.response ? error.response.data : error.message)
+    console.error('错误详情:', error.response ? error.response : error.message)
     ElMessage.error('保存失败，请稍后重试')
   }
 }
@@ -616,7 +620,6 @@ const savePushSettings = async () => {
 // 获取用户信息
 const getUserInfo = async () => {
   try {
-    // 模拟数据，实际应该调用API
     try {
       const userInfoStr = localStorage.getItem('userInfo')
       userInfo.value = userInfoStr && userInfoStr !== 'undefined' && userInfoStr !== 'null' 
@@ -634,118 +637,62 @@ const getUserInfo = async () => {
   }
 }
 
-// 获取订阅信息
 const getSubscription = async () => {
   try {
-    // 模拟数据，实际应该调用API
-    subscription.value = {
-      type: '高级会员',
-      start_date: '2026-01-01',
-      end_date: '2026-12-31',
-      is_active: true
-    }
+    const token = localStorage.getItem('token')
+    if (!token) return
+    const res = await axios.get('/api/v1/users/subscription', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    subscription.value = res.data || null
   } catch (error) {
     console.error('获取订阅信息失败:', error)
   }
 }
 
-// 获取产品列表
 const getProducts = async () => {
   try {
-    // 模拟数据，实际应该调用API
-    products.value = [
-      {
-        id: 1,
-        name: '月度会员',
-        price: 19.9,
-        description: '月会员，享受所有高级功能',
-        is_active: true
-      },
-      {
-        id: 2,
-        name: '季度会员',
-        price: 49.9,
-        description: '季会员，享受所有高级功能',
-        is_active: true
-      },
-      {
-        id: 3,
-        name: '年度会员',
-        price: 149.9,
-        description: '年会员，享受所有高级功能',
-        is_active: true
-      }
-    ]
+    const res = await axios.get('/api/v1/payments/products')
+    products.value = Array.isArray(res.data) ? res.data : []
   } catch (error) {
     console.error('获取产品列表失败:', error)
   }
 }
 
-// 获取关键词列表
 const getKeywords = async () => {
   try {
-    // 模拟数据，实际应该调用API
-    keywords.value = [
-      { id: 1, keyword: '考研国家线', category: 'kaoyan' },
-      { id: 2, keyword: '公务员考试', category: 'kaogong' }
-    ]
+    const token = localStorage.getItem('token')
+    if (!token) return
+    const res = await axios.get('/api/v1/users/keywords', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    keywords.value = Array.isArray(res.data) ? res.data : []
   } catch (error) {
     console.error('获取关键词列表失败:', error)
   }
 }
 
-// 获取收藏列表
 const getFavorites = async () => {
   try {
-    // 模拟数据，实际应该调用API
-    favorites.value = [
-      {
-        id: 1,
-        info_id: 1,
-        info_type: 'kaoyan',
-        title: '2026年全国硕士研究生招生考试公告',
-        created_at: '2026-10-01 10:00:00'
-      },
-      {
-        id: 2,
-        info_id: 1,
-        info_type: 'kaogong',
-        title: '2026年国家公务员招考公告',
-        created_at: '2026-10-15 15:00:00'
-      }
-    ]
+    const token = localStorage.getItem('token')
+    if (!token) return
+    const res = await axios.get('/api/v1/users/favorites', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    favorites.value = Array.isArray(res.data) ? res.data : (res.data?.items || [])
   } catch (error) {
     console.error('获取收藏列表失败:', error)
   }
 }
 
-// 获取阅读历史
 const getReadHistory = async () => {
   try {
-    // 模拟数据，实际应该调用API
-    readHistory.value = [
-      {
-        id: 1,
-        info_id: 1,
-        info_type: 'kaoyan',
-        title: '2026年全国硕士研究生招生考试公告',
-        read_at: '2026-10-01 10:30:00'
-      },
-      {
-        id: 2,
-        info_id: 2,
-        info_type: 'kaoyan',
-        title: '2026年考研国家线公布',
-        read_at: '2026-10-02 14:00:00'
-      },
-      {
-        id: 3,
-        info_id: 1,
-        info_type: 'kaogong',
-        title: '2026年国家公务员招考公告',
-        read_at: '2026-10-15 15:30:00'
-      }
-    ]
+    const token = localStorage.getItem('token')
+    if (!token) return
+    const res = await axios.get('/api/v1/users/read-history', {
+      headers: { Authorization: `Bearer ${token}` }
+    }).catch(() => ({ data: [] }))
+    readHistory.value = Array.isArray(res.data) ? res.data : (res.data?.items || [])
   } catch (error) {
     console.error('获取阅读历史失败:', error)
   }
@@ -755,8 +702,8 @@ const getReadHistory = async () => {
 const getPushSettings = async () => {
   try {
     const response = await axios.get('/api/v1/users/push-settings')
-    if (response.data.success) {
-      const settings = response.data.data
+    if (response.success) {
+      const settings = response.data
       pushSettings.frequency = settings.frequency || 'daily'
       if (settings.time) {
         // 转换时间格式

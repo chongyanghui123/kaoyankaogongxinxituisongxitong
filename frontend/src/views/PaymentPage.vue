@@ -185,7 +185,7 @@
 import { ref, reactive, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import axios from 'axios'
+import axios from '@/utils/axios'
 import { Clock, CopyDocument, Check, Refresh, CreditCard, Money, Phone, Delete, DocumentCopy } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -268,8 +268,8 @@ const getOrderDetail = async (orderId) => {
       }
     })
     
-    if (response.data && response.data.success) {
-      Object.assign(orderInfo, response.data.data)
+    if (response && response.success) {
+      Object.assign(orderInfo, response.data)
       selectedPaymentMethod.value = orderInfo.payment_method
     } else {
       ElMessage.error('获取订单详情失败')
@@ -331,7 +331,7 @@ const simulatePayment = async () => {
       }
     })
     
-    if (response.data && response.data.success) {
+    if (response && response.success) {
       orderInfo.payment_status = 1 // 支付成功
       
       // 清除localStorage中的倒计时
@@ -350,7 +350,7 @@ const simulatePayment = async () => {
         }
       })
       
-      if (mockResponse.data && mockResponse.data.success) {
+      if (mockResponse && mockResponse.success) {
         orderInfo.payment_status = 1 // 支付成功
         
         // 清除localStorage中的倒计时
@@ -359,7 +359,7 @@ const simulatePayment = async () => {
         showSuccessDialog.value = true
         showQrCode.value = false
       } else {
-        throw new Error(mockResponse.data?.message || '支付失败')
+        throw new Error(mockResponse?.message || '支付失败')
       }
     }
   } catch (error) {
@@ -528,12 +528,12 @@ const processPendingUserData = async () => {
         }
       })
       
-      if (registerResponse.data && registerResponse.data.success) {
+      if (registerResponse && registerResponse.success) {
         // 不清除pendingUserData，因为createOrder函数还需要从中获取用户需求信息
         return {
           userCreated: true,
-          userId: registerResponse.data.data.user_id,
-          username: registerResponse.data.data.username,
+          userId: registerResponse.data.user_id,
+          username: registerResponse.data.username,
           isNewUser: true
         }
       }
@@ -592,9 +592,9 @@ const createOrder = async () => {
     // 发送订单创建请求，不需要Authorization头
     const response = await axios.post('/api/v1/payments/orders', orderData)
     
-    if (response.data && response.data.success) {
-      Object.assign(orderInfo, response.data.data)
-      orderId.value = response.data.data.id
+    if (response && response.success) {
+      Object.assign(orderInfo, response.data)
+      orderId.value = response.data.id
       
       localStorage.removeItem('pendingUserData')
       
@@ -602,7 +602,7 @@ const createOrder = async () => {
       
       localStorage.removeItem(getCountdownKey())
     } else {
-      throw new Error(response.data?.message || '创建订单失败')
+      throw new Error(response?.message || '创建订单失败')
     }
   } catch (error) {
     console.error('创建订单失败:', error)

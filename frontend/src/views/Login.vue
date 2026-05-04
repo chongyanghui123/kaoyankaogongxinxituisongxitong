@@ -71,8 +71,8 @@ const login = async () => {
         console.log('登录响应:', response)
         
         // 检查登录是否成功
-        if (response.data && response.data.success) {
-          const { access_token, user_id, username, email, is_admin } = response.data.data
+        if (response && response.success) {
+          const { access_token, user_id, username, email, is_admin } = response.data
           
           // 存储token和用户信息
           localStorage.setItem('token', access_token)

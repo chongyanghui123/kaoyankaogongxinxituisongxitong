@@ -1,211 +1,229 @@
-// user.js
 Page({
   data: {
     userInfo: null,
-    phone: '',
-    password: ''
+    bindPhone: '',
+    bindCode: '',
+    countdown: 0,
+    showBindPhone: false
   },
-  
+
   onLoad() {
-    // 页面加载时执行
-
     this.getUserInfo();
   },
-  
+
   onShow() {
-    // 页面显示时执行
-
     this.getUserInfo();
   },
-  
-  // 获取用户信息
-  getUserInfo() {
+
+  async getUserInfo() {
     const app = getApp();
-    // 从全局数据中获取用户信息
-    let userInfo = app.globalData.userInfo;
     
-    // 如果全局数据中没有用户信息，从本地存储中读取
-    if (!userInfo) {
-      userInfo = wx.getStorageSync('userInfo');
-      // 如果本地存储中有用户信息，更新全局数据
-      if (userInfo) {
-        app.globalData.userInfo = userInfo;
+    // 尝试从服务器获取最新用户信息
+    try {
+      await app.fetchUserInfo();
+    } catch (error) {
+      console.error('获取用户信息失败:', error);
+      // 如果获取失败，使用缓存数据
+      let userInfo = app.globalData.userInfo;
+      if (!userInfo) {
+        userInfo = wx.getStorageSync('userInfo');
+        if (userInfo) {
+          app.globalData.userInfo = userInfo;
+        }
       }
     }
-    
-    // 确保userInfo对象中有is_vip_active字段
+
+    let userInfo = app.globalData.userInfo;
     if (userInfo && userInfo.is_vip !== undefined) {
       userInfo.is_vip_active = userInfo.is_vip;
     }
-    
-    this.setData({
-      userInfo: userInfo
-    });
-  },
-  
-  // 手机号输入
-  bindPhoneInput(e) {
-    this.setData({
-      phone: e.detail.value
-    });
-  },
-  
-  // 密码输入
-  bindPasswordInput(e) {
-    this.setData({
-      password: e.detail.value
-    });
-  },
-  
 
-  
-  // 登录
-  async login() {
-    const { phone, password } = this.data;
-    
-    if (!phone || !password) {
-      wx.showToast({
-        title: '请输入手机号和密码',
-        icon: 'none'
-      });
-      return;
-    }
-    
+    this.setData({
+      userInfo: userInfo,
+      showBindPhone: userInfo && !userInfo.phone_bound
+    });
+  },
+
+  bindPhoneNoInput(e) {
+    this.setData({ bindPhone: e.detail.value });
+  },
+
+  bindCodeInput(e) {
+    this.setData({ bindCode: e.detail.value });
+  },
+
+  async wechatLogin() {
     const app = getApp();
     try {
-      const result = await app.login(phone, password);
-      if (result) {
+      wx.showLoading({ title: '登录中...' });
+      const result = await app.wechatLogin();
+      wx.hideLoading();
+
+      if (result && result.success) {
         this.setData({
-          userInfo: app.globalData.userInfo
+          userInfo: app.globalData.userInfo,
+          showBindPhone: !result.phone_bound
         });
-        wx.showToast({
-          title: '登录成功',
-          icon: 'success'
-        });
-        
-        // 不强制跳转到首页，让 app.js 中的跳转逻辑生效
+        wx.showToast({ title: '登录成功', icon: 'success' });
+
+        if (!app.globalData.userInfo.is_vip) {
+          setTimeout(() => {
+            wx.showModal({
+              title: '欢迎使用',
+              content: '您当前为普通用户，可使用学习小组、问答、礼品兑换等功能。升级VIP可解锁情报推送等高级功能，是否前往查看？',
+              confirmText: '去看看',
+              cancelText: '以后再说',
+              success: (res) => {
+                if (res.confirm) {
+                  wx.navigateTo({ url: '/pages/subscription/subscription' });
+                }
+              }
+            });
+          }, 1500);
+        }
       }
     } catch (error) {
-      console.error('登录失败:', error);
-      console.error('错误详情:', JSON.stringify(error));
+      wx.hideLoading();
       wx.showToast({
-        title: '登录失败，请重试',
+        title: error.message || '微信登录失败',
         icon: 'none'
       });
     }
   },
-  
 
-  
-  // 导航到订阅管理
+  async sendBindCode() {
+    const { bindPhone, countdown } = this.data;
+    if (countdown > 0) return;
+    if (!bindPhone || bindPhone.length !== 11) {
+      wx.showToast({ title: '请输入正确的手机号', icon: 'none' });
+      return;
+    }
+    const app = getApp();
+    try {
+      wx.showLoading({ title: '发送中...' });
+      await app.sendPhoneCode(bindPhone, 'bind_phone');
+      wx.hideLoading();
+      wx.showToast({ title: '验证码已发送', icon: 'success' });
+      this.startCountdown();
+    } catch (error) {
+      wx.hideLoading();
+      wx.showToast({ title: error.message || '发送失败', icon: 'none' });
+    }
+  },
+
+  startCountdown() {
+    this.setData({ countdown: 60 });
+    const timer = setInterval(() => {
+      const current = this.data.countdown;
+      if (current <= 1) {
+        clearInterval(timer);
+        this.setData({ countdown: 0 });
+      } else {
+        this.setData({ countdown: current - 1 });
+      }
+    }, 1000);
+  },
+
+  async bindPhoneSubmit() {
+    const { bindPhone, bindCode } = this.data;
+    if (!bindPhone || bindPhone.length !== 11) {
+      wx.showToast({ title: '请输入正确的手机号', icon: 'none' });
+      return;
+    }
+    if (!bindCode) {
+      wx.showToast({ title: '请输入验证码', icon: 'none' });
+      return;
+    }
+    const app = getApp();
+    try {
+      wx.showLoading({ title: '绑定中...' });
+      await app.bindPhone(bindPhone, bindCode);
+      wx.hideLoading();
+      this.setData({
+        userInfo: app.globalData.userInfo,
+        showBindPhone: false
+      });
+      wx.showToast({ title: '绑定成功', icon: 'success' });
+    } catch (error) {
+      wx.hideLoading();
+      wx.showToast({ title: error.message || '绑定失败', icon: 'none' });
+    }
+  },
+
+  logout() {
+    const app = getApp();
+    app.logout();
+    this.setData({
+      userInfo: null,
+      showBindPhone: false
+    });
+  },
+
   navigateToSubscription() {
     if (!this.data.userInfo) {
-      wx.showToast({
-        title: '请先登录',
-        icon: 'none'
-      });
+      wx.showToast({ title: '请先登录', icon: 'none' });
       return;
     }
-    
-    wx.navigateTo({
-      url: '/pages/subscription/subscription'
-    });
+    wx.navigateTo({ url: '/pages/subscription/subscription' });
   },
-  
-  // 导航到消息中心
+
   navigateToMessage() {
     if (!this.data.userInfo) {
-      wx.showToast({
-        title: '请先登录',
-        icon: 'none'
-      });
+      wx.showToast({ title: '请先登录', icon: 'none' });
       return;
     }
-    
-    wx.navigateTo({
-      url: '/pages/message/message'
-    });
+    wx.navigateTo({ url: '/pages/message/message' });
   },
-  
-  // 导航到我的收藏
+
   navigateToCollection() {
     if (!this.data.userInfo) {
-      wx.showToast({
-        title: '请先登录',
-        icon: 'none'
-      });
+      wx.showToast({ title: '请先登录', icon: 'none' });
       return;
     }
-    
-    wx.navigateTo({
-      url: '/pages/collection/collection'
-    });
+    wx.navigateTo({ url: '/pages/collection/collection' });
   },
-  
-  // 导航到体验反馈
+
   navigateToFeedback() {
     if (!this.data.userInfo) {
-      wx.showToast({
-        title: '请先登录',
-        icon: 'none'
-      });
+      wx.showToast({ title: '请先登录', icon: 'none' });
       return;
     }
-    
-    wx.navigateTo({
-      url: '/pages/feedback/feedback'
-    });
+    wx.navigateTo({ url: '/pages/feedback/feedback' });
   },
-  
-  // 导航到设置
+
   navigateToSettings() {
     if (!this.data.userInfo) {
-      wx.showToast({
-        title: '请先登录',
-        icon: 'none'
-      });
+      wx.showToast({ title: '请先登录', icon: 'none' });
       return;
     }
-    
-    wx.navigateTo({
-      url: '/pages/settings/settings'
-    });
+    wx.navigateTo({ url: '/pages/settings/settings' });
   },
 
-  // 导航到学习资料
   navigateToLearningMaterials() {
     if (!this.data.userInfo) {
-      wx.showToast({
-        title: '请先登录',
-        icon: 'none'
-      });
+      wx.showToast({ title: '请先登录', icon: 'none' });
       return;
     }
-    
-    wx.navigateTo({
-      url: '/pages/learning-materials/learning-materials'
-    });
+    wx.navigateTo({ url: '/pages/learning-materials/learning-materials' });
   },
 
-  // 导航到个人中心
-  navigateToPersonalCenter() {
+  navigateToGift() {
     if (!this.data.userInfo) {
-      wx.showToast({
-        title: '请先登录',
-        icon: 'none'
-      });
+      wx.showToast({ title: '请先登录', icon: 'none' });
       return;
     }
-    
-    wx.navigateTo({
-      url: '/pages/personal-center/personal-center'
-    });
+    wx.navigateTo({ url: '/pages/gift/gift' });
   },
-  
-  // 导航到后台管理
+
+  navigateToPersonalCenter() {
+    if (!this.data.userInfo) {
+      wx.showToast({ title: '请先登录', icon: 'none' });
+      return;
+    }
+    wx.navigateTo({ url: '/pages/personal-center/personal-center' });
+  },
+
   navigateToAdmin() {
-    wx.navigateTo({
-      url: '/pages/admin/admin'
-    });
+    wx.navigateTo({ url: '/pages/admin/admin' });
   }
 });

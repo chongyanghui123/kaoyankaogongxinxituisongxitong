@@ -11,6 +11,7 @@ from models.learning_materials import (
     ExamSchedule, Carousel, MaterialCategory, LearningMaterial,
     UserDownload, MaterialRating, MaterialComment
 )
+from models.users import UserFavorite
 from models.users import User
 from schemas.learning_materials import (
     ExamScheduleCreate, ExamScheduleUpdate, ExamScheduleResponse, 
@@ -58,6 +59,86 @@ async def get_categories(
         )
 
 
+@router.get("/materials/{material_id}")
+async def get_material(
+    material_id: int,
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    """获取单个学习资料"""
+    try:
+        material = db.query(LearningMaterial).filter(LearningMaterial.id == material_id).first()
+        if not material:
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "code": 404, "message": "学习资料不存在", "data": None}
+            )
+        
+        # 检查用户是否有访问权限
+        if material.is_vip and not current_user.is_vip:
+            return JSONResponse(
+                status_code=403,
+                content={"success": False, "code": 403, "message": "该资料仅VIP用户可见", "data": None}
+            )
+        
+        # 根据用户类型过滤资料
+        if current_user.is_vip:
+            if current_user.vip_type == 1 and material.type != 1:
+                return JSONResponse(
+                    status_code=403,
+                    content={"success": False, "code": 403, "message": "该资料仅考研VIP用户可见", "data": None}
+                )
+            elif current_user.vip_type == 2 and material.type != 2:
+                return JSONResponse(
+                    status_code=403,
+                    content={"success": False, "code": 403, "message": "该资料仅考公VIP用户可见", "data": None}
+                )
+        
+        category_name = None
+        if material.category:
+            category_name = material.category.name
+        
+        result = {
+            "id": material.id,
+            "title": material.title,
+            "description": material.description,
+            "category_id": material.category_id,
+            "category_name": category_name,
+            "type": material.type,
+            "subject": material.subject,
+            "file_url": material.file_url,
+            "cover_image": material.cover_image,
+            "file_size": material.file_size,
+            "file_extension": material.file_extension,
+            "download_count": material.download_count,
+            "rating": material.rating,
+            "is_valid": material.is_valid,
+            "is_vip": material.is_vip,
+            "created_at": material.created_at.isoformat() if material.created_at else None,
+            "updated_at": material.updated_at.isoformat() if material.updated_at else None
+        }
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "获取学习资料成功",
+                "data": result
+            }
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "code": 500,
+                "message": f"获取学习资料失败: {str(e)}",
+                "data": None
+            }
+        )
+
+
 @router.get("/materials")
 async def get_materials(
     db: Session = Depends(get_db_common),
@@ -87,6 +168,21 @@ async def get_materials(
                 pass
 
         query = query.filter(LearningMaterial.is_valid == True)
+        
+        # 根据用户VIP状态和类型过滤资料
+        if not current_user.is_vip:
+            query = query.filter(LearningMaterial.is_vip == False)
+        else:
+            # 考研VIP用户只能看到考研类型的资料
+            if current_user.vip_type == 1:
+                query = query.filter(LearningMaterial.type == 1)
+            # 考公VIP用户只能看到考公类型的资料
+            elif current_user.vip_type == 2:
+                query = query.filter(LearningMaterial.type == 2)
+            # 双赛道VIP用户可以看到所有类型的资料
+            elif current_user.vip_type == 3:
+                pass
+            
         query = query.order_by(desc(LearningMaterial.created_at))
 
         total = query.count()
@@ -112,6 +208,7 @@ async def get_materials(
                 "download_count": item.download_count,
                 "rating": item.rating,
                 "is_valid": item.is_valid,
+                "is_vip": item.is_vip,
                 "created_at": item.created_at.isoformat() if item.created_at else None,
                 "updated_at": item.updated_at.isoformat() if item.updated_at else None
             })
@@ -149,6 +246,7 @@ async def create_material(
     type: str = Form(...),
     category_id: str = Form(...),
     subject: str = Form(None),
+    is_vip: str = Form("false"),
     file: UploadFile = File(None),
     cover_image: UploadFile = File(None),
     db: Session = Depends(get_db_common),
@@ -193,6 +291,7 @@ async def create_material(
             type=type_int,
             category_id=cat_id,
             subject=subject,
+            is_vip=is_vip.lower() == "true",
             file_url=file_url,
             cover_image=cover_image_url,
             uploader_id=current_user.id,
@@ -243,6 +342,7 @@ async def update_material(
     type: str = Form(None),
     category_id: str = Form(None),
     subject: str = Form(None),
+    is_vip: str = Form(None),
     file: UploadFile = File(None),
     cover_image: UploadFile = File(None),
     db: Session = Depends(get_db_common),
@@ -272,6 +372,8 @@ async def update_material(
                 pass
         if subject is not None:
             material.subject = subject
+        if is_vip is not None:
+            material.is_vip = is_vip.lower() == "true"
 
         if file:
             import os
@@ -583,6 +685,7 @@ async def get_comments(
                 "id": item.id,
                 "material_id": item.material_id,
                 "material_title": material.title if material else "未知资料",
+                "material_type": material.type if material else None,
                 "user_id": item.user_id,
                 "username": user.username if user else "未知用户",
                 "avatar": user.avatar if user else None,
@@ -1206,6 +1309,318 @@ async def update_carousel(
         return JSONResponse(
             status_code=500,
             content={"success": False, "code": 500, "message": f"更新轮播图失败: {str(e)}", "data": None}
+        )
+
+
+@router.get("/materials/{material_id}/favorite")
+async def check_favorite(
+    material_id: int,
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    """检查学习资料是否已收藏"""
+    try:
+        favorite = db.query(UserFavorite).filter(
+            UserFavorite.user_id == current_user.id,
+            UserFavorite.info_id == material_id,
+            UserFavorite.category == 3
+        ).first()
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "获取收藏状态成功",
+                "data": {
+                    "is_favorited": favorite is not None
+                }
+            }
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "code": 500, "message": f"获取收藏状态失败: {str(e)}", "data": None}
+        )
+
+
+@router.get("/materials/{material_id}/rating")
+async def check_rating(
+    material_id: int,
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    """检查学习资料评分状态"""
+    try:
+        rating = db.query(MaterialRating).filter(
+            MaterialRating.user_id == current_user.id,
+            MaterialRating.material_id == material_id
+        ).first()
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "获取评分状态成功",
+                "data": {
+                    "is_rated": rating is not None,
+                    "rating": rating.rating if rating else 0
+                }
+            }
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "code": 500, "message": f"获取评分状态失败: {str(e)}", "data": None}
+        )
+
+
+@router.delete("/materials/{material_id}/comments/{comment_id}")
+async def delete_material_comment(
+    material_id: int,
+    comment_id: int,
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    """删除学习资料评论"""
+    try:
+        comment = db.query(MaterialComment).filter(
+            MaterialComment.id == comment_id,
+            MaterialComment.material_id == material_id
+        ).first()
+        if not comment:
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "code": 404, "message": "评论不存在", "data": None}
+            )
+        if comment.user_id != current_user.id and not current_user.is_admin:
+            return JSONResponse(
+                status_code=403,
+                content={"success": False, "code": 403, "message": "无权删除此评论", "data": None}
+            )
+        db.delete(comment)
+        db.commit()
+        return JSONResponse(
+            status_code=200,
+            content={"success": True, "code": 200, "message": "删除评论成功", "data": None}
+        )
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "code": 500, "message": f"删除评论失败: {str(e)}", "data": None}
+        )
+
+
+@router.delete("/downloads/{download_id}")
+async def delete_download(
+    download_id: int,
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    """删除下载记录"""
+    try:
+        download = db.query(UserDownload).filter(
+            UserDownload.id == download_id,
+            UserDownload.user_id == current_user.id
+        ).first()
+        if not download:
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "code": 404, "message": "下载记录不存在", "data": None}
+            )
+        db.delete(download)
+        db.commit()
+        return JSONResponse(
+            status_code=200,
+            content={"success": True, "code": 200, "message": "删除下载记录成功", "data": None}
+        )
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "code": 500, "message": f"删除下载记录失败: {str(e)}", "data": None}
+        )
+
+
+@router.post("/materials/{material_id}/favorite")
+async def add_favorite(
+    material_id: int,
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    """添加学习资料收藏"""
+    try:
+        # 检查是否已经收藏
+        existing_favorite = db.query(UserFavorite).filter(
+            UserFavorite.user_id == current_user.id,
+            UserFavorite.info_id == material_id,
+            UserFavorite.category == 3  # 3-学习资料
+        ).first()
+        
+        if existing_favorite:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "code": 400,
+                    "message": "已收藏",
+                    "data": None
+                }
+            )
+        
+        # 添加收藏
+        new_favorite = UserFavorite(
+            user_id=current_user.id,
+            info_id=material_id,
+            category=3
+        )
+        
+        db.add(new_favorite)
+        db.commit()
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "收藏成功",
+                "data": None
+            }
+        )
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "code": 500,
+                "message": f"收藏失败: {str(e)}",
+                "data": None
+            }
+        )
+
+
+@router.delete("/materials/{material_id}/favorite")
+async def remove_favorite(
+    material_id: int,
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    """取消学习资料收藏"""
+    try:
+        favorite = db.query(UserFavorite).filter(
+            UserFavorite.user_id == current_user.id,
+            UserFavorite.info_id == material_id,
+            UserFavorite.category == 3  # 3-学习资料
+        ).first()
+        
+        if not favorite:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "success": False,
+                    "code": 404,
+                    "message": "未找到收藏",
+                    "data": None
+                }
+            )
+        
+        db.delete(favorite)
+        db.commit()
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "取消收藏成功",
+                "data": None
+            }
+        )
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "code": 500,
+                "message": f"取消收藏失败: {str(e)}",
+                "data": None
+            }
+        )
+
+
+@router.get("/favorites")
+async def get_favorites(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    """获取用户收藏的学习资料列表"""
+    try:
+        query = db.query(UserFavorite).filter(
+            UserFavorite.user_id == current_user.id,
+            UserFavorite.category == 3  # 3-学习资料
+        )
+        
+        total = query.count()
+        items = query.offset((page - 1) * page_size).limit(page_size).all()
+        
+        # 获取学习资料详情
+        result = []
+        for item in items:
+            material = db.query(LearningMaterial).filter(LearningMaterial.id == item.info_id).first()
+            if material:
+                category_name = None
+                if material.category:
+                    category_name = material.category.name
+                
+                result.append({
+                    "id": material.id,
+                    "title": material.title,
+                    "description": material.description,
+                    "category_id": material.category_id,
+                    "category_name": category_name,
+                    "type": material.type,
+                    "subject": material.subject,
+                    "file_url": material.file_url,
+                    "cover_image": material.cover_image,
+                    "file_size": material.file_size,
+                    "file_extension": material.file_extension,
+                    "download_count": material.download_count,
+                    "rating": material.rating,
+                    "is_valid": material.is_valid,
+                    "is_vip": material.is_vip,
+                    "created_at": material.created_at.isoformat() if material.created_at else None,
+                    "updated_at": material.updated_at.isoformat() if material.updated_at else None
+                })
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "获取收藏列表成功",
+                "data": {
+                    "total": total,
+                    "items": result,
+                    "page": page,
+                    "page_size": page_size
+                }
+            }
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "code": 500,
+                "message": f"获取收藏列表失败: {str(e)}",
+                "data": None
+            }
         )
 
 

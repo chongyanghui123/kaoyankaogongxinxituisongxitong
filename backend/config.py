@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     ALIPAY_PRIVATE_KEY: str = os.getenv("ALIPAY_PRIVATE_KEY", "")
     ALIPAY_PUBLIC_KEY: str = os.getenv("ALIPAY_PUBLIC_KEY", "")
     ALIPAY_GATEWAY: str = os.getenv("ALIPAY_GATEWAY", "https://openapi.alipay.com/gateway.do")
+    ALIPAY_NOTIFY_URL: str = os.getenv("ALIPAY_NOTIFY_URL", "")
     
     # 微信支付配置
     WXPAY_APP_ID: str = os.getenv("WXPAY_APP_ID", "")

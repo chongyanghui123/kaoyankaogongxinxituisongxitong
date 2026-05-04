@@ -46,6 +46,12 @@ async def get_groups(
     today = date.today()
     
     for group in groups:
+        # 实时计算成员数
+        member_count = db.query(GroupMember).filter(
+            GroupMember.group_id == group.id,
+            GroupMember.status == 1
+        ).count()
+        
         # 获取小组成员的用户ID列表
         member_ids = [member.user_id for member in db.query(GroupMember).filter(
             GroupMember.group_id == group.id,
@@ -67,7 +73,7 @@ async def get_groups(
             "cover": group.cover,
             "creator_id": group.creator_id,
             "status": group.status,
-            "member_count": group.member_count,
+            "member_count": member_count,
             "join_type": group.join_type,
             "tags": group.tags,
             "created_at": group.created_at,
@@ -78,7 +84,7 @@ async def get_groups(
     
     return result
 
-@router.get("/groups/{id}", response_model=GroupResponse)
+@router.get("/groups/{id}")
 async def get_group(
     id: int = Path(..., description="小组ID"),
     db: Session = Depends(get_db_common)
@@ -87,7 +93,27 @@ async def get_group(
     group = db.query(Group).filter(Group.id == id, Group.status == 1).first()
     if not group:
         raise HTTPException(status_code=404, detail="小组不存在")
-    return group
+    
+    # 实时计算成员数
+    member_count = db.query(GroupMember).filter(
+        GroupMember.group_id == id,
+        GroupMember.status == 1
+    ).count()
+    
+    return {
+        "id": group.id,
+        "name": group.name,
+        "description": group.description,
+        "avatar": group.avatar,
+        "cover": group.cover,
+        "creator_id": group.creator_id,
+        "status": group.status,
+        "member_count": member_count,
+        "join_type": group.join_type,
+        "tags": group.tags,
+        "created_at": group.created_at,
+        "updated_at": group.updated_at
+    }
 
 @router.post("/groups", response_model=GroupResponse)
 async def create_group(
@@ -366,7 +392,7 @@ async def create_group_post(
 
 # 问答板块相关接口
 
-@router.get("/questions", response_model=List[QuestionResponse])
+@router.get("/questions")
 async def get_questions(
     category: Optional[str] = Query(None, description="问题分类"),
     skip: int = Query(0, ge=0, description="跳过的记录数"),
@@ -380,9 +406,31 @@ async def get_questions(
         query = query.filter(Question.category == category)
     
     questions = query.order_by(desc(Question.created_at)).offset(skip).limit(limit).all()
-    return questions
+    
+    result = []
+    for q in questions:
+        user = db.query(User).filter(User.id == q.user_id).first()
+        result.append({
+            "id": q.id,
+            "title": q.title,
+            "content": q.content,
+            "image_urls": q.image_urls,
+            "category": q.category,
+            "tags": q.tags,
+            "user_id": q.user_id,
+            "username": user.username if user else "匿名用户",
+            "avatar": user.avatar if user else None,
+            "view_count": q.view_count,
+            "answer_count": q.answer_count,
+            "like_count": q.like_count,
+            "status": q.status,
+            "created_at": q.created_at,
+            "updated_at": q.updated_at
+        })
+    
+    return result
 
-@router.get("/questions/{id}", response_model=QuestionResponse)
+@router.get("/questions/{id}")
 async def get_question(
     id: int = Path(..., description="问题ID"),
     db: Session = Depends(get_db_common)
@@ -396,7 +444,26 @@ async def get_question(
     question.view_count += 1
     db.commit()
     
-    return question
+    # 获取用户信息
+    user = db.query(User).filter(User.id == question.user_id).first()
+    
+    return {
+        "id": question.id,
+        "title": question.title,
+        "content": question.content,
+        "image_urls": question.image_urls,
+        "category": question.category,
+        "tags": question.tags,
+        "user_id": question.user_id,
+        "username": user.username if user else "匿名用户",
+        "avatar": user.avatar if user else None,
+        "view_count": question.view_count,
+        "answer_count": question.answer_count,
+        "like_count": question.like_count,
+        "status": question.status,
+        "created_at": question.created_at,
+        "updated_at": question.updated_at
+    }
 
 @router.post("/questions", response_model=QuestionResponse)
 async def create_question(
@@ -493,11 +560,13 @@ async def create_answer(
     db.refresh(db_answer)
     return db_answer
 
-@router.get("/questions/{id}/answers", response_model=List[AnswerResponse])
+@router.get("/questions/{id}/answers")
 async def get_answers(
     id: int = Path(..., description="问题ID"),
     skip: int = Query(0, ge=0, description="跳过的记录数"),
     limit: int = Query(20, ge=1, le=100, description="返回的记录数"),
+    sort_by: str = Query("time", description="排序方式: time(时间), likes(点赞数)"),
+    sort_order: str = Query("desc", description="排序顺序: asc(升序), desc(降序)"),
     db: Session = Depends(get_db_common)
 ):
     """获取问题的回答列表"""
@@ -506,17 +575,52 @@ async def get_answers(
     if not question:
         raise HTTPException(status_code=404, detail="问题不存在")
     
-    # 获取回答列表，先显示被采纳的，然后按点赞数排序
-    answers = db.query(Answer).filter(
+    # 获取回答列表
+    query = db.query(Answer).filter(
         Answer.question_id == id,
         Answer.status == 1
-    ).order_by(
-        desc(Answer.is_accepted),
-        desc(Answer.like_count),
-        desc(Answer.created_at)
-    ).offset(skip).limit(limit).all()
+    )
     
-    return answers
+    # 构建排序条件
+    order_by_clauses = [desc(Answer.is_accepted)]  # 采纳的优先显示
+    
+    if sort_by == "likes":
+        # 按点赞数排序
+        if sort_order == "desc":
+            order_by_clauses.append(desc(Answer.like_count))
+            order_by_clauses.append(desc(Answer.created_at))
+        else:
+            order_by_clauses.append(asc(Answer.like_count))
+            order_by_clauses.append(asc(Answer.created_at))
+    else:
+        # 按时间排序
+        if sort_order == "desc":
+            order_by_clauses.append(desc(Answer.created_at))
+        else:
+            order_by_clauses.append(asc(Answer.created_at))
+    
+    answers = query.order_by(*order_by_clauses).offset(skip).limit(limit).all()
+    
+    # 添加用户信息
+    result = []
+    for answer in answers:
+        user = db.query(User).filter(User.id == answer.user_id).first()
+        result.append({
+            "id": answer.id,
+            "question_id": answer.question_id,
+            "user_id": answer.user_id,
+            "username": user.username if user else "匿名用户",
+            "author_avatar": user.avatar if user else None,
+            "content": answer.content,
+            "image_urls": answer.image_urls,
+            "like_count": answer.like_count,
+            "is_accepted": answer.is_accepted,
+            "status": answer.status,
+            "created_at": answer.created_at,
+            "updated_at": answer.updated_at
+        })
+    
+    return result
 
 @router.put("/answers/{id}", response_model=AnswerResponse)
 async def update_answer(
@@ -775,6 +879,12 @@ async def get_group_messages(
     result = []
     for msg in messages:
         sender = db.query(User).filter(User.id == msg.user_id).first()
+        mentioned_users = []
+        if msg.mentioned_users:
+            try:
+                mentioned_users = [int(uid) for uid in msg.mentioned_users.split(",") if uid.strip()]
+            except:
+                pass
         result.append({
             "id": msg.id,
             "user_id": msg.user_id,
@@ -783,6 +893,7 @@ async def get_group_messages(
             "message_type": msg.message_type,
             "content": msg.content,
             "image_url": msg.image_url,
+            "mentioned_users": mentioned_users,
             "created_at": msg.created_at.strftime("%Y-%m-%d %H:%M:%S")
         })
     

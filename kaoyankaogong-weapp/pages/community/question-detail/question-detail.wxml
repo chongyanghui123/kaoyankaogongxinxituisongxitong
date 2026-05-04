@@ -37,7 +37,14 @@
   <view class="answers-section">
     <view class="section-header">
       <text class="section-title">全部回答 ({{answers.length}})</text>
-      <text class="sort-btn" bindtap="toggleSort">按时间排序</text>
+      <view class="sort-bar">
+        <view class="sort-item {{sortBy === 'time' ? 'active' : ''}}" bindtap="setSort" data-sort="time">
+          <text>最新</text>
+        </view>
+        <view class="sort-item {{sortBy === 'likes' ? 'active' : ''}}" bindtap="setSort" data-sort="likes">
+          <text>最热</text>
+        </view>
+      </view>
     </view>
     
     <view class="answers-list" wx:if="{{answers.length > 0}}">

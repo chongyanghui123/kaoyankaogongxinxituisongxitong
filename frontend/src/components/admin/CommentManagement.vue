@@ -48,24 +48,14 @@
       <!-- 评论表格 -->
       <el-table :data="comments" style="width: 100%" :default-sort="{ prop: 'created_at', order: 'descending' }">
         <el-table-column type="index" label="序号" width="60" align="center" />
-        <el-table-column prop="user_name" label="用户名" min-width="100" show-overflow-tooltip />
+        <el-table-column prop="username" label="用户名" min-width="100" show-overflow-tooltip />
         <el-table-column prop="material_title" label="资料标题" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="comment" label="评论内容" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="content" label="评论内容" min-width="200" show-overflow-tooltip />
         <el-table-column prop="created_at" label="评论时间" min-width="160" align="center" />
         <el-table-column prop="material_type" label="类型" width="80" align="center">
           <template #default="scope">
             <el-tag :type="scope.row.material_type === 1 ? 'primary' : 'success'">
               {{ scope.row.material_type === 1 ? '考研' : '考公' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="depth" label="层级" width="80" align="center">
-          <template #default="scope">
-            <el-tag v-if="scope.row.depth > 0" type="warning">
-              {{ scope.row.depth }}级回复
-            </el-tag>
-            <el-tag v-else type="info">
-              一级评论
             </el-tag>
           </template>
         </el-table-column>
@@ -140,7 +130,7 @@
 <script setup>
 import { ref, onMounted, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import axios from 'axios'
+import axios from '@/utils/axios'
 import { View, Delete } from '@element-plus/icons-vue'
 
 const comments = ref([])
@@ -179,9 +169,9 @@ const getComments = async () => {
       }
     })
     
-    if (response.data.success) {
-      comments.value = response.data.data.items
-      total.value = response.data.data.total
+    if (response.success) {
+      comments.value = response.data.items
+      total.value = response.data.total
     } else {
       ElMessage.error('获取评论失败')
     }

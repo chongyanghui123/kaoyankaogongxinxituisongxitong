@@ -25,16 +25,21 @@
 
   <!-- 消息列表 -->
   <view class="message-list" wx:if="{{userInfo}}">
-    <view class="message-item" wx:for="{{messages}}" wx:key="id" bindtap="navigateToDetail" data-id="{{item.info_id}}" data-message-id="{{item.id}}" data-read="{{item.read}}">
-      <view class="message-icon" wx:if="{{item.type === 'system'}}">📢</view>
-      <view class="message-icon" wx:elif="{{item.type === 'info'}}">📚</view>
-      <view class="message-icon" wx:else>⏰</view>
-      <view class="message-content">
-        <view class="message-title">{{item.title}}</view>
-        <view class="message-text">{{item.content}}</view>
-        <view class="message-time">{{item.time}}</view>
+    <view class="message-item" wx:for="{{messages}}" wx:key="id">
+      <view class="message-main" bindtap="navigateToDetail" data-id="{{item.info_id}}" data-message-id="{{item.id}}" data-read="{{item.read}}">
+        <view class="message-icon" wx:if="{{item.type === 'system'}}">📢</view>
+        <view class="message-icon" wx:elif="{{item.type === 'info'}}">📚</view>
+        <view class="message-icon" wx:else>⏰</view>
+        <view class="message-content">
+          <view class="message-title">{{item.title}}</view>
+          <view class="message-text">{{item.content}}</view>
+          <view class="message-time">{{item.time}}</view>
+        </view>
+        <view class="message-badge" wx:if="{{!item.read}}">●</view>
       </view>
-      <view class="message-badge" wx:if="{{!item.read}}">●</view>
+      <view class="message-action">
+        <button class="delete-btn" bindtap="deleteMessage" data-message-id="{{item.id}}">删除</button>
+      </view>
     </view>
   </view>
 

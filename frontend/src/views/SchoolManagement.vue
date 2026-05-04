@@ -142,7 +142,7 @@
 import { ref, onMounted, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import axios from 'axios'
+import axios from '@/utils/axios'
 
 // 搜索表单
 const searchForm = reactive({
@@ -204,8 +204,8 @@ const getProvinces = async () => {
         Authorization: `Bearer ${localStorage.getItem('token')}`
       }
     })
-    if (response.data.success) {
-      provinces.value = response.data.data
+    if (response.success) {
+      provinces.value = response.data
     }
   } catch (error) {
     console.error('获取省份列表失败:', error)
@@ -227,8 +227,8 @@ const getSchools = async () => {
         Authorization: `Bearer ${localStorage.getItem('token')}`
       }
     })
-    if (response.data.success) {
-      schools.value = response.data.data
+    if (response.success) {
+      schools.value = response.data
     }
   } catch (error) {
     console.error('获取学校列表失败:', error)
@@ -283,12 +283,12 @@ const submitAddForm = async () => {
             Authorization: `Bearer ${localStorage.getItem('token')}`
           }
         })
-        if (response.data.success) {
+        if (response.success) {
           ElMessage.success('添加学校成功')
           addDialogVisible.value = false
           getSchools()
         } else {
-          ElMessage.error(response.data.message || '添加学校失败')
+          ElMessage.error(response.message || '添加学校失败')
         }
       } catch (error) {
         console.error('添加学校失败:', error)
@@ -320,12 +320,12 @@ const submitEditForm = async () => {
             Authorization: `Bearer ${localStorage.getItem('token')}`
           }
         })
-        if (response.data.success) {
+        if (response.success) {
           ElMessage.success('更新学校成功')
           editDialogVisible.value = false
           getSchools()
         } else {
-          ElMessage.error(response.data.message || '更新学校失败')
+          ElMessage.error(response.message || '更新学校失败')
         }
       } catch (error) {
         console.error('更新学校失败:', error)
@@ -352,11 +352,11 @@ const deleteSchool = (id, name) => {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
       })
-      if (response.data.success) {
+      if (response.success) {
         ElMessage.success('删除学校成功')
         getSchools()
       } else {
-        ElMessage.error(response.data.message || '删除学校失败')
+        ElMessage.error(response.message || '删除学校失败')
       }
     } catch (error) {
       console.error('删除学校失败:', error)

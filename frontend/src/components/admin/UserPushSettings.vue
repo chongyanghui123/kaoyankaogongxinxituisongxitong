@@ -162,7 +162,7 @@ export default {
   methods: {
     async fetchUsers() {
       try {
-        const response = await fetch('/api/users', {
+        const response = await fetch('/api/v1/admin/users', {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
@@ -183,28 +183,22 @@ export default {
       }
 
       try {
-        // 这里应该调用API获取用户的推送设置
-        // 暂时使用模拟数据
         const user = this.users.find(u => u.id == this.selectedUserId)
         this.selectedUser = user
 
-        // 模拟加载设置
-        this.pushSettings = {
-          channels: {
-            email: true,
-            wechat: false,
-            enterprise_wechat: false
-          },
-          frequency: 'daily',
-          content_types: {
-            policy: true,
-            school: true,
-            exam: true,
-            recommend: true,
-            system: true
-          },
-          push_time: '09:00',
-          weekdays: ['1', '3', '5']
+        const token = localStorage.getItem('token')
+        const res = await fetch(`/api/v1/users/push-settings?user_id=${this.selectedUserId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (res.ok) {
+          const data = await res.json()
+          this.pushSettings = data || {
+            channels: { email: true, wechat: false, enterprise_wechat: false },
+            frequency: 'daily',
+            content_types: { policy: true, school: true, exam: true, recommend: true, system: true },
+            push_time: '09:00',
+            weekdays: ['1', '3', '5']
+          }
         }
       } catch (error) {
         console.error('加载用户设置失败:', error)
@@ -218,10 +212,20 @@ export default {
       }
 
       try {
-        // 这里应该调用API保存用户的推送设置
-        // 暂时模拟保存
-
-        alert('设置保存成功')
+        const token = localStorage.getItem('token')
+        const res = await fetch(`/api/v1/users/push-settings?user_id=${this.selectedUserId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify(this.pushSettings)
+        })
+        if (res.ok) {
+          alert('设置保存成功')
+        } else {
+          alert('保存设置失败')
+        }
       } catch (error) {
         console.error('保存用户设置失败:', error)
         alert('保存设置失败')

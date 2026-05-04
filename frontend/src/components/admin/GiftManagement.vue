@@ -230,9 +230,9 @@ const loadGifts = async () => {
       headers: { 'Authorization': `Bearer ${token}` }
     })
 
-    if (response.data.success) {
-      gifts.value = response.data.data.items
-      pagination.total = response.data.data.total
+    if (response.success) {
+      gifts.value = response.data.items
+      pagination.total = response.data.total
     }
   } catch (error) {
     console.error('获取礼品列表失败:', error)
@@ -259,9 +259,9 @@ const loadExchanges = async () => {
       headers: { 'Authorization': `Bearer ${token}` }
     })
 
-    if (response.data.success) {
-      exchanges.value = response.data.data.items
-      exchangePagination.total = response.data.data.total
+    if (response.success) {
+      exchanges.value = response.data.items
+      exchangePagination.total = response.data.total
     }
   } catch (error) {
     console.error('获取兑换记录失败:', error)
@@ -349,12 +349,12 @@ const handleSubmit = async () => {
       }
     })
 
-    if (response.data.success) {
+    if (response.success) {
       ElMessage.success(isEdit.value ? '更新成功' : '添加成功')
       dialogVisible.value = false
       loadGifts()
     } else {
-      ElMessage.error(response.data.message || '操作失败')
+      ElMessage.error(response.message || '操作失败')
     }
   } catch (error) {
     console.error('操作失败:', error)
@@ -375,7 +375,7 @@ const handleDelete = async (row) => {
       headers: { 'Authorization': `Bearer ${token}` }
     })
 
-    if (response.data.success) {
+    if (response.success) {
       ElMessage.success('删除成功')
       loadGifts()
     }
@@ -404,7 +404,7 @@ const handleSubmitExchange = async () => {
       headers: { 'Authorization': `Bearer ${token}` }
     })
 
-    if (response.data.success) {
+    if (response.success) {
       ElMessage.success('更新成功')
       exchangeDialogVisible.value = false
       loadExchanges()

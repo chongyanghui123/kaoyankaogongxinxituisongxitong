@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Path, Body
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, date
@@ -10,7 +11,9 @@ from models.users import User, Order, Product, SystemConfig, PushTemplate, PushL
 from models.kaoyan import KaoyanInfo, KaoyanCrawlerConfig, KaoyanCrawlerLog
 from models.kaogong import KaogongInfo, KaogongCrawlerConfig, KaogongCrawlerLog
 from models.sign_in import SignInRecord, PointsRecord
+from models.gift import GiftExchange
 from models.community import Group, GroupMember, GroupPost, GroupPostComment, Question, Answer, AnswerComment, Like, Report
+from models.learning_materials import LearningMaterial, MaterialRating, MaterialComment
 from schemas.users import UserResponse, UserUpdate
 from schemas.kaoyan import KaoyanInfoResponse, KaoyanCrawlerConfigResponse
 from schemas.kaogong import KaogongInfoResponse, KaogongCrawlerConfigResponse
@@ -22,6 +25,161 @@ from schemas.community import GroupResponse, QuestionResponse, AnswerResponse
 router = APIRouter(tags=["admin"])
 
 
+class SendNotificationRequest(BaseModel):
+    """发送通知请求"""
+    user_type: int = Field(..., description="用户类型：1-考研用户，2-考公用户，3-全部用户")
+    title: str = Field(..., description="通知标题")
+    content: str = Field(..., description="通知内容")
+
+
+@router.get("/notification/history")
+async def get_notification_history(
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    search: str = Query(None, description="搜索通知内容")
+):
+    """获取通知历史记录"""
+    try:
+        query = db.query(PushLog).filter(PushLog.push_type == 4)
+        
+        if search:
+            query = query.filter(PushLog.push_content.contains(search))
+            
+        query = query.order_by(PushLog.push_time.desc())
+        
+        total = query.count()
+        offset = (page - 1) * page_size
+        history = query.offset(offset).limit(page_size).all()
+        
+        # 计算每个通知的接收人数
+        history_with_count = []
+        for log in history:
+            # 获取发送给了多少用户（通过内容和时间匹配）
+            count = db.query(PushLog).filter(
+                PushLog.push_type == 4,
+                PushLog.push_content == log.push_content,
+                PushLog.push_time == log.push_time
+            ).count()
+            
+            history_with_count.append({
+                "id": log.id,
+                "title": log.push_content.split("\n")[0],
+                "content": log.push_content,
+                "send_time": log.push_time.strftime("%Y-%m-%d %H:%M:%S"),
+                "receiver_count": count,
+                "push_status": log.push_status,
+                "category": log.category
+            })
+            
+        return {
+            "success": True,
+            "code": 200,
+            "message": "获取通知历史记录成功",
+            "data": {
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+                "items": history_with_count
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取通知历史记录失败: {str(e)}")
+
+
+@router.delete("/notification/history/{history_id}")
+async def delete_notification_history(
+    history_id: int = Path(..., description="通知历史记录ID"),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """删除通知历史记录"""
+    try:
+        log = db.query(PushLog).filter(PushLog.id == history_id, PushLog.push_type == 4).first()
+        if not log:
+            raise HTTPException(status_code=404, detail="通知历史记录不存在")
+            
+        # 删除所有内容和时间相同的记录
+        db.query(PushLog).filter(
+            PushLog.push_type == 4,
+            PushLog.push_content == log.push_content,
+            PushLog.push_time == log.push_time
+        ).delete()
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "code": 200,
+            "message": "删除通知历史记录成功"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"删除通知历史记录失败: {str(e)}")
+
+
+@router.post("/notification/send")
+async def send_notification(
+    request: SendNotificationRequest,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """给指定类型的用户发送系统通知"""
+    try:
+        # 获取目标用户
+        if request.user_type == 1:
+            # 考研用户：已支付考研产品的用户
+            query = db.query(User).select_from(User).join(Order, User.id == Order.user_id).join(Product, Order.product_id == Product.id).filter(
+                User.is_active == True,
+                Order.payment_status == 1,
+                Product.type == 1
+            ).distinct()
+        elif request.user_type == 2:
+            # 考公用户：已支付考公产品的用户
+            query = db.query(User).select_from(User).join(Order, User.id == Order.user_id).join(Product, Order.product_id == Product.id).filter(
+                User.is_active == True,
+                Order.payment_status == 1,
+                Product.type == 2
+            ).distinct()
+        elif request.user_type == 3:
+            # 全部用户：已支付任何产品的用户
+            query = db.query(User).select_from(User).join(Order, User.id == Order.user_id).filter(
+                User.is_active == True,
+                Order.payment_status == 1
+            ).distinct()
+        
+        target_users = query.all()
+        
+        # 给每个用户发送通知
+        for user in target_users:
+            push_log = PushLog(
+                user_id=user.id,
+                info_id=0,  # 系统通知，无具体信息ID
+                category=3,  # 系统通知（默认）
+                push_type=4,  # 小程序推送（根据push_manager.py中的注释）
+                push_status=1,  # 成功
+                push_content=f"{request.title}\n{request.content}",
+                is_processed=True,
+                push_time=datetime.now(),
+                read=False
+            )
+            db.add(push_log)
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "code": 200,
+            "message": f"成功发送通知给 {len(target_users)} 个用户",
+            "data": {"user_count": len(target_users)}
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"发送通知失败：{str(e)}")
+
+
 @router.get("/users", response_model=List[UserResponse])
 async def get_users(
     skip: int = Query(0, ge=0),
@@ -29,7 +187,6 @@ async def get_users(
     is_admin: Optional[bool] = Query(None),
     is_active: Optional[bool] = Query(None, description="是否今日活跃"),
     keyword: Optional[str] = Query(None, description="搜索关键词（用户名、邮箱、手机号）"),
-    user_type: Optional[str] = Query(None, description="用户类型筛选"),
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin)
 ):
@@ -54,36 +211,12 @@ async def get_users(
             query = query.filter(~User.id.in_(active_user_ids))
     
     # 关键词搜索
-    if keyword:
+    if keyword and keyword.strip():
         query = query.filter(
             (User.username.contains(keyword)) |
             (User.email.contains(keyword)) |
-            (User.phone.contains(keyword))
+            (User.phone != None, User.phone.contains(keyword))
         )
-    
-    # 用户类型筛选
-    if user_type and user_type != "":
-        # 根据用户类型查询对应的订阅类型
-        from sqlalchemy import or_
-        if user_type == "考研":
-            query = query.join(UserSubscription, User.id == UserSubscription.user_id)\
-                .filter(UserSubscription.subscribe_type == 1, UserSubscription.status == 1)
-        elif user_type == "考公":
-            query = query.join(UserSubscription, User.id == UserSubscription.user_id)\
-                .filter(UserSubscription.subscribe_type == 2, UserSubscription.status == 1)
-        elif user_type == "双赛道":
-            query = query.join(UserSubscription, User.id == UserSubscription.user_id)\
-                .filter(UserSubscription.subscribe_type == 3, UserSubscription.status == 1)
-        elif user_type == "未订阅":
-            # 查询没有有效订阅的用户
-            from sqlalchemy import not_
-            query = query.filter(
-                not_(User.id.in_(
-                    db.query(UserSubscription.user_id)\
-                        .filter(UserSubscription.status == 1)\
-                        .distinct()
-                ))
-            )
     
     users = query.offset(skip).limit(limit).all()
     
@@ -94,24 +227,8 @@ async def get_users(
         ).distinct().all()
     )
     
-    # 为每个用户添加类型信息和VIP信息
+    # 为每个用户添加VIP信息
     for user in users:
-        # 查询用户的订阅配置
-        subscription = db.query(UserSubscription).filter(
-            UserSubscription.user_id == user.id,
-            UserSubscription.status == 1
-        ).first()
-        
-        if subscription:
-            if subscription.subscribe_type == 1:
-                user.user_type = "考研"
-            elif subscription.subscribe_type == 2:
-                user.user_type = "考公"
-            elif subscription.subscribe_type == 3:
-                user.user_type = "双赛道"
-        else:
-            user.user_type = "未订阅"
-        
         # 动态判断今日是否活跃
         user.is_active = user.id in today_active_ids
         
@@ -135,6 +252,10 @@ async def get_users(
             user.vip_end_time = user.vip_end_time
         else:
             user.vip_end_time = None
+            
+        # 计算登录次数
+        login_count = db.query(UserLoginRecord).filter(UserLoginRecord.user_id == user.id).count()
+        user.login_count = login_count
     
     return users
 
@@ -212,22 +333,6 @@ async def get_user(
     if not user:
         return {"success": False, "code": 404, "message": "用户不存在", "data": None}
     
-    # 添加用户类型信息
-    subscription = db.query(UserSubscription).filter(
-        UserSubscription.user_id == user.id,
-        UserSubscription.status == 1
-    ).first()
-    
-    if subscription:
-        if subscription.subscribe_type == 1:
-            user.user_type = "考研"
-        elif subscription.subscribe_type == 2:
-            user.user_type = "考公"
-        elif subscription.subscribe_type == 3:
-            user.user_type = "双赛道"
-    else:
-        user.user_type = "未订阅"
-    
     # 添加VIP相关信息
     user.is_vip = user.is_vip
     user.vip_type = user.vip_type
@@ -275,44 +380,10 @@ async def update_user(
             raise HTTPException(status_code=400, detail="邮箱已被其他用户使用")
     
     for key, value in update_data.items():
-        if key != 'user_type':  # 排除user_type字段，因为它不是User模型的直接字段
-            setattr(user, key, value)
-    
-    # 处理user_type字段更新
-    if 'user_type' in update_data:
-        # 获取用户的订阅配置
-        subscription = db.query(UserSubscription).filter(
-            UserSubscription.user_id == user.id,
-            UserSubscription.status == 1
-        ).first()
-        
-        if subscription:
-            # 根据user_type更新subscribe_type
-            if update_data['user_type'] == "考研":
-                subscription.subscribe_type = 1
-            elif update_data['user_type'] == "考公":
-                subscription.subscribe_type = 2
-            elif update_data['user_type'] == "双赛道":
-                subscription.subscribe_type = 3
+        setattr(user, key, value)
     
     db.commit()
     db.refresh(user)
-    
-    # 重新获取用户信息，确保包含user_type字段
-    subscription = db.query(UserSubscription).filter(
-        UserSubscription.user_id == user.id,
-        UserSubscription.status == 1
-    ).first()
-    
-    if subscription:
-        if subscription.subscribe_type == 1:
-            user.user_type = "考研"
-        elif subscription.subscribe_type == 2:
-            user.user_type = "考公"
-        elif subscription.subscribe_type == 3:
-            user.user_type = "双赛道"
-    else:
-        user.user_type = "未订阅"
     
     # 添加VIP相关信息
     user.is_vip = user.is_vip
@@ -368,6 +439,57 @@ async def delete_user(
         push_logs = db.query(PushLog).filter(PushLog.user_id == user_id).all()
         for log in push_logs:
             db.delete(log)
+        
+        # 删除用户的积分记录
+        points_records = db.query(PointsRecord).filter(PointsRecord.user_id == user_id).all()
+        for record in points_records:
+            db.delete(record)
+        
+        # 删除用户的签到记录
+        sign_in_records = db.query(SignInRecord).filter(SignInRecord.user_id == user_id).all()
+        for record in sign_in_records:
+            db.delete(record)
+        
+        # 首先删除用户登录记录（使用查询后删除的方法）
+        login_records = db.query(UserLoginRecord).filter(UserLoginRecord.user_id == user_id).all()
+        for record in login_records:
+            db.delete(record)
+        
+        # 确保删除操作立即提交（防止外键约束错误）
+        db.commit()
+        
+        # 删除用户的礼品兑换记录
+        db.query(GiftExchange).filter(GiftExchange.user_id == user_id).delete(synchronize_session=False)
+        
+        # 删除用户的学习资料评分记录
+        db.query(LearningMaterialRating).filter(LearningMaterialRating.user_id == user_id).delete(synchronize_session=False)
+        
+        # 删除用户的学习资料评论记录
+        db.query(LearningMaterialComment).filter(LearningMaterialComment.user_id == user_id).delete(synchronize_session=False)
+        
+        # 删除用户的学习资料记录
+        db.query(LearningMaterial).filter(LearningMaterial.user_id == user_id).delete(synchronize_session=False)
+        
+        # 删除用户的社区评论记录
+        db.query(GroupPostComment).filter(GroupPostComment.user_id == user_id).delete(synchronize_session=False)
+        db.query(AnswerComment).filter(AnswerComment.user_id == user_id).delete(synchronize_session=False)
+        
+        # 删除用户的社区点赞记录
+        db.query(Like).filter(Like.user_id == user_id).delete(synchronize_session=False)
+        
+        # 删除用户的社区举报记录
+        db.query(Report).filter(Report.reporter_id == user_id).delete(synchronize_session=False)
+        
+        # 删除用户的社区小组消息记录
+        db.query(GroupMessage).filter(GroupMessage.user_id == user_id).delete(synchronize_session=False)
+        
+        # 删除用户的社区成员记录
+        db.query(GroupMember).filter(GroupMember.user_id == user_id).delete(synchronize_session=False)
+        
+        # 删除用户的社区话题记录
+        db.query(GroupPost).filter(GroupPost.user_id == user_id).delete(synchronize_session=False)
+        db.query(Question).filter(Question.user_id == user_id).delete(synchronize_session=False)
+        db.query(Answer).filter(Answer.user_id == user_id).delete(synchronize_session=False)
         
         # 删除用户
         db.delete(user)
@@ -683,6 +805,63 @@ async def get_system_stats(
                 elif subscription.subscribe_type == 3:
                     user_type_distribution["双赛道"] += 1
         
+        # 积分分布统计
+        points_distribution = {
+            "0分": 0,
+            "1-50分": 0,
+            "51-100分": 0,
+            "101-200分": 0,
+            "201-500分": 0,
+            "500分以上": 0
+        }
+        for user in users:
+            points = user.points or 0
+            if points == 0:
+                points_distribution["0分"] += 1
+            elif points <= 50:
+                points_distribution["1-50分"] += 1
+            elif points <= 100:
+                points_distribution["51-100分"] += 1
+            elif points <= 200:
+                points_distribution["101-200分"] += 1
+            elif points <= 500:
+                points_distribution["201-500分"] += 1
+            else:
+                points_distribution["500分以上"] += 1
+        
+        # VIP用户分布
+        vip_distribution = {
+            "普通用户": 0,
+            "考研VIP": 0,
+            "考公VIP": 0,
+            "双赛道VIP": 0
+        }
+        for user in users:
+            if not user.is_vip:
+                vip_distribution["普通用户"] += 1
+            elif user.vip_type == 1:
+                vip_distribution["考研VIP"] += 1
+            elif user.vip_type == 2:
+                vip_distribution["考公VIP"] += 1
+            elif user.vip_type == 3:
+                vip_distribution["双赛道VIP"] += 1
+            else:
+                vip_distribution["普通用户"] += 1
+        
+        # 最近7天用户注册趋势
+        from datetime import timedelta
+        user_growth_trend = []
+        for i in range(6, -1, -1):
+            day = date.today() - timedelta(days=i)
+            count = db.query(User).filter(
+                User.created_at >= datetime.combine(day, datetime.min.time()),
+                User.created_at < datetime.combine(day + timedelta(days=1), datetime.min.time())
+            ).count()
+            user_growth_trend.append({
+                "date": day.strftime("%m-%d"),
+                "count": count
+            })
+        
         return {
             "user_count": user_count,
             "kaoyan_count": kaoyan_count,
@@ -690,6 +869,9 @@ async def get_system_stats(
             "order_count": order_count,
             "push_count": push_count,
             "user_type_distribution": user_type_distribution,
+            "points_distribution": points_distribution,
+            "vip_distribution": vip_distribution,
+            "user_growth_trend": user_growth_trend,
             "timestamp": datetime.utcnow()
         }
     finally:
@@ -1335,11 +1517,12 @@ async def get_sign_in_stats(
     )
 
 
-@router.get("/community/groups", response_model=List[GroupResponse])
+@router.get("/community/groups")
 async def get_community_groups(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
     status: Optional[int] = Query(None),
+    search: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin)
 ):
@@ -1349,8 +1532,78 @@ async def get_community_groups(
     if status is not None:
         query = query.filter(Group.status == status)
     
+    if search:
+        query = query.filter(Group.name.contains(search))
+    
     groups = query.offset(skip).limit(limit).all()
-    return groups
+    
+    # 实时计算成员数
+    result = []
+    for group in groups:
+        member_count = db.query(GroupMember).filter(
+            GroupMember.group_id == group.id,
+            GroupMember.status == 1
+        ).count()
+        
+        group_data = {
+            "id": group.id,
+            "name": group.name,
+            "description": group.description,
+            "avatar": group.avatar,
+            "cover": group.cover,
+            "creator_id": group.creator_id,
+            "join_type": group.join_type,
+            "status": group.status,
+            "member_count": member_count,
+            "tags": group.tags,
+            "created_at": group.created_at.isoformat() if group.created_at else None,
+            "updated_at": group.updated_at.isoformat() if group.updated_at else None
+        }
+        result.append(group_data)
+    
+    return result
+
+
+class StatusUpdate(BaseModel):
+    status: int = Field(..., ge=0, le=1, description="状态: 0-禁用, 1-正常")
+
+
+@router.put("/community/groups/{group_id}/status")
+async def update_group_status(
+    group_id: int = Path(..., ge=1),
+    update_data: StatusUpdate = Body(...),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """更新小组状态（管理员）"""
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="小组不存在")
+    
+    group.status = update_data.status
+    db.commit()
+    db.refresh(group)
+    return {"success": True, "message": "状态更新成功"}
+
+
+@router.delete("/community/groups/{group_id}")
+async def delete_group(
+    group_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """删除小组（管理员）"""
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="小组不存在")
+    
+    # 先删除关联的成员记录
+    db.query(GroupMember).filter(GroupMember.group_id == group_id).delete()
+    
+    # 再删除小组
+    db.delete(group)
+    db.commit()
+    return {"success": True, "message": "删除成功"}
 
 
 @router.get("/community/questions", response_model=List[QuestionResponse])
@@ -1359,6 +1612,7 @@ async def get_community_questions(
     limit: int = Query(100, ge=1, le=100),
     status: Optional[int] = Query(None),
     category: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin)
 ):
@@ -1369,9 +1623,61 @@ async def get_community_questions(
         query = query.filter(Question.status == status)
     if category:
         query = query.filter(Question.category == category)
+    if search:
+        query = query.filter(Question.title.contains(search))
     
     questions = query.offset(skip).limit(limit).all()
     return questions
+
+
+@router.put("/community/questions/{question_id}/approve")
+async def approve_question(
+    question_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """审核通过问题（管理员）"""
+    question = db.query(Question).filter(Question.id == question_id).first()
+    if not question:
+        raise HTTPException(status_code=404, detail="问题不存在")
+    
+    question.status = 1
+    db.commit()
+    db.refresh(question)
+    return {"success": True, "message": "审核通过"}
+
+
+@router.put("/community/questions/{question_id}/reject")
+async def reject_question(
+    question_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """拒绝问题（管理员）"""
+    question = db.query(Question).filter(Question.id == question_id).first()
+    if not question:
+        raise HTTPException(status_code=404, detail="问题不存在")
+    
+    question.status = 2
+    db.commit()
+    db.refresh(question)
+    return {"success": True, "message": "已拒绝"}
+
+
+@router.delete("/community/questions/{question_id}")
+async def delete_question(
+    question_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """删除问题（管理员）"""
+    question = db.query(Question).filter(Question.id == question_id).first()
+    if not question:
+        raise HTTPException(status_code=404, detail="问题不存在")
+    
+    db.delete(question)
+    db.commit()
+    return {"success": True, "message": "删除成功"}
 
 
 @router.get("/community/answers", response_model=List[AnswerResponse])
@@ -1401,6 +1707,7 @@ async def get_community_reports(
     limit: int = Query(100, ge=1, le=100),
     status: Optional[int] = Query(None),
     target_type: Optional[int] = Query(None),
+    search: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin)
 ):
@@ -1445,7 +1752,7 @@ async def get_community_reports(
 async def handle_community_report(
     report_id: int = Path(..., ge=1),
     status: int = Body(..., ge=0, le=2, description="处理状态: 0-待处理, 1-已处理, 2-已驳回"),
-    handle_note: Optional[str] = Body(None, description="处理备注"),
+    handler_note: Optional[str] = Body(None, description="处理备注"),
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin)
 ):
@@ -1458,10 +1765,422 @@ async def handle_community_report(
     report.status = status
     report.handler_id = current_admin.id
     report.handle_time = datetime.now()
-    if handle_note:
-        report.handle_note = handle_note
+    if handler_note:
+        report.handle_note = handler_note
     
     db.commit()
     db.refresh(report)
     
-    return {"message": "举报处理成功"}
+    return {"success": True, "message": "举报处理成功"}
+
+
+# ==================== 每日一练管理 ====================
+
+from models.learning_materials import DailyPractice
+import json
+
+class DailyPracticeCreate(BaseModel):
+    category: str = Field(..., description="题目分类")
+    question: str = Field(..., description="题目内容")
+    options: str = Field(..., description="选项JSON")
+    answer: str = Field(..., description="正确答案")
+    analysis: str = Field(None, description="答案解析")
+    difficulty: int = Field(1, description="难度")
+    is_active: bool = Field(True, description="是否启用")
+    show_date: datetime = Field(None, description="指定显示日期")
+
+class DailyPracticeUpdate(BaseModel):
+    category: str = Field(None, description="题目分类")
+    question: str = Field(None, description="题目内容")
+    options: str = Field(None, description="选项JSON")
+    answer: str = Field(None, description="正确答案")
+    analysis: str = Field(None, description="答案解析")
+    difficulty: int = Field(None, description="难度")
+    is_active: bool = Field(None, description="是否启用")
+    show_date: datetime = Field(None, description="指定显示日期")
+
+class DailyPracticeResponse(BaseModel):
+    id: int
+    category: str
+    question: str
+    options: str
+    answer: str
+    analysis: str = None
+    difficulty: int
+    is_active: bool
+    show_date: datetime = None
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+@router.get("/daily-practices")
+async def get_daily_practices(
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    category: str = Query(None, description="题目分类"),
+    is_active: bool = Query(None, description="是否启用")
+):
+    """获取每日一练列表"""
+    query = db.query(DailyPractice)
+    
+    if category:
+        query = query.filter(DailyPractice.category == category)
+    if is_active is not None:
+        query = query.filter(DailyPractice.is_active == is_active)
+    
+    query = query.order_by(DailyPractice.created_at.desc())
+    total = query.count()
+    practices = query.offset((page - 1) * page_size).limit(page_size).all()
+    
+    return {
+        "success": True,
+        "code": 200,
+        "message": "获取每日一练列表成功",
+        "data": practices,
+        "total": total
+    }
+
+@router.post("/daily-practices", response_model=DailyPracticeResponse)
+async def create_daily_practice(
+    practice_data: DailyPracticeCreate,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """创建每日一练题目"""
+    try:
+        json.loads(practice_data.options)
+    except:
+        raise HTTPException(status_code=400, detail="选项格式错误，必须是有效的JSON")
+    
+    practice = DailyPractice(
+        category=practice_data.category,
+        question=practice_data.question,
+        options=practice_data.options,
+        answer=practice_data.answer,
+        analysis=practice_data.analysis,
+        difficulty=practice_data.difficulty,
+        is_active=practice_data.is_active,
+        show_date=practice_data.show_date
+    )
+    
+    db.add(practice)
+    db.commit()
+    db.refresh(practice)
+    
+    return practice
+
+@router.put("/daily-practices/{practice_id}", response_model=DailyPracticeResponse)
+async def update_daily_practice(
+    practice_id: int = Path(..., description="题目ID"),
+    practice_data: DailyPracticeUpdate = None,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """更新每日一练题目"""
+    practice = db.query(DailyPractice).filter(DailyPractice.id == practice_id).first()
+    if not practice:
+        raise HTTPException(status_code=404, detail="题目不存在")
+    
+    if practice_data.category is not None:
+        practice.category = practice_data.category
+    if practice_data.question is not None:
+        practice.question = practice_data.question
+    if practice_data.options is not None:
+        try:
+            json.loads(practice_data.options)
+        except:
+            raise HTTPException(status_code=400, detail="选项格式错误，必须是有效的JSON")
+        practice.options = practice_data.options
+    if practice_data.answer is not None:
+        practice.answer = practice_data.answer
+    if practice_data.analysis is not None:
+        practice.analysis = practice_data.analysis
+    if practice_data.difficulty is not None:
+        practice.difficulty = practice_data.difficulty
+    if practice_data.is_active is not None:
+        practice.is_active = practice_data.is_active
+    if practice_data.show_date is not None:
+        practice.show_date = practice_data.show_date
+    
+    db.commit()
+    db.refresh(practice)
+    
+    return practice
+
+@router.delete("/daily-practices/{practice_id}")
+async def delete_daily_practice(
+    practice_id: int = Path(..., description="题目ID"),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """删除每日一练题目"""
+    practice = db.query(DailyPractice).filter(DailyPractice.id == practice_id).first()
+    if not practice:
+        raise HTTPException(status_code=404, detail="题目不存在")
+    
+    # 先删除关联的答题记录
+    from models.learning_materials import DailyPracticeRecord
+    db.query(DailyPracticeRecord).filter(DailyPracticeRecord.practice_id == practice_id).delete()
+    # 再删除题目
+    db.delete(practice)
+    db.commit()
+    
+    return {"success": True, "message": "删除成功"}
+
+@router.get("/daily-practices/categories")
+async def get_practice_categories(
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """获取题目分类列表"""
+    categories = db.query(DailyPractice.category).distinct().all()
+    return [c[0] for c in categories]
+
+@router.get("/daily-practices/{practice_id}", response_model=DailyPracticeResponse)
+async def get_daily_practice(
+    practice_id: int = Path(..., description="题目ID"),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """获取单个每日一练题目"""
+    practice = db.query(DailyPractice).filter(DailyPractice.id == practice_id).first()
+    if not practice:
+        raise HTTPException(status_code=404, detail="题目不存在")
+    return practice
+
+
+# ==================== 热点管理 ====================
+
+from models.learning_materials import HotTopic
+
+class HotTopicCreate(BaseModel):
+    title: str = Field(..., description="热点标题")
+    content: str = Field(None, description="热点内容")
+    cover_image: str = Field(None, description="封面图片URL")
+    link_url: str = Field(None, description="跳转链接URL")
+    category: str = Field(None, description="分类: 考研/考公/通用")
+    source: str = Field(None, description="来源")
+    sort_order: int = Field(0, description="排序顺序")
+    is_active: bool = Field(True, description="是否启用")
+    publish_time: datetime = Field(None, description="发布时间")
+
+class HotTopicUpdate(BaseModel):
+    title: str = Field(None, description="热点标题")
+    content: str = Field(None, description="热点内容")
+    cover_image: str = Field(None, description="封面图片URL")
+    link_url: str = Field(None, description="跳转链接URL")
+    category: str = Field(None, description="分类: 考研/考公/通用")
+    source: str = Field(None, description="来源")
+    sort_order: int = Field(None, description="排序顺序")
+    is_active: bool = Field(None, description="是否启用")
+    publish_time: datetime = Field(None, description="发布时间")
+
+class HotTopicResponse(BaseModel):
+    id: int
+    title: str
+    content: str = None
+    cover_image: str = None
+    link_url: str = None
+    category: str = None
+    source: str = None
+    views: int
+    sort_order: int
+    is_active: bool
+    publish_time: datetime = None
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+@router.get("/hot-topics")
+async def get_hot_topics(
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    category: str = Query(None, description="分类"),
+    is_active: bool = Query(None, description="是否启用")
+):
+    """获取热点列表"""
+    query = db.query(HotTopic)
+    
+    if category:
+        query = query.filter(HotTopic.category == category)
+    if is_active is not None:
+        query = query.filter(HotTopic.is_active == is_active)
+    
+    query = query.order_by(HotTopic.sort_order.desc(), HotTopic.created_at.desc())
+    total = query.count()
+    topics = query.offset((page - 1) * page_size).limit(page_size).all()
+    
+    return {
+        "success": True,
+        "code": 200,
+        "message": "获取热点列表成功",
+        "data": topics,
+        "total": total
+    }
+
+@router.post("/hot-topics", response_model=HotTopicResponse)
+async def create_hot_topic(
+    topic_data: HotTopicCreate,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """创建热点"""
+    topic = HotTopic(
+        title=topic_data.title,
+        content=topic_data.content,
+        cover_image=topic_data.cover_image,
+        link_url=topic_data.link_url,
+        category=topic_data.category,
+        source=topic_data.source,
+        sort_order=topic_data.sort_order,
+        is_active=topic_data.is_active,
+        publish_time=topic_data.publish_time
+    )
+    
+    db.add(topic)
+    db.commit()
+    db.refresh(topic)
+    
+    return topic
+
+@router.put("/hot-topics/{topic_id}", response_model=HotTopicResponse)
+async def update_hot_topic(
+    topic_id: int = Path(..., description="热点ID"),
+    topic_data: HotTopicUpdate = None,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """更新热点"""
+    topic = db.query(HotTopic).filter(HotTopic.id == topic_id).first()
+    if not topic:
+        raise HTTPException(status_code=404, detail="热点不存在")
+    
+    if topic_data.title is not None:
+        topic.title = topic_data.title
+    if topic_data.content is not None:
+        topic.content = topic_data.content
+    if topic_data.cover_image is not None:
+        topic.cover_image = topic_data.cover_image
+    if topic_data.link_url is not None:
+        topic.link_url = topic_data.link_url
+    if topic_data.category is not None:
+        topic.category = topic_data.category
+    if topic_data.source is not None:
+        topic.source = topic_data.source
+    if topic_data.sort_order is not None:
+        topic.sort_order = topic_data.sort_order
+    if topic_data.is_active is not None:
+        topic.is_active = topic_data.is_active
+    if topic_data.publish_time is not None:
+        topic.publish_time = topic_data.publish_time
+    
+    db.commit()
+    db.refresh(topic)
+    
+    return topic
+
+@router.delete("/hot-topics/{topic_id}")
+async def delete_hot_topic(
+    topic_id: int = Path(..., description="热点ID"),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """删除热点"""
+    topic = db.query(HotTopic).filter(HotTopic.id == topic_id).first()
+    if not topic:
+        raise HTTPException(status_code=404, detail="热点不存在")
+    
+    db.delete(topic)
+    db.commit()
+    
+    return {"success": True, "message": "删除成功"}
+
+@router.get("/hot-topics/{topic_id}", response_model=HotTopicResponse)
+async def get_hot_topic(
+    topic_id: int = Path(..., description="热点ID"),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """获取单个热点"""
+    topic = db.query(HotTopic).filter(HotTopic.id == topic_id).first()
+    if not topic:
+        raise HTTPException(status_code=404, detail="热点不存在")
+    return topic
+
+@router.post("/check-vip-expiration")
+async def check_vip_expiration(
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """手动检查VIP过期状态"""
+    from datetime import datetime
+    
+    vip_users = db.query(User).filter(User.is_vip == True).all()
+    
+    expired_count = 0
+    expiring_soon_count = 0
+    
+    for user in vip_users:
+        if user.vip_end_time:
+            if datetime.now() > user.vip_end_time:
+                user.is_vip = False
+                expired_count += 1
+            elif (user.vip_end_time - datetime.now()).days <= 7:
+                expiring_soon_count += 1
+    
+    if expired_count > 0:
+        db.commit()
+    
+    return JSONResponse(
+        status_code=200,
+        content={
+            "success": True,
+            "code": 200,
+            "message": f"VIP状态检查完成，{expired_count}个用户已过期，{expiring_soon_count}个用户即将过期",
+            "data": {
+                "expired_count": expired_count,
+                "expiring_soon_count": expiring_soon_count,
+                "total_vip_users": len(vip_users)
+            }
+        }
+    )
+
+@router.post("/check-exam-expiration")
+async def check_exam_expiration(
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """手动检查考试日程过期状态"""
+    from datetime import datetime
+    from models.learning_materials import ExamSchedule
+    
+    expired_exams = db.query(ExamSchedule).filter(
+        ExamSchedule.exam_date < datetime.now(),
+        ExamSchedule.is_active == True
+    ).all()
+    
+    expired_count = len(expired_exams)
+    
+    for exam in expired_exams:
+        exam.is_active = False
+    
+    if expired_count > 0:
+        db.commit()
+    
+    return JSONResponse(
+        status_code=200,
+        content={
+            "success": True,
+            "code": 200,
+            "message": f"考试日程检查完成，{expired_count}个考试已过期",
+            "data": {
+                "expired_count": expired_count
+            }
+        }
+    )

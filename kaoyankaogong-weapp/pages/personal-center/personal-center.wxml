@@ -37,11 +37,15 @@
       <view class="info-label">注册时间</view>
       <view class="info-value">{{userInfo.created_at}}</view>
     </view>
-    <view class="info-item" wx:if="{{userInfo.is_vip_active}}">
+    <view class="info-item">
+      <view class="info-label">积分</view>
+      <view class="info-value">{{userInfo.points || 0}}</view>
+    </view>
+    <view class="info-item" wx:if="{{userInfo.is_vip}}">
       <view class="info-label">VIP状态</view>
       <view class="info-value vip-status">已激活</view>
     </view>
-    <view class="info-item" wx:if="{{userInfo.is_vip_active}}">
+    <view class="info-item" wx:if="{{userInfo.is_vip}}">
       <view class="info-label">VIP到期时间</view>
       <view class="info-value">{{userInfo.vip_end_time}}</view>
     </view>
@@ -63,7 +67,7 @@
       <view class="info-value">{{userInfo.kaoyan_requirements.major}}</view>
     </view>
     <view class="info-item" wx:if="{{userInfo.kaoyan_requirements.type}}">
-      <view class="info-label">岗位类型</view>
+      <view class="info-label">关注类型</view>
       <view class="info-value">{{userInfo.kaoyan_requirements.type}}</view>
     </view>
     <view class="info-item" wx:if="{{userInfo.kaoyan_requirements.keywords}}">
@@ -93,9 +97,9 @@
     </view>
   </view>
 
-  <!-- 修改需求按钮 -->
-  <view class="edit-btn-section">
-    <button class="edit-btn" bindtap="navigateToEditRequirements">修改需求</button>
+  <!-- 续费按钮（临时调试：所有用户可见） -->
+  <view class="renew-btn-section">
+    <button class="renew-btn" bindtap="navigateToRenewal">续费</button>
   </view>
 
   <!-- 加载状态 -->

@@ -143,6 +143,9 @@
         <p>7×24小时自动抓取、分类、推送考研+考公官方关键信息的情报平台</p>
       </div>
     </el-footer>
+
+    <!-- 移动端底部导航 -->
+    <MobileTabBar />
   </div>
 </template>
 
@@ -153,6 +156,7 @@ import { Document, Position, Bell, ArrowDown, Clock } from '@element-plus/icons-
 import axios from 'axios'
 import Carousel from '@/components/Carousel.vue'
 import ExamCountdown from '@/components/ExamCountdown.vue'
+import MobileTabBar from '@/components/MobileTabBar.vue'
 
 const router = useRouter()
 const activeIndex = ref('/')
@@ -189,17 +193,14 @@ const formatDate = (date) => {
 // 获取最新情报
 const getLatestInfo = async () => {
   try {
-    // 模拟数据，实际应该调用API
-    kaoyanLatest.value = [
-      { id: 1, title: '2026年全国硕士研究生招生考试公告', publish_date: '2026-09-24' },
-      { id: 2, title: '2026年考研国家线公布', publish_date: '2026-03-15' },
-      { id: 3, title: '2026年考研复试调剂指南', publish_date: '2026-03-20' }
-    ]
-    kaogongLatest.value = [
-      { id: 1, title: '2026年国家公务员招考公告', publish_date: '2026-10-14' },
-      { id: 2, title: '2026年国考职位表发布', publish_date: '2026-10-15' },
-      { id: 3, title: '2026年国考报名指南', publish_date: '2026-10-16' }
-    ]
+    const token = localStorage.getItem('token')
+    const headers = token ? { Authorization: `Bearer ${token}` } : {}
+    const [kaoyanRes, kaogongRes] = await Promise.all([
+      axios.get('/api/v1/kaoyan/info/latest', { headers }).catch(() => ({ data: [] })),
+      axios.get('/api/v1/kaogong/info/latest', { headers }).catch(() => ({ data: [] }))
+    ])
+    kaoyanLatest.value = Array.isArray(kaoyanRes.data) ? kaoyanRes.data : []
+    kaogongLatest.value = Array.isArray(kaogongRes.data) ? kaogongRes.data : []
   } catch (error) {
     console.error('获取最新情报失败:', error)
   }

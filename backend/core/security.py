@@ -28,6 +28,9 @@ ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 # HTTPBearer认证
 security = HTTPBearer()
 
+# 可选的安全配置（允许没有 Authorization 头部）
+security_optional = HTTPBearer(auto_error=False)
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     if hashed_password.startswith("$2b$") or hashed_password.startswith("$2a$"):
         # bcrypt 限制密码长度为72字节
@@ -89,6 +92,22 @@ def verify_token(token: str, credentials_exception: HTTPException) -> dict:
         raise credentials_exception
         
     return token_data
+
+def get_current_user_optional(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_optional),
+    db: Session = Depends(get_db_common)
+) -> Optional[User]:
+    """获取当前用户（可选）"""
+    if not credentials:
+        return None
+        
+    try:
+        token_data = verify_token(credentials.credentials, HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无法验证凭证"))
+        user = db.query(User).filter(User.id == token_data["user_id"]).first()
+        return user
+    except:
+        return None
+
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),

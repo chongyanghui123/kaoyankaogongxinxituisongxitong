@@ -169,7 +169,7 @@ Page({
 
     wx.showLoading({ title: '重置中...' })
     wx.request({
-      url: app.globalData.baseUrl + '/auth/reset-password',
+      url: app.globalData.baseUrl + '/auth/reset-password-by-phone',
       method: 'POST',
       data: {
         phone: phone,

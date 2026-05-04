@@ -78,7 +78,7 @@ Page({
       
       // 调用API触发考研情报推送
       const response = await app.request({
-        url: '/admin/push/kaoyan',
+        url: '/push/trigger/kaoyan',
         method: 'POST'
       });
       
@@ -114,7 +114,7 @@ Page({
       
       // 调用API触发考公情报推送
       const response = await app.request({
-        url: '/admin/push/kaogong',
+        url: '/push/trigger/kaogong',
         method: 'POST'
       });
       
@@ -150,7 +150,7 @@ Page({
       
       // 调用API触发到期提醒推送
       const response = await app.request({
-        url: '/admin/push/expiry',
+        url: '/push/trigger/expiry',
         method: 'POST'
       });
       

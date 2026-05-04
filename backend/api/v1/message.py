@@ -55,9 +55,14 @@ async def get_message_list(
         for log in push_logs:
             # 简单判断消息类型
             message_type = "info"
-            if "到期" in (log.push_content or ""):
+            if log.info_id == 0:
+                message_type = "system"
+            elif "到期" in (log.push_content or ""):
                 message_type = "expiry"
             elif "系统" in (log.push_content or "") or "学习资料" in (log.push_content or ""):
+                message_type = "system"
+            # 对于发送通知接口创建的消息，确保类型为system
+            if log.push_type == 4:
                 message_type = "system"
             
             items.append({
@@ -139,4 +144,44 @@ async def mark_message_as_read(
         raise HTTPException(
             status_code=500,
             detail="标记已读失败"
+        )
+
+
+@router.delete("/{message_id}", response_model=dict)
+async def delete_message(
+    message_id: int = Path(..., description="消息ID"),
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    """删除消息"""
+    try:
+        # 查找该消息
+        push_log = db.query(PushLog).filter(
+            PushLog.id == message_id,
+            PushLog.user_id == current_user.id
+        ).first()
+        
+        if not push_log:
+            raise HTTPException(
+                status_code=404,
+                detail="消息未找到"
+            )
+        
+        # 删除消息
+        db.delete(push_log)
+        db.commit()
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "删除消息成功",
+                "data": None
+            }
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail="删除消息失败"
         )

@@ -197,7 +197,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import axios from 'axios'
+import axios from '@/utils/axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 // 订单管理相关
@@ -283,18 +283,18 @@ const getOrders = async () => {
     })
     
     // 转换订单数据结构
-    orders.value = response.data.data.map(order => ({
+    orders.value = response.data.map(order => ({
       ...order,
-      amount: order.total_amount, // 前端使用amount，后端返回total_amount
-      status: reverseStatusMap[order.payment_status], // 转换状态为前端格式
-      payment_method: paymentMethodMap[order.payment_method] || '未知', // 转换支付方式为文本
-      paid_at: order.payment_time, // 前端使用paid_at，后端返回payment_time
+      amount: order.total_amount,
+      status: reverseStatusMap[order.payment_status],
+      payment_method: paymentMethodMap[order.payment_method] || '未知',
+      paid_at: order.payment_time,
       user_name: order.username || `用户${order.user_id}`,
       product_name: order.product_name || `产品${order.product_id}`
     }))
     
     // 加载用户和产品信息
-    await loadUsersAndProducts(response.data.data)
+    await loadUsersAndProducts(response.data)
     
     // 更新订单数据中的用户和产品名称
     orders.value = orders.value.map(order => ({
@@ -304,7 +304,7 @@ const getOrders = async () => {
     }))
     
     // 从API返回的total字段获取总数
-    total.value = response.data.total
+    total.value = response.total
   } catch (error) {
     console.error('获取订单列表失败:', error)
     if (error.response) {
@@ -433,8 +433,8 @@ const getUserInfo = async (userId) => {
     })
     
     // admin接口返回统一格式的数据
-    if (response.data && response.data.success) {
-      const userInfo = response.data.data
+    if (response && response.success) {
+      const userInfo = response.data
       usersMap.value[userId] = userInfo.username || `用户${userId}`
       return usersMap.value[userId]
     }
@@ -460,8 +460,8 @@ const getProductInfo = async (productId) => {
       }
     })
     
-    if (response.data) {
-      productsMap.value[productId] = response.data.name || `产品${productId}`
+    if (response) {
+      productsMap.value[productId] = response.name || `产品${productId}`
       return productsMap.value[productId]
     }
   } catch (error) {

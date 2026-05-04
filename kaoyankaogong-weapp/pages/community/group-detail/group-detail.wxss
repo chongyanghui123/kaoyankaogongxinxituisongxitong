@@ -205,3 +205,104 @@
   font-size: 28rpx;
   font-weight: bold;
 }
+
+.at-btn {
+  width: 70rpx;
+  height: 70rpx;
+  background-color: #1890ff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  padding: 0;
+}
+
+.at-btn .btn-icon {
+  font-size: 36rpx;
+  color: #fff;
+  font-weight: bold;
+}
+
+.member-picker-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+}
+
+.member-picker {
+  width: 100%;
+  background-color: #fff;
+  border-radius: 30rpx 30rpx 0 0;
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 30rpx;
+  border-bottom: 1rpx solid #eee;
+}
+
+.picker-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.picker-close {
+  font-size: 50rpx;
+  color: #999;
+  line-height: 1;
+}
+
+.member-list {
+  max-height: 50vh;
+  padding: 20rpx;
+}
+
+.member-item {
+  display: flex;
+  align-items: center;
+  padding: 20rpx;
+  border-radius: 12rpx;
+  background-color: #f9f9f9;
+  margin-bottom: 15rpx;
+}
+
+.member-item:active {
+  background-color: #e6f7ff;
+}
+
+.member-avatar {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 50%;
+  margin-right: 20rpx;
+}
+
+.member-name {
+  font-size: 28rpx;
+  color: #333;
+}
+
+.empty-members {
+  text-align: center;
+  padding: 60rpx 0;
+  color: #999;
+  font-size: 28rpx;
+}
+
+.mention {
+  color: #1890ff;
+  font-weight: bold;
+}

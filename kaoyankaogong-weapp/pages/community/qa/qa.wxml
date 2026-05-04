@@ -16,99 +16,43 @@
   <!-- 问题分类 -->
   <view class="category-bar">
     <scroll-view scroll-x="true" class="category-scroll">
-      <view class="category-item active">全部</view>
-      <view class="category-item">考研</view>
-      <view class="category-item">公务员</view>
-      <view class="category-item">数学</view>
-      <view class="category-item">英语</view>
-      <view class="category-item">政治</view>
-      <view class="category-item">专业课</view>
+      <view class="category-item {{activeCategory === '全部' ? 'active' : ''}}" bindtap="switchCategory" data-category="全部">全部</view>
+      <view class="category-item {{activeCategory === '考研' ? 'active' : ''}}" bindtap="switchCategory" data-category="考研">考研</view>
+      <view class="category-item {{activeCategory === '公务员' ? 'active' : ''}}" bindtap="switchCategory" data-category="公务员">公务员</view>
+      <view class="category-item {{activeCategory === '数学' ? 'active' : ''}}" bindtap="switchCategory" data-category="数学">数学</view>
+      <view class="category-item {{activeCategory === '英语' ? 'active' : ''}}" bindtap="switchCategory" data-category="英语">英语</view>
+      <view class="category-item {{activeCategory === '政治' ? 'active' : ''}}" bindtap="switchCategory" data-category="政治">政治</view>
+      <view class="category-item {{activeCategory === '专业课' ? 'active' : ''}}" bindtap="switchCategory" data-category="专业课">专业课</view>
     </scroll-view>
   </view>
 
   <!-- 问题列表 -->
   <view class="question-list">
-    <view class="question-item" bindtap="navigateToQuestionDetail" data-id="1">
+    <view wx:for="{{questions}}" wx:key="id" class="question-item" bindtap="navigateToQuestionDetail" data-id="{{item.id}}">
       <view class="question-content">
-        <view class="question-title">2026年考研数学一的难度如何？有什么备考建议吗？</view>
-        <view class="question-desc">最近开始准备2026年考研，想了解一下数学一的难度和备考策略，希望有经验的学长学姐能分享一下。</view>
+        <view class="question-title">{{item.title}}</view>
+        <view class="question-desc">{{item.content}}</view>
       </view>
       <view class="question-stats">
         <view class="stat-item">
           <text class="stat-icon">👁️</text>
-          <text class="stat-text">234</text>
+          <text class="stat-text">{{item.view_count}}</text>
         </view>
         <view class="stat-item">
           <text class="stat-icon">💬</text>
-          <text class="stat-text">12</text>
+          <text class="stat-text">{{item.answer_count}}</text>
         </view>
         <view class="stat-item">
           <text class="stat-icon">👍</text>
-          <text class="stat-text">35</text>
+          <text class="stat-text">{{item.like_count}}</text>
         </view>
       </view>
       <view class="question-footer">
         <view class="user-info">
-          <view class="user-avatar">学</view>
-          <view class="user-name">考研小白</view>
+          <view class="user-avatar">{{item.avatar}}</view>
+          <view class="user-name">{{item.username || '匿名用户'}}</view>
         </view>
-        <view class="question-time">2小时前</view>
-      </view>
-    </view>
-
-    <view class="question-item" bindtap="navigateToQuestionDetail" data-id="2">
-      <view class="question-content">
-        <view class="question-title">公务员考试申论怎么提高？有什么答题技巧？</view>
-        <view class="question-desc">申论一直是我的弱项，每次模拟考试分数都不高，想请教一下申论的答题技巧和备考方法。</view>
-      </view>
-      <view class="question-stats">
-        <view class="stat-item">
-          <text class="stat-icon">👁️</text>
-          <text class="stat-text">189</text>
-        </view>
-        <view class="stat-item">
-          <text class="stat-icon">💬</text>
-          <text class="stat-text">8</text>
-        </view>
-        <view class="stat-item">
-          <text class="stat-icon">👍</text>
-          <text class="stat-text">27</text>
-        </view>
-      </view>
-      <view class="question-footer">
-        <view class="user-info">
-          <view class="user-avatar">公</view>
-          <view class="user-name">考公达人</view>
-        </view>
-        <view class="question-time">4小时前</view>
-      </view>
-    </view>
-
-    <view class="question-item" bindtap="navigateToQuestionDetail" data-id="3">
-      <view class="question-content">
-        <view class="question-title">考研英语阅读怎么提高正确率？有什么解题技巧？</view>
-        <view class="question-desc">英语阅读总是错很多，尤其是细节题和推理题，想了解一下提高阅读正确率的方法。</view>
-      </view>
-      <view class="question-stats">
-        <view class="stat-item">
-          <text class="stat-icon">👁️</text>
-          <text class="stat-text">312</text>
-        </view>
-        <view class="stat-item">
-          <text class="stat-icon">💬</text>
-          <text class="stat-text">15</text>
-        </view>
-        <view class="stat-item">
-          <text class="stat-icon">👍</text>
-          <text class="stat-text">42</text>
-        </view>
-      </view>
-      <view class="question-footer">
-        <view class="user-info">
-          <view class="user-avatar">英</view>
-          <view class="user-name">英语爱好者</view>
-        </view>
-        <view class="question-time">6小时前</view>
+        <view class="question-time">{{item.created_at}}</view>
       </view>
     </view>
   </view>

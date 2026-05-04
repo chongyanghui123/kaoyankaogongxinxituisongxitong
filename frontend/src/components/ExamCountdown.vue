@@ -74,8 +74,8 @@ const formatDate = (date) => {
 const getExamSchedules = async () => {
   try {
     const response = await axios.get('/api/v1/learning_materials/exam-schedules/active')
-    if (response.data.success) {
-      activeSchedules.value = response.data.data
+    if (response.success) {
+      activeSchedules.value = response.data
     }
   } catch (error) {
     console.error('获取考试日程失败:', error)

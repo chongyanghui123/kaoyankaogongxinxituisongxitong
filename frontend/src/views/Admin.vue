@@ -48,6 +48,10 @@
             <el-icon><Setting /></el-icon>
             <span>系统配置</span>
           </el-menu-item>
+          <el-menu-item index="/admin/templates">
+            <el-icon><Document /></el-icon>
+            <span>邮件文案管理</span>
+          </el-menu-item>
           <el-menu-item index="/admin/push">
             <el-icon><Message /></el-icon>
             <span>推送管理</span>
@@ -79,6 +83,34 @@
           <el-menu-item index="/admin/gift">
             <el-icon><CreditCard /></el-icon>
             <span>礼品管理</span>
+          </el-menu-item>
+          
+          <el-menu-item index="/admin/groups">
+            <el-icon><User /></el-icon>
+            <span>小组管理</span>
+          </el-menu-item>
+          <el-menu-item index="/admin/questions">
+            <el-icon><Message /></el-icon>
+            <span>问答管理</span>
+          </el-menu-item>
+          <el-menu-item index="/admin/reports">
+            <el-icon><Bell /></el-icon>
+            <span>举报处理</span>
+          </el-menu-item>
+          
+          <el-menu-item index="/admin/notification">
+            <el-icon><Message /></el-icon>
+            <span>发送通知</span>
+          </el-menu-item>
+          
+          <el-menu-item index="/admin/daily-practice">
+            <el-icon><Edit /></el-icon>
+            <span>每日一练管理</span>
+          </el-menu-item>
+          
+          <el-menu-item index="/admin/hot-topics">
+            <el-icon><Bell /></el-icon>
+            <span>热点管理</span>
           </el-menu-item>
 
           <el-dropdown>
@@ -147,8 +179,28 @@
           <!-- 礼品管理 -->
           <GiftManagement v-if="activeIndex === '/admin/gift'" />
           
-
-        </div>
+          <!-- 小组管理 -->
+          <GroupManagement v-if="activeIndex === '/admin/groups'" />
+          
+          <!-- 问答管理 -->
+          <QuestionManagement v-if="activeIndex === '/admin/questions'" />
+          
+          <!-- 举报处理 -->
+          <ReportManagement v-if="activeIndex === '/admin/reports'" />
+          
+          <!-- 邮件文案管理 -->
+          <EmailFormTemplate v-if="activeIndex === '/admin/templates'" />
+          
+          <!-- 发送通知 -->
+          <NotificationSender v-if="activeIndex === '/admin/notification'" />
+          
+          <!-- 每日一练管理 -->
+          <DailyPracticeManagement v-if="activeIndex === '/admin/daily-practice'" />
+          
+          <!-- 热点管理 -->
+          <HotTopicManagement v-if="activeIndex === '/admin/hot-topics'" />
+          
+          </div>
       </el-main>
     </div>
 
@@ -165,7 +217,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowDown, Search, User, Refresh, ShoppingCart, Setting, Document, DataAnalysis, Paperclip, CreditCard, Message, Bell, Download, ChatDotRound, Picture, Calendar } from '@element-plus/icons-vue'
+import { ArrowDown, Search, User, Refresh, ShoppingCart, Setting, Document, DataAnalysis, Paperclip, CreditCard, Message, Bell, Download, ChatDotRound, Picture, Calendar, Edit } from '@element-plus/icons-vue'
 import axios from 'axios'
 
 // 导入模块化组件
@@ -185,6 +237,13 @@ import CarouselManagement from '../components/admin/CarouselManagement.vue'
 import ExamScheduleManagement from '../components/admin/ExamScheduleManagement.vue'
 import SignInManagement from '../components/admin/SignInManagement.vue'
 import GiftManagement from '../components/admin/GiftManagement.vue'
+import GroupManagement from '../components/admin/GroupManagement.vue'
+import QuestionManagement from '../components/admin/QuestionManagement.vue'
+import ReportManagement from '../components/admin/ReportManagement.vue'
+import EmailFormTemplate from '../components/admin/EmailFormTemplate.vue'
+import NotificationSender from '../components/admin/NotificationSender.vue'
+import DailyPracticeManagement from '../components/admin/DailyPracticeManagement.vue'
+import HotTopicManagement from '../components/admin/HotTopicManagement.vue'
 
 
 // const router = useRouter()

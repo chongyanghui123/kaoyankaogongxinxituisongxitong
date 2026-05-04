@@ -11,7 +11,7 @@
       <!-- 搜索和筛选 -->
       <div class="search-filter">
         <el-row :gutter="20">
-          <el-col :span="8">
+          <el-col :span="6">
             <el-input
               v-model="searchQuery"
               placeholder="搜索资料"
@@ -24,14 +24,14 @@
               </template>
             </el-input>
           </el-col>
-          <el-col :span="8">
+          <el-col :span="6">
             <el-select v-model="typeFilter" placeholder="按类型筛选" clearable @change="getMaterials">
               <el-option label="全部" value="" />
               <el-option label="考研" value="1" />
               <el-option label="考公" value="2" />
             </el-select>
           </el-col>
-          <el-col :span="8">
+          <el-col :span="6">
             <el-select v-model="categoryFilter" placeholder="按分类筛选" clearable @change="getMaterials">
               <el-option label="全部" value="" />
               <el-option
@@ -40,6 +40,13 @@
                 :label="category.name"
                 :value="category.id"
               />
+            </el-select>
+          </el-col>
+          <el-col :span="6">
+            <el-select v-model="vipFilter" placeholder="按VIP权限筛选" clearable @change="getMaterials">
+              <el-option label="全部" value="" />
+              <el-option label="VIP专属" value="true" />
+              <el-option label="普通资料" value="false" />
             </el-select>
           </el-col>
         </el-row>
@@ -79,6 +86,13 @@
         <el-table-column prop="rating" label="评分" width="100">
           <template #default="scope">
             <span class="rating-number">{{ scope.row.rating.toFixed(1) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="VIP专属" width="90">
+          <template #default="scope">
+            <el-tag :type="scope.row.is_vip ? 'danger' : 'info'" size="small">
+              {{ scope.row.is_vip ? 'VIP' : '普通' }}
+            </el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="upload_time" label="上传时间" width="180" />
@@ -139,6 +153,9 @@
           </el-form-item>
           <el-form-item label="科目">
             <el-input v-model="uploadForm.subject" placeholder="请输入科目" />
+          </el-form-item>
+          <el-form-item label="VIP专属">
+            <el-switch v-model="uploadForm.is_vip" active-text="仅VIP可见" inactive-text="所有用户可见" />
           </el-form-item>
           <el-form-item label="资料文件">
             <el-upload
@@ -222,6 +239,9 @@
           <el-form-item label="科目">
             <el-input v-model="editForm.subject" placeholder="请输入科目" />
           </el-form-item>
+          <el-form-item label="VIP专属">
+            <el-switch v-model="editForm.is_vip" active-text="仅VIP可见" inactive-text="所有用户可见" />
+          </el-form-item>
           <el-form-item label="资料文件">
             <el-upload
               class="upload-demo"
@@ -293,6 +313,7 @@ const total = ref(0)
 const searchQuery = ref('')
 const typeFilter = ref('')
 const categoryFilter = ref('')
+const vipFilter = ref('')
 
 // 分类列表
 const categories = ref([])
@@ -304,7 +325,8 @@ const uploadForm = ref({
   description: '',
   type: '',
   category_id: '',
-  subject: ''
+  subject: '',
+  is_vip: false
 })
 const fileList = ref([])
 const coverList = ref([])
@@ -318,6 +340,7 @@ const editForm = ref({
   type: '',
   category_id: '',
   subject: '',
+  is_vip: false,
   file_url: '',
   cover_image: ''
 })
@@ -333,8 +356,8 @@ const getCategories = async () => {
         'Authorization': `Bearer ${token}`
       }
     })
-    if (response.data.success) {
-      categories.value = response.data.data
+    if (response.success) {
+      categories.value = response.data
     }
   } catch (error) {
     console.error('获取资料分类列表失败:', error)
@@ -360,6 +383,9 @@ const getMaterials = async () => {
     if (categoryFilter.value) {
       params.category_id = categoryFilter.value
     }
+    if (vipFilter.value) {
+      params.is_vip = vipFilter.value === 'true'
+    }
     
     const response = await axios.get('/api/v1/learning_materials/materials', {
       headers: {
@@ -368,9 +394,9 @@ const getMaterials = async () => {
       params
     })
     
-    if (response.data.success) {
-      materials.value = response.data.data.items || []
-      total.value = response.data.data.total
+    if (response.success) {
+      materials.value = response.data.items || []
+      total.value = response.data.total
     } else {
       materials.value = []
       total.value = 0
@@ -441,6 +467,7 @@ const uploadMaterial = async () => {
     formData.append('type', uploadForm.value.type)
     formData.append('category_id', uploadForm.value.category_id)
     formData.append('subject', uploadForm.value.subject)
+    formData.append('is_vip', uploadForm.value.is_vip ? 'true' : 'false')
     formData.append('file', fileList.value[0].raw)
     if (coverList.value.length > 0) {
       formData.append('cover_image', coverList.value[0].raw)
@@ -453,7 +480,7 @@ const uploadMaterial = async () => {
       }
     })
     
-    if (response.data.success) {
+    if (response.success) {
       ElMessage.success('上传资料成功')
       showUploadDialog.value = false
       // 重置表单
@@ -462,7 +489,8 @@ const uploadMaterial = async () => {
         description: '',
         type: '',
         category_id: '',
-        subject: ''
+        subject: '',
+        is_vip: false
       }
       fileList.value = []
       coverList.value = []
@@ -486,6 +514,7 @@ const openEditDialog = (material) => {
     type: material.type,
     category_id: material.category_id,
     subject: material.subject,
+    is_vip: material.is_vip || false,
     file_url: material.file_url,
     cover_image: material.cover_image
   }
@@ -535,6 +564,7 @@ const updateMaterial = async () => {
     formData.append('type', editForm.value.type)
     formData.append('category_id', editForm.value.category_id)
     formData.append('subject', editForm.value.subject)
+    formData.append('is_vip', editForm.value.is_vip ? 'true' : 'false')
     if (editFileList.value.length > 0) {
       formData.append('file', editFileList.value[0].raw)
     }
@@ -549,13 +579,13 @@ const updateMaterial = async () => {
       }
     })
     
-    if (response.data.success) {
+    if (response.success) {
       ElMessage.success('更新资料成功')
       showEditDialog.value = false
       // 刷新资料列表
       getMaterials()
     } else {
-      ElMessage.error('更新资料失败: ' + response.data.message)
+      ElMessage.error('更新资料失败: ' + response.message)
     }
   } catch (error) {
     console.error('更新资料失败:', error)
@@ -581,12 +611,12 @@ const deleteMaterial = async (id) => {
         }
       })
       
-      if (response.data.success) {
+      if (response.success) {
         ElMessage.success('删除资料成功')
         // 刷新资料列表
         getMaterials()
       } else {
-        ElMessage.error('删除资料失败: ' + response.data.message)
+        ElMessage.error('删除资料失败: ' + response.message)
       }
     }
   } catch (error) {

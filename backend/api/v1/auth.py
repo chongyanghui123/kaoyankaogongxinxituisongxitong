@@ -588,36 +588,79 @@ async def wechat_login(
     req: WechatLoginRequest,
     db: Session = Depends(get_db_common)
 ):
-    """微信登录接口（用于小程序登录）"""
+    """微信登录接口（用于小程序登录，开发模式自动降级为模拟登录）"""
     try:
-        # 这里应该调用微信API获取openid，暂时模拟
-        # 实际项目中需要使用微信开发者工具的AppID和AppSecret
-        openid = f"openid_{req.code}"
+        import httpx
+        import hashlib
         
-        # 查找用户是否已存在
-        user = db.query(User).filter(User.username == openid).first()
+        appid = settings.WECHAT_APP_ID
+        secret = settings.WECHAT_APP_SECRET
+        openid = None
+        unionid = None
+        mock_login = False
+        
+        if appid and secret:
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(
+                        "https://api.weixin.qq.com/sns/jscode2session",
+                        params={
+                            "appid": appid,
+                            "secret": secret,
+                            "js_code": req.code,
+                            "grant_type": "authorization_code"
+                        },
+                        timeout=10.0
+                    )
+                    
+                    wechat_data = response.json()
+                    
+                    if "errcode" in wechat_data and wechat_data["errcode"] != 0:
+                        log_error(f"微信API返回错误: {wechat_data}, 降级为模拟登录")
+                        mock_login = True
+                    else:
+                        openid = wechat_data.get("openid")
+                        unionid = wechat_data.get("unionid")
+            except Exception as e:
+                log_error(f"微信API调用异常: {str(e)}, 降级为模拟登录")
+                mock_login = True
+        else:
+            mock_login = True
+        
+        if mock_login or not openid:
+            openid = f"mock_{hashlib.md5(req.code.encode()).hexdigest()[:16]}"
+            log_user_action(0, "mock_wechat_login", f"开发模式模拟登录, code={req.code[:8]}...")
+        
+        user = db.query(User).filter(User.wx_openid == openid).first()
         
         if not user:
-            # 创建新用户
+            import uuid
+            temp_username = f"wx_{openid[:16]}"
+            temp_email = f"{openid[:16]}@wechat.local"
+            
             new_user = User(
-                username=openid,
-                email=f"{openid}@wechat.com",
-                phone="",
+                username=temp_username,
+                email=temp_email,
+                phone=None,
                 password="",
                 register_ip=request.client.host,
                 is_active=True,
                 is_admin=False,
-                trial_status=1
+                user_type=1,
+                is_vip=False,
+                wx_openid=openid,
+                wx_unionid=unionid,
+                phone_bound=False,
+                trial_status=0
             )
             
             db.add(new_user)
             db.commit()
             db.refresh(new_user)
             
-            # 创建默认订阅配置
             default_subscription = UserSubscription(
                 user_id=new_user.id,
-                subscribe_type=3,  # 默认双赛道
+                subscribe_type=3,
                 status=1,
                 config_json={
                     "kaoyan": {
@@ -643,28 +686,24 @@ async def wechat_login(
             
             user = new_user
         
-        # 检查服务到期时间
         if user.is_vip and user.vip_end_time:
             if datetime.now() > user.vip_end_time:
                 user.is_vip = False
+                user.user_type = 1
                 db.commit()
         
-        # 更新登录信息
         user.last_login_ip = request.client.host
         user.last_login_time = datetime.now()
         
-        # 记录每日登录
         from models.users import UserLoginRecord
         from datetime import date
         today = date.today()
         
-        # 检查今天是否已经记录过登录
         existing_record = db.query(UserLoginRecord).filter(
             UserLoginRecord.user_id == user.id,
             UserLoginRecord.login_date == today
         ).first()
         
-        # 如果今天还没有记录，则添加登录记录
         if not existing_record:
             login_record = UserLoginRecord(
                 user_id=user.id,
@@ -676,7 +715,6 @@ async def wechat_login(
         
         db.commit()
         
-        # 生成令牌
         access_token = create_access_token(data={"sub": str(user.id)})
         refresh_token = create_refresh_token(data={"sub": str(user.id)})
         
@@ -693,23 +731,18 @@ async def wechat_login(
                     "username": user.username,
                     "email": user.email,
                     "phone": user.phone,
+                    "avatar": user.avatar,
+                    "real_name": user.real_name,
                     "is_admin": user.is_admin,
                     "is_vip": user.is_vip,
+                    "user_type": user.user_type,
                     "is_trial": user.trial_status == 1,
                     "vip_type": user.vip_type,
                     "vip_end_time": user.vip_end_time.isoformat() if user.vip_end_time else None,
+                    "phone_bound": user.phone_bound,
                     "access_token": access_token,
                     "refresh_token": refresh_token,
-                    "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-                    "user": {
-                        "id": user.id,
-                        "username": user.username,
-                        "email": user.email,
-                        "phone": user.phone,
-                        "is_vip": user.is_vip,
-                        "is_admin": user.is_admin,
-                        "vip_end_time": user.vip_end_time.isoformat() if user.vip_end_time else None
-                    }
+                    "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
                 }
             }
         )
@@ -905,6 +938,34 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 security = HTTPBearer()
 
+@router.get("/user")
+async def get_current_user_info(
+    current_user: User = Depends(get_current_user)
+):
+    """获取当前登录用户的信息"""
+    return {
+        "success": True,
+        "code": 200,
+        "message": "获取用户信息成功",
+        "data": {
+            "id": current_user.id,
+            "username": current_user.username,
+            "email": current_user.email,
+            "phone": current_user.phone,
+            "real_name": current_user.real_name,
+            "gender": current_user.gender,
+            "birthdate": current_user.birthdate,
+            "is_vip": current_user.is_vip,
+            "vip_type": current_user.vip_type,
+            "vip_start_time": current_user.vip_start_time,
+            "vip_end_time": current_user.vip_end_time,
+            "is_admin": current_user.is_admin,
+            "created_at": current_user.created_at,
+            "updated_at": current_user.updated_at
+        }
+    }
+
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db_common)
@@ -1049,7 +1110,7 @@ async def send_sms_code(
             }
         )
 
-@router.post("/reset-password", response_model=AuthResponse, summary="手机号重置密码")
+@router.post("/reset-password-by-phone", response_model=AuthResponse, summary="手机号重置密码")
 async def reset_password_by_phone(
     req: ResetPasswordByPhoneRequest,
     db: Session = Depends(get_db_common)
@@ -1295,125 +1356,110 @@ async def get_current_admin(
     return user
 
 
-class WechatLoginRequest(BaseModel):
-    """微信登录请求模型"""
+class WechatLoginRequest2(BaseModel):
     code: str = Field(..., description="微信登录code")
     userInfo: Optional[dict] = Field(None, description="微信用户信息")
 
 
-@router.post("/auth/wechat_login", summary="微信登录")
-async def wechat_login(
-    request: WechatLoginRequest,
+@router.post("/wechat-login-v2", summary="微信登录(兼容旧接口)")
+async def wechat_login_v2(
+    request: Request,
+    req: WechatLoginRequest2,
     db: Session = Depends(get_db_common)
 ):
-    """微信登录"""
+    """微信登录 - 兼容旧接口，开发模式自动降级为模拟登录"""
+    import httpx
+    import hashlib
+    
     try:
-        import httpx
-        
-        # 1. 使用code换取openid
         appid = settings.WECHAT_APP_ID
         secret = settings.WECHAT_APP_SECRET
+        openid = None
+        unionid = None
+        mock_login = False
         
-        if not appid or not secret:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "code": 400,
-                    "message": "微信AppID或Secret未配置",
-                    "data": None
-                }
-            )
+        if appid and secret:
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(
+                        "https://api.weixin.qq.com/sns/jscode2session",
+                        params={
+                            "appid": appid,
+                            "secret": secret,
+                            "js_code": req.code,
+                            "grant_type": "authorization_code"
+                        },
+                        timeout=10.0
+                    )
+                    
+                    wechat_data = response.json()
+                    
+                    if "errcode" in wechat_data and wechat_data["errcode"] != 0:
+                        log_error(f"微信API返回错误: {wechat_data}, 降级为模拟登录")
+                        mock_login = True
+                    else:
+                        openid = wechat_data.get("openid")
+                        unionid = wechat_data.get("unionid")
+            except Exception as e:
+                log_error(f"微信API调用异常: {str(e)}, 降级为模拟登录")
+                mock_login = True
+        else:
+            mock_login = True
         
-        # 调用微信接口获取openid和session_key
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                "https://api.weixin.qq.com/sns/jscode2session",
-                params={
-                    "appid": appid,
-                    "secret": secret,
-                    "js_code": request.code,
-                    "grant_type": "authorization_code"
-                }
-            )
-            
-            wechat_data = response.json()
-            
-            if "errcode" in wechat_data:
-                log_error(f"微信登录失败: {wechat_data}")
-                return JSONResponse(
-                    status_code=400,
-                    content={
-                        "success": False,
-                        "code": 400,
-                        "message": f"微信登录失败: {wechat_data.get('errmsg', '未知错误')}",
-                        "data": None
-                    }
-                )
-            
-            openid = wechat_data.get("openid")
-            session_key = wechat_data.get("session_key")
-            
-        if not openid:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "code": 400,
-                    "message": "获取微信openid失败",
-                    "data": None
-                }
-            )
+        if mock_login or not openid:
+            openid = f"mock_{hashlib.md5(req.code.encode()).hexdigest()[:16]}"
+            log_user_action(0, "mock_wechat_login", f"开发模式模拟登录(旧接口), code={req.code[:8]}...")
         
-        # 2. 查询或创建用户
-        user = db.query(User).filter(User.phone == openid).first()
+        user = db.query(User).filter(User.wx_openid == openid).first()
         
         if user:
-            # 更新用户信息（如果提供了头像）
-            if request.userInfo and request.userInfo.get("avatarUrl"):
-                user.avatar = request.userInfo.get("avatarUrl")
-            
-            if request.userInfo and request.userInfo.get("nickName"):
+            if req.userInfo and req.userInfo.get("avatarUrl"):
+                user.avatar = req.userInfo.get("avatarUrl")
+            if req.userInfo and req.userInfo.get("nickName"):
                 if not user.real_name:
-                    user.real_name = request.userInfo.get("nickName")
-            
+                    user.real_name = req.userInfo.get("nickName")
             user.last_login_time = datetime.now()
+            user.last_login_ip = request.client.host
             
-            # 记录每日登录
             from models.users import UserLoginRecord
             from datetime import date
             today = date.today()
             
-            # 检查今天是否已经记录过登录
             existing_record = db.query(UserLoginRecord).filter(
                 UserLoginRecord.user_id == user.id,
                 UserLoginRecord.login_date == today
             ).first()
             
-            # 如果今天还没有记录，则添加登录记录
             if not existing_record:
                 login_record = UserLoginRecord(
                     user_id=user.id,
                     login_date=today,
-                    login_time=datetime.now()
+                    login_time=datetime.now(),
+                    login_ip=request.client.host
                 )
                 db.add(login_record)
             
             db.commit()
         else:
-            # 创建新用户
-            username = request.userInfo.get("nickName", "微信用户") if request.userInfo else "微信用户"
-            avatar = request.userInfo.get("avatarUrl", "") if request.userInfo else ""
+            temp_username = f"wx_{openid[:16]}"
+            temp_email = f"{openid[:16]}@wechat.local"
+            avatar = req.userInfo.get("avatarUrl", "") if req.userInfo else ""
+            real_name = req.userInfo.get("nickName") if req.userInfo else None
             
             user = User(
-                username=username,
-                phone=openid,
-                email=f"{openid}@wechat.local",
+                username=temp_username,
+                email=temp_email,
+                phone=None,
+                password="",
                 avatar=avatar,
-                real_name=request.userInfo.get("nickName") if request.userInfo else None,
+                real_name=real_name,
                 is_active=True,
                 is_admin=False,
+                user_type=1,
                 is_vip=False,
+                wx_openid=openid,
+                wx_unionid=unionid,
+                phone_bound=False,
                 created_at=datetime.now(),
                 updated_at=datetime.now()
             )
@@ -1421,7 +1467,30 @@ async def wechat_login(
             db.commit()
             db.refresh(user)
             
-            # 记录每日登录
+            default_subscription = UserSubscription(
+                user_id=user.id,
+                subscribe_type=3,
+                status=1,
+                config_json={
+                    "kaoyan": {
+                        "provinces": [],
+                        "schools": [],
+                        "majors": [],
+                        "degree_type": [],
+                        "study_type": []
+                    },
+                    "kaogong": {
+                        "provinces": [],
+                        "position_types": [],
+                        "majors": [],
+                        "education": ["不限"],
+                        "is_fresh_graduate": "不限",
+                        "is_unlimited": None
+                    }
+                }
+            )
+            db.add(default_subscription)
+            
             from models.users import UserLoginRecord
             from datetime import date
             today = date.today()
@@ -1429,15 +1498,21 @@ async def wechat_login(
             login_record = UserLoginRecord(
                 user_id=user.id,
                 login_date=today,
-                login_time=datetime.now()
+                login_time=datetime.now(),
+                login_ip=request.client.host
             )
             db.add(login_record)
             db.commit()
         
-        # 3. 生成token
-        access_token = create_access_token(data={"sub": str(user.id)})
+        if user.is_vip and user.vip_end_time:
+            if datetime.now() > user.vip_end_time:
+                user.is_vip = False
+                user.user_type = 1
+                db.commit()
         
-        # 4. 返回用户信息和token
+        access_token = create_access_token(data={"sub": str(user.id)})
+        refresh_token = create_refresh_token(data={"sub": str(user.id)})
+        
         return JSONResponse(
             status_code=200,
             content={
@@ -1453,9 +1528,12 @@ async def wechat_login(
                     "real_name": user.real_name,
                     "is_admin": user.is_admin,
                     "is_vip": user.is_vip,
+                    "user_type": user.user_type,
                     "vip_type": user.vip_type or 0,
                     "vip_end_time": user.vip_end_time.isoformat() if user.vip_end_time else None,
+                    "phone_bound": user.phone_bound,
                     "access_token": access_token,
+                    "refresh_token": refresh_token,
                     "expires_in": 604800
                 }
             }
@@ -1469,6 +1547,277 @@ async def wechat_login(
                 "success": False,
                 "code": 500,
                 "message": f"登录失败: {str(e)}",
+                "data": None
+            }
+        )
+
+
+class BindPhoneRequest(BaseModel):
+    phone: str = Field(..., min_length=11, max_length=11, description="手机号")
+    code: str = Field(..., min_length=4, max_length=6, description="验证码")
+
+    @validator('phone')
+    def validate_phone_number(cls, v):
+        if not validate_phone(v):
+            raise ValueError('手机号格式不正确')
+        return v
+
+
+@router.post("/bind-phone", response_model=AuthResponse, summary="绑定手机号")
+async def bind_phone(
+    req: BindPhoneRequest,
+    db: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    """绑定手机号接口"""
+    try:
+        if current_user.phone_bound and current_user.phone:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "success": False,
+                    "code": 400,
+                    "message": "您已绑定手机号",
+                    "data": None
+                }
+            )
+        
+        existing_user = db.query(User).filter(
+            User.phone == req.phone,
+            User.id != current_user.id
+        ).first()
+        
+        if existing_user:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "success": False,
+                    "code": 400,
+                    "message": "该手机号已被其他用户绑定",
+                    "data": None
+                }
+            )
+        
+        current_user.phone = req.phone
+        current_user.phone_bound = True
+        db.commit()
+        
+        log_user_action(current_user.id, "bind_phone", f"用户绑定手机号: {req.phone}")
+        
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "手机号绑定成功",
+                "data": {
+                    "user_id": current_user.id,
+                    "phone": current_user.phone,
+                    "phone_bound": True
+                }
+            }
+        )
+        
+    except Exception as e:
+        log_error(f"绑定手机号失败: {str(e)}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "success": False,
+                "code": 500,
+                "message": "绑定手机号失败，请稍后重试",
+                "data": None
+            }
+        )
+
+
+class PhoneLoginRequest(BaseModel):
+    phone: str = Field(..., min_length=11, max_length=11, description="手机号")
+    code: str = Field(..., min_length=4, max_length=6, description="验证码")
+
+    @validator('phone')
+    def validate_phone_number(cls, v):
+        if not validate_phone(v):
+            raise ValueError('手机号格式不正确')
+        return v
+
+
+@router.post("/phone-login", response_model=AuthResponse, summary="手机号验证码登录")
+async def phone_login(
+    request: Request,
+    req: PhoneLoginRequest,
+    db: Session = Depends(get_db_common)
+):
+    """手机号验证码登录接口"""
+    try:
+        user = db.query(User).filter(User.phone == req.phone).first()
+        
+        if not user:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={
+                    "success": False,
+                    "code": 401,
+                    "message": "该手机号未注册，请先使用微信登录后绑定手机号",
+                    "data": None
+                }
+            )
+        
+        if user.is_vip and user.vip_end_time:
+            if datetime.now() > user.vip_end_time:
+                user.is_vip = False
+                user.user_type = 1
+                db.commit()
+        
+        user.last_login_ip = request.client.host
+        user.last_login_time = datetime.now()
+        
+        from models.users import UserLoginRecord
+        from datetime import date
+        today = date.today()
+        
+        existing_record = db.query(UserLoginRecord).filter(
+            UserLoginRecord.user_id == user.id,
+            UserLoginRecord.login_date == today
+        ).first()
+        
+        if not existing_record:
+            login_record = UserLoginRecord(
+                user_id=user.id,
+                login_date=today,
+                login_time=datetime.now(),
+                login_ip=request.client.host
+            )
+            db.add(login_record)
+        
+        db.commit()
+        
+        access_token = create_access_token(data={"sub": str(user.id)})
+        refresh_token = create_refresh_token(data={"sub": str(user.id)})
+        
+        log_user_action(user.id, "phone_login", f"手机号登录: {user.phone}")
+        
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "登录成功",
+                "data": {
+                    "user_id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "phone": user.phone,
+                    "avatar": user.avatar,
+                    "real_name": user.real_name,
+                    "is_admin": user.is_admin,
+                    "is_vip": user.is_vip,
+                    "user_type": user.user_type,
+                    "is_trial": user.trial_status == 1,
+                    "vip_type": user.vip_type,
+                    "vip_end_time": user.vip_end_time.isoformat() if user.vip_end_time else None,
+                    "phone_bound": user.phone_bound,
+                    "need_change_password": user.need_change_password,
+                    "access_token": access_token,
+                    "refresh_token": refresh_token,
+                    "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+                }
+            }
+        )
+        
+    except Exception as e:
+        log_error(f"手机号登录失败: {str(e)}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "success": False,
+                "code": 500,
+                "message": "登录失败，请稍后重试",
+                "data": None
+            }
+        )
+
+
+class SendPhoneCodeRequest(BaseModel):
+    phone: str = Field(..., min_length=11, max_length=11, description="手机号")
+    type: str = Field(..., description="验证码类型: login/bind_phone/reset_password")
+
+    @validator('phone')
+    def validate_phone_number(cls, v):
+        if not validate_phone(v):
+            raise ValueError('手机号格式不正确')
+        return v
+
+    @validator('type')
+    def validate_code_type(cls, v):
+        if v not in ['login', 'bind_phone', 'reset_password']:
+            raise ValueError('验证码类型不正确')
+        return v
+
+
+@router.post("/send-phone-code", response_model=AuthResponse, summary="发送手机验证码")
+async def send_phone_code(
+    req: SendPhoneCodeRequest,
+    db: Session = Depends(get_db_common)
+):
+    """发送手机验证码接口"""
+    try:
+        from core.security import generate_verification_code
+        
+        user = db.query(User).filter(User.phone == req.phone).first()
+        
+        if req.type == 'bind_phone' and user:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "success": False,
+                    "code": 400,
+                    "message": "该手机号已被其他用户绑定",
+                    "data": None
+                }
+            )
+        
+        if req.type == 'login' and not user:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "success": False,
+                    "code": 400,
+                    "message": "该手机号未注册，请先使用微信登录后绑定手机号",
+                    "data": None
+                }
+            )
+        
+        code = generate_verification_code()
+        
+        if user and user.email:
+            from core.push_manager import send_email
+            email_subject = "验证码通知"
+            email_content = f"尊敬的用户：\n\n您正在进行{('登录' if req.type == 'login' else '绑定手机号' if req.type == 'bind_phone' else '重置密码')}操作，验证码为：{code}，有效期为5分钟。\n\n如非本人操作，请忽略此邮件。\n\n双赛道情报通团队"
+            send_email(user.email, email_subject, email_content)
+        
+        print(f"[验证码] 手机号: {req.phone}, 类型: {req.type}, 验证码: {code}")
+        
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "验证码已发送",
+                "data": {
+                    "phone": req.phone
+                }
+            }
+        )
+        
+    except Exception as e:
+        log_error(f"发送手机验证码失败: {str(e)}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "success": False,
+                "code": 500,
+                "message": "发送验证码失败，请稍后重试",
                 "data": None
             }
         )

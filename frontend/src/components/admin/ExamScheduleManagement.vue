@@ -40,8 +40,8 @@
           @change="handleSearch"
         >
           <el-option label="全部" :value="''" />
-          <el-option label="启用" :value="1" />
-          <el-option label="禁用" :value="0" />
+          <el-option label="启用" :value="true" />
+          <el-option label="禁用" :value="false" />
         </el-select>
         <el-button type="primary" @click="handleSearch">
           <el-icon><Search /></el-icon>
@@ -111,8 +111,6 @@
           <template #default="scope">
             <el-switch
               v-model="scope.row.is_active"
-              :active-value="1"
-              :inactive-value="0"
               @change="handleStatusChange(scope.row)"
             />
           </template>
@@ -197,8 +195,8 @@
           prop="exam_type"
         >
           <el-radio-group v-model="form.exam_type">
-            <el-radio :label="1">考研</el-radio>
-            <el-radio :label="2">考公</el-radio>
+            <el-radio :value="1">考研</el-radio>
+            <el-radio :value="2">考公</el-radio>
           </el-radio-group>
         </el-form-item>
         
@@ -236,8 +234,6 @@
         >
           <el-switch
             v-model="form.is_active"
-            :active-value="1"
-            :inactive-value="0"
             active-text="启用"
             inactive-text="禁用"
           />
@@ -283,7 +279,7 @@ const form = reactive({
   exam_type: 1,
   exam_date: '',
   description: '',
-  is_active: 1
+  is_active: true
 })
 const formRules = reactive({
   name: [
@@ -327,9 +323,10 @@ const getSchedules = async () => {
       is_active: searchForm.is_active
     }
     const response = await axios.get('/api/v1/learning_materials/exam-schedules', { params })
-    if (response.data.success) {
-      schedules.value = response.data.data.items
-      pagination.total = response.data.data.total
+    // axios拦截器已经返回了response.data，所以response就是数据本身
+    if (response.success) {
+      schedules.value = response.data.items
+      pagination.total = response.data.total
     }
   } catch (error) {
     console.error('获取考试日程列表失败:', error)
@@ -377,7 +374,7 @@ const showAddDialog = () => {
   dialogType.value = 'add'
   Object.keys(form).forEach(key => {
     if (key === 'is_active') {
-      form[key] = 1
+      form[key] = true
     } else if (key === 'exam_type') {
       form[key] = 1
     } else {
@@ -408,7 +405,7 @@ const handleSubmit = async () => {
     
     const response = await axios[method](url, form)
     
-    if (response.data.success) {
+    if (response.success) {
       dialogVisible.value = false
       getSchedules()
     }
@@ -424,13 +421,13 @@ const handleStatusChange = async (row) => {
       `/api/v1/learning_materials/exam-schedules/${row.id}`,
       { is_active: row.is_active }
     )
-    if (response.data.success) {
+    if (response.success) {
       // 状态已更新
     } else {
-      row.is_active = !row.is_active // 恢复原状态
+      row.is_active = !row.is_active
     }
   } catch (error) {
-    row.is_active = !row.is_active // 恢复原状态
+    row.is_active = !row.is_active
     console.error('更新状态失败:', error)
   }
 }

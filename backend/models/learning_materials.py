@@ -37,6 +37,7 @@ class LearningMaterial(BaseCommon):
     download_count = Column(Integer, default=0, comment="下载次数")
     rating = Column(Float, default=0, comment="评分")
     is_valid = Column(Boolean, default=True, comment="是否有效")
+    is_vip = Column(Boolean, default=False, comment="是否仅VIP可见")
     created_at = Column(DateTime, default=datetime.now, comment="创建时间")
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
     
@@ -128,3 +129,65 @@ class Carousel(BaseCommon):
     
     def __repr__(self):
         return f"<Carousel(id={self.id}, title={self.title}, sort_order={self.sort_order})>"
+
+
+class DailyPractice(BaseCommon):
+    """每日一练题库"""
+    __tablename__ = "daily_practices"
+    
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    category = Column(String(50), nullable=False, comment="题目分类: 行测, 申论, 考研英语, 考研政治等")
+    question = Column(Text, nullable=False, comment="题目内容")
+    options = Column(Text, nullable=False, comment="选项JSON: [{\"label\":\"A\",\"text\":\"xxx\"}]")
+    answer = Column(String(10), nullable=False, comment="正确答案: A/B/C/D")
+    analysis = Column(Text, nullable=True, comment="答案解析")
+    difficulty = Column(Integer, default=1, comment="难度: 1-简单, 2-中等, 3-困难")
+    is_active = Column(Boolean, default=True, comment="是否启用")
+    show_date = Column(DateTime, nullable=True, comment="指定显示日期, 为空则随机")
+    created_at = Column(DateTime, default=datetime.now, comment="创建时间")
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    
+    def __repr__(self):
+        return f"<DailyPractice(id={self.id}, category={self.category})>"
+
+
+class DailyPracticeRecord(BaseCommon):
+    """每日一练答题记录表"""
+    __tablename__ = "daily_practice_records"
+    
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, comment="用户ID")
+    practice_id = Column(Integer, ForeignKey("daily_practices.id"), nullable=False, comment="题目ID")
+    user_answer = Column(String(10), nullable=False, comment="用户答案")
+    is_correct = Column(Boolean, nullable=False, comment="是否正确")
+    score = Column(Integer, default=0, comment="得分")
+    created_at = Column(DateTime, default=datetime.now, comment="答题时间")
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    
+    user = relationship("User", backref="practice_records")
+    practice = relationship("DailyPractice", backref="records")
+    
+    def __repr__(self):
+        return f"<DailyPracticeRecord(id={self.id}, user_id={self.user_id}, practice_id={self.practice_id})>"
+
+
+class HotTopic(BaseCommon):
+    """热点资讯表"""
+    __tablename__ = "hot_topics"
+    
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    title = Column(String(500), nullable=False, comment="热点标题")
+    content = Column(Text, nullable=True, comment="热点内容")
+    cover_image = Column(String(500), nullable=True, comment="封面图片URL")
+    link_url = Column(String(500), nullable=True, comment="跳转链接URL")
+    category = Column(String(50), nullable=True, comment="分类: 考研/考公/通用")
+    source = Column(String(100), nullable=True, comment="来源")
+    views = Column(Integer, default=0, comment="浏览量")
+    sort_order = Column(Integer, default=0, comment="排序顺序，数字越大越靠前")
+    is_active = Column(Boolean, default=True, comment="是否启用")
+    publish_time = Column(DateTime, nullable=True, comment="发布时间")
+    created_at = Column(DateTime, default=datetime.now, comment="创建时间")
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    
+    def __repr__(self):
+        return f"<HotTopic(id={self.id}, title={self.title})>"

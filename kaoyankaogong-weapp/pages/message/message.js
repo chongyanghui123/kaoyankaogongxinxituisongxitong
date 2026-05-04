@@ -149,18 +149,86 @@ Page({
     }
   },
 
-  // 导航到情报详情
+  // 删除消息
+  async deleteMessage(e) {
+    const messageId = e.currentTarget.dataset.messageId;
+    
+    // 显示删除确认对话框
+    wx.showModal({
+      title: '删除消息',
+      content: '确定要删除这条消息吗？',
+      success: async (res) => {
+        if (res.confirm) {
+          try {
+            const app = getApp();
+            
+            // 调用API删除消息
+            const response = await app.request({
+              url: `/message/${messageId}`,
+              method: 'DELETE'
+            });
+            
+            if (response.success) {
+              // 从本地数据中删除该消息
+              const messages = this.data.messages.filter(msg => msg.id !== messageId);
+              this.setData({
+                messages: messages
+              });
+              
+              wx.showToast({
+                title: '删除成功',
+                icon: 'success'
+              });
+            } else {
+              wx.showToast({
+                title: '删除失败',
+                icon: 'error'
+              });
+            }
+          } catch (error) {
+            console.error('删除消息失败:', error);
+            wx.showToast({
+              title: '删除失败',
+              icon: 'error'
+            });
+          }
+        }
+      }
+    });
+  },
+
+  // 导航到详情或显示系统通知
   async navigateToDetail(e) {
     const infoId = e.currentTarget.dataset.id;
     const messageId = e.currentTarget.dataset.messageId;
     const read = e.currentTarget.dataset.read;
+    const message = this.data.messages.find(msg => msg.id === messageId);
     
     // 先标记为已读
     await this.markAsRead(messageId, read);
     
-    // 导航到情报详情页面
-    wx.navigateTo({
-      url: `/pages/detail/detail?id=${infoId}`
-    });
+    // 如果是系统通知、到期提醒或没有对应的情报ID，直接显示通知内容
+    if (message && (message.type === 'system' || message.type === 'expiry' || infoId === 0)) {
+      // 显示通知内容
+      wx.showModal({
+        title: message.type === 'expiry' ? '到期提醒' : '系统通知',
+        content: message.content,
+        showCancel: false,
+        confirmText: '知道了'
+      });
+    } else if (infoId) {
+      // 导航到情报详情页面
+      wx.navigateTo({
+        url: `/pages/detail/detail?id=${infoId}`
+      });
+    } else {
+      // 没有情报ID，显示弹窗
+      wx.showModal({
+        title: '通知',
+        content: message ? message.content : '暂无内容',
+        showCancel: false,
+        confirmText: '知道了'
+      });
+    }
   }
 });

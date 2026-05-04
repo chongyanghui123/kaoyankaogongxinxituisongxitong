@@ -1,0 +1,111 @@
+<!-- renewal.wxml -->
+<view class="container">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <view class="back-btn" bindtap="navigateBack">
+      <text>←</text>
+    </view>
+    <view class="page-title">续费</view>
+  </view>
+
+  <!-- 用户当前VIP状态 -->
+  <view class="vip-status-section" wx:if="{{userInfo && userInfo.is_vip}}">
+    <view class="vip-card">
+      <view class="vip-title">
+        <text class="vip-badge">VIP</text>
+        <text class="vip-type">{{userInfo.vip_type == 1 ? '考研套餐' : userInfo.vip_type == 2 ? '考公套餐' : '双赛道套餐'}}</text>
+      </view>
+      <view class="vip-info">
+        <view class="info-item">
+          <text class="label">当前到期时间：</text>
+          <text class="value">{{userInfo.vip_end_time}}</text>
+        </view>
+        <view class="info-item" wx:if="{{renewalOptions.length > 0}}">
+          <text class="label">续费后到期时间：</text>
+          <text class="value">
+            {{calculateRenewedEndTime(userInfo.vip_end_time, renewalOptions[0].duration)}}
+          </text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 续费选项 -->
+  <view class="renewal-options-section" wx:if="{{renewalOptions.length > 0}}">
+    <view class="section-title">续费选项</view>
+    <view class="plans-list">
+      <view class="plan-item {{selectedPlan == item.id ? 'active' : ''}}" 
+            wx:for="{{renewalOptions}}" wx:key="id"
+            bindtap="selectPlan" data-id="{{item.id}}">
+        <view class="plan-header">
+          <view class="plan-name">{{item.name}}</view>
+          <view class="plan-price">
+            <text class="price">¥{{item.price}}</text>
+            <text class="period">{{item.period}}</text>
+          </view>
+        </view>
+        <view class="plan-features">
+          <view class="feature" wx:for="{{item.features}}" wx:key="index">
+            <text class="feature-icon">✓</text>
+            <text class="feature-text">{{item}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 支付按钮 -->
+  <view class="pay-btn-section" wx:if="{{selectedPlan && userInfo.is_vip}}">
+    <button class="pay-btn" bindtap="pay">立即续费</button>
+  </view>
+
+  <!-- 支付模态框 -->
+  <view class="modal-overlay" wx:if="{{showPayModal}}" bindtap="closePayModal">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="modal-header">
+        <view class="modal-title">选择支付方式</view>
+        <view class="close-btn" bindtap="closePayModal">×</view>
+      </view>
+      <view class="modal-body">
+        <view class="pay-methods">
+          <view class="pay-method {{selectedPayMethod == 'wechat' ? 'active' : ''}}" 
+                bindtap="selectPayMethod" data-method="wechat">
+            <view class="method-icon">💬</view>
+            <view class="method-info">
+              <view class="method-name">微信支付</view>
+              <view class="method-desc">推荐使用微信支付</view>
+            </view>
+            <view class="method-radio {{selectedPayMethod == 'wechat' ? 'active' : ''}}"></view>
+          </view>
+          <view class="pay-method {{selectedPayMethod == 'alipay' ? 'active' : ''}}" 
+                bindtap="selectPayMethod" data-method="alipay">
+            <view class="method-icon">💰</view>
+            <view class="method-info">
+              <view class="method-name">支付宝支付</view>
+              <view class="method-desc">支持支付宝支付</view>
+            </view>
+            <view class="method-radio {{selectedPayMethod == 'alipay' ? 'active' : ''}}"></view>
+          </view>
+        </view>
+      </view>
+      <view class="modal-footer">
+        <button class="confirm-pay-btn" bindtap="confirmPay">确认支付</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 加载状态 -->
+  <view class="loading-section" wx:if="{{loading}}">
+    <view class="loading-icon">⌛</view>
+    <view class="loading-text">加载中...</view>
+  </view>
+
+  <!-- 错误状态 -->
+  <view class="error-section" wx:if="{{!loading && (!userInfo || !userInfo.is_vip)}}">
+    <view class="error-icon">⚠️</view>
+    <view class="error-text">您尚未开通VIP服务，无法续费</view>
+    <navigator class="subscribe-btn" url="/pages/subscription/subscription">
+      <text>立即开通</text>
+    </navigator>
+  </view>
+</view>

@@ -1,0 +1,447 @@
+/* renewal.wxss */
+.container {
+  min-height: 100vh;
+  background-color: #f5f7fa;
+  padding: 20rpx;
+  box-sizing: border-box;
+}
+
+/* 页面标题 */
+.page-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 30rpx;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #e5e5e5;
+}
+
+.back-btn {
+  width: 60rpx;
+  height: 60rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f0f0f0;
+  border-radius: 50%;
+  margin-right: 30rpx;
+  font-size: 32rpx;
+  color: #333;
+}
+
+.page-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #333;
+  flex: 1;
+  text-align: center;
+}
+
+/* VIP状态卡片 */
+.vip-status-section {
+  margin-bottom: 40rpx;
+}
+
+.vip-card {
+  background: linear-gradient(135deg, #ff6b6b, #ffa500);
+  border-radius: 20rpx;
+  padding: 40rpx;
+  color: white;
+  box-shadow: 0 8rpx 20rpx rgba(255, 107, 107, 0.3);
+}
+
+.vip-title {
+  display: flex;
+  align-items: center;
+  margin-bottom: 30rpx;
+}
+
+.vip-badge {
+  background-color: rgba(255, 255, 255, 0.3);
+  padding: 8rpx 16rpx;
+  border-radius: 20rpx;
+  font-size: 24rpx;
+  margin-right: 20rpx;
+  font-weight: bold;
+}
+
+.vip-type {
+  font-size: 32rpx;
+  font-weight: bold;
+}
+
+.vip-info {
+  display: flex;
+  flex-direction: column;
+  gap: 15rpx;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  font-size: 28rpx;
+}
+
+.label {
+  color: rgba(255, 255, 255, 0.8);
+  margin-right: 15rpx;
+  width: 200rpx;
+}
+
+.value {
+  font-weight: bold;
+  color: white;
+}
+
+/* 续费选项 */
+.renewal-options-section {
+  margin-bottom: 40rpx;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 30rpx;
+  padding-left: 20rpx;
+  border-left: 6rpx solid #ff6b6b;
+}
+
+.plans-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.plan-item {
+  background-color: white;
+  border-radius: 20rpx;
+  padding: 30rpx;
+  box-shadow: 0 4rpx 15rpx rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  border: 2rpx solid transparent;
+}
+
+.plan-item.active {
+  border-color: #ff6b6b;
+  box-shadow: 0 6rpx 25rpx rgba(255, 107, 107, 0.2);
+}
+
+.plan-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.plan-name {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.plan-price {
+  display: flex;
+  align-items: baseline;
+}
+
+.price {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #ff6b6b;
+}
+
+.period {
+  font-size: 24rpx;
+  color: #999;
+  margin-left: 5rpx;
+}
+
+.plan-features {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.feature {
+  display: flex;
+  align-items: center;
+  font-size: 26rpx;
+  color: #666;
+}
+
+.feature-icon {
+  width: 30rpx;
+  height: 30rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #e8f5e9;
+  color: #4caf50;
+  border-radius: 50%;
+  font-size: 20rpx;
+  margin-right: 15rpx;
+}
+
+.feature-text {
+  flex: 1;
+}
+
+/* 支付按钮 */
+.pay-btn-section {
+  margin-bottom: 40rpx;
+  text-align: center;
+}
+
+.pay-btn {
+  background: linear-gradient(135deg, #ff6b6b, #ffa500);
+  color: white;
+  border: none;
+  padding: 25rpx;
+  border-radius: 15rpx;
+  font-size: 30rpx;
+  font-weight: bold;
+  width: 100%;
+  box-shadow: 0 6rpx 20rpx rgba(255, 107, 107, 0.3);
+  transition: all 0.3s ease;
+}
+
+.pay-btn:active {
+  transform: translateY(2rpx);
+  box-shadow: 0 4rpx 15rpx rgba(255, 107, 107, 0.2);
+}
+
+/* 支付模态框 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: white;
+  border-radius: 20rpx;
+  width: 80%;
+  max-width: 600rpx;
+  max-height: 80%;
+  overflow-y: auto;
+  animation: modalFadeIn 0.3s ease;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 30rpx;
+  border-bottom: 1rpx solid #e5e5e5;
+}
+
+.modal-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.close-btn {
+  width: 60rpx;
+  height: 60rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f0f0f0;
+  border-radius: 50%;
+  font-size: 32rpx;
+  color: #666;
+}
+
+.modal-body {
+  padding: 30rpx;
+}
+
+.pay-methods {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.pay-method {
+  display: flex;
+  align-items: center;
+  padding: 30rpx;
+  border-radius: 15rpx;
+  border: 2rpx solid #e5e5e5;
+  transition: all 0.3s ease;
+}
+
+.pay-method.active {
+  border-color: #ff6b6b;
+  background-color: #fff5f5;
+}
+
+.method-icon {
+  font-size: 40rpx;
+  margin-right: 30rpx;
+}
+
+.method-info {
+  flex: 1;
+}
+
+.method-name {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 5rpx;
+}
+
+.method-desc {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.method-radio {
+  width: 30rpx;
+  height: 30rpx;
+  border-radius: 50%;
+  border: 2rpx solid #ddd;
+  transition: all 0.3s ease;
+}
+
+.method-radio.active {
+  border-color: #ff6b6b;
+  background-color: #ff6b6b;
+  position: relative;
+}
+
+.method-radio.active::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 14rpx;
+  height: 14rpx;
+  background-color: white;
+  border-radius: 50%;
+}
+
+.modal-footer {
+  padding: 30rpx;
+  border-top: 1rpx solid #e5e5e5;
+}
+
+.confirm-pay-btn {
+  background: linear-gradient(135deg, #ff6b6b, #ffa500);
+  color: white;
+  border: none;
+  padding: 25rpx;
+  border-radius: 15rpx;
+  font-size: 30rpx;
+  font-weight: bold;
+  width: 100%;
+  box-shadow: 0 6rpx 20rpx rgba(255, 107, 107, 0.3);
+  transition: all 0.3s ease;
+}
+
+.confirm-pay-btn:active {
+  transform: translateY(2rpx);
+  box-shadow: 0 4rpx 15rpx rgba(255, 107, 107, 0.2);
+}
+
+/* 加载状态 */
+.loading-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100rpx 0;
+}
+
+.loading-icon {
+  font-size: 80rpx;
+  margin-bottom: 30rpx;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 28rpx;
+  color: #999;
+}
+
+/* 错误状态 */
+.error-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100rpx 0;
+  text-align: center;
+}
+
+.error-icon {
+  font-size: 80rpx;
+  margin-bottom: 30rpx;
+}
+
+.error-text {
+  font-size: 30rpx;
+  color: #666;
+  margin-bottom: 40rpx;
+}
+
+.subscribe-btn {
+  background: linear-gradient(135deg, #ff6b6b, #ffa500);
+  color: white;
+  padding: 25rpx 60rpx;
+  border-radius: 15rpx;
+  font-size: 30rpx;
+  font-weight: bold;
+  box-shadow: 0 6rpx 20rpx rgba(255, 107, 107, 0.3);
+  transition: all 0.3s ease;
+}
+
+.subscribe-btn:active {
+  transform: translateY(2rpx);
+  box-shadow: 0 4rpx 15rpx rgba(255, 107, 107, 0.2);
+}
+
+/* 响应式设计 */
+@media screen and (max-width: 750rpx) {
+  .container {
+    padding: 15rpx;
+  }
+  
+  .vip-card {
+    padding: 30rpx;
+  }
+  
+  .plan-item {
+    padding: 25rpx;
+  }
+  
+  .modal-content {
+    width: 90%;
+  }
+}

@@ -150,12 +150,21 @@ async def get_profile(
         if kaoyan_requirements is None:
             kaoyan_requirements = {}
             
+        def format_province_list(value):
+            if not value:
+                return ""
+            if isinstance(value, list):
+                return ", ".join([str(p) for p in value if p])
+            if isinstance(value, str):
+                return value
+            return str(value)
+        
         standardized_kaoyan_requirements = {
-            "province": ", ".join([str(p) for p in (kaoyan_requirements.get("provinces", []) or [kaoyan_requirements.get("province", "")]) if p]),
-            "school": kaoyan_requirements.get("schools", "") or kaoyan_requirements.get("school", ""),
+            "province": format_province_list(kaoyan_requirements.get("provinces")) or kaoyan_requirements.get("province", ""),
+            "school": format_province_list(kaoyan_requirements.get("schools")) or kaoyan_requirements.get("school", ""),
             "major": kaoyan_requirements.get("majors", "") or kaoyan_requirements.get("major", ""),
             "type": ", ".join([str(t) for t in (
-                kaoyan_requirements.get("types", []) or parse_requirement_value(kaoyan_requirements.get("type", ""))
+                parse_requirement_value(kaoyan_requirements.get("types")) or parse_requirement_value(kaoyan_requirements.get("type", ""))
             ) if t and str(t).strip()]),
             "keywords": kaoyan_requirements.get("keywords", "")
         }
@@ -165,11 +174,11 @@ async def get_profile(
             kaogong_requirements = {}
             
         standardized_kaogong_requirements = {
-            "province": ", ".join([str(p) for p in (kaogong_requirements.get("provinces", []) or [kaogong_requirements.get("province", "")]) if p]),
+            "province": format_province_list(kaogong_requirements.get("provinces")) or kaogong_requirements.get("province", ""),
             "major": kaogong_requirements.get("majors", "") or kaogong_requirements.get("major", ""),
             "type": ", ".join([str(t) for t in (
-                kaogong_requirements.get("position_types", []) 
-                or kaogong_requirements.get("types", []) 
+                parse_requirement_value(kaogong_requirements.get("position_types")) 
+                or parse_requirement_value(kaogong_requirements.get("types")) 
                 or parse_requirement_value(kaogong_requirements.get("type", ""))
             ) if t and str(t).strip()]),
             "keywords": kaogong_requirements.get("keywords", "")
@@ -204,6 +213,7 @@ async def get_profile(
                     "vip_type": current_user.vip_type,
                     "vip_end_time": current_user.vip_end_time.isoformat() if current_user.vip_end_time else None,
                     "created_at": current_user.created_at.isoformat(),
+                    "points": current_user.points,
                     "kaoyan_requirements": standardized_kaoyan_requirements,
                     "kaogong_requirements": standardized_kaogong_requirements
                 }
@@ -334,7 +344,7 @@ async def change_password(
         from core.security import verify_password
         
         # 验证旧密码
-        if not verify_password(req.old_password, current_user.password_hash):
+        if not verify_password(req.old_password, current_user.password):
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content={
@@ -346,7 +356,7 @@ async def change_password(
             )
         
         # 更新密码
-        current_user.password_hash = get_password_hash(req.new_password)
+        current_user.password = get_password_hash(req.new_password)
         db.commit()
         
         log_user_action(current_user.id, "change_password", "修改密码")
@@ -891,6 +901,93 @@ async def remove_favorite(
                 "data": None
             }
         )
+
+@router.get("/push-settings", summary="获取推送设置")
+async def get_push_settings(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db_common)
+):
+    """获取用户推送设置"""
+    try:
+        subscription = db.query(UserSubscription).filter(
+            UserSubscription.user_id == current_user.id
+        ).first()
+
+        push_config = {}
+        if subscription and subscription.config_json:
+            push_config = subscription.config_json.get("push", {})
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "获取推送设置成功",
+                "data": {
+                    "frequency": push_config.get("frequency", "daily"),
+                    "time": push_config.get("time", "09:00")
+                }
+            }
+        )
+    except Exception as e:
+        log_error(f"获取推送设置失败: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "code": 500, "message": f"获取推送设置失败: {str(e)}", "data": None}
+        )
+
+
+@router.put("/push-settings", summary="更新推送设置")
+async def update_push_settings(
+    settings_data: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db_common)
+):
+    """更新用户推送设置"""
+    try:
+        subscription = db.query(UserSubscription).filter(
+            UserSubscription.user_id == current_user.id
+        ).first()
+
+        if not subscription:
+            subscription = UserSubscription(
+                user_id=current_user.id,
+                subscribe_type=3,
+                status=1,
+                config_json={"kaoyan": {}, "kaogong": {}, "push": {}}
+            )
+            db.add(subscription)
+            db.commit()
+            db.refresh(subscription)
+
+        config_json = subscription.config_json or {}
+        config_json["push"] = {
+            "frequency": settings_data.get("frequency", "daily"),
+            "time": settings_data.get("time", "09:00")
+        }
+        subscription.config_json = config_json
+        db.commit()
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "code": 200,
+                "message": "更新推送设置成功",
+                "data": {
+                    "frequency": settings_data.get("frequency", "daily"),
+                    "time": settings_data.get("time", "09:00")
+                }
+            }
+        )
+    except Exception as e:
+        db.rollback()
+        log_error(f"更新推送设置失败: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "code": 500, "message": f"更新推送设置失败: {str(e)}", "data": None}
+        )
+
 
 @router.get("/stats", response_model=UserStatsResponse, summary="获取用户统计信息")
 async def get_user_stats(

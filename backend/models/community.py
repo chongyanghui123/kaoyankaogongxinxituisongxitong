@@ -263,6 +263,7 @@ class GroupMessage(BaseCommon):
     message_type = Column(Integer, default=1, comment="消息类型: 1-文字, 2-图片, 3-系统消息")
     content = Column(Text, nullable=True, comment="消息内容")
     image_url = Column(String(255), nullable=True, comment="图片URL")
+    mentioned_users = Column(String(500), nullable=True, comment="被@的用户ID列表，逗号分隔")
     status = Column(Integer, default=1, comment="状态: 1-正常, 0-已撤回")
     created_at = Column(DateTime, default=datetime.now, comment="发送时间")
     

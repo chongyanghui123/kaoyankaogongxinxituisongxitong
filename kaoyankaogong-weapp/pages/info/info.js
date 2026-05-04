@@ -46,7 +46,7 @@ Page({
       }
     }
     
-    const vipType = userInfo ? (userInfo.vip_type || userInfo.is_vip_active || 3) : 0;
+    const vipType = userInfo ? (userInfo.vip_type || (userInfo.is_vip ? 3 : 0)) : 0;
     this.setData({ 
       userInfo: userInfo,
       userVipType: vipType

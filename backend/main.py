@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 
 import uvicorn
-from fastapi import FastAPI, Depends, HTTPException, status, Request
+from fastapi import FastAPI, Depends, HTTPException, status, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -26,6 +26,8 @@ from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
+import json
+import asyncio
 
 # 添加项目路径
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -57,6 +59,42 @@ from api.v1.community import router as community_router
 # 初始化日志
 setup_logging()
 logger = logging.getLogger(__name__)
+
+# WebSocket 连接管理器
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[int, List[WebSocket]] = {}
+    
+    async def connect(self, websocket: WebSocket, group_id: int, user_id: int):
+        await websocket.accept()
+        if group_id not in self.active_connections:
+            self.active_connections[group_id] = []
+        self.active_connections[group_id].append({
+            "websocket": websocket,
+            "user_id": user_id
+        })
+        logger.info(f"WebSocket连接: 用户{user_id}加入小组{group_id}")
+    
+    def disconnect(self, websocket: WebSocket, group_id: int):
+        if group_id in self.active_connections:
+            self.active_connections[group_id] = [
+                conn for conn in self.active_connections[group_id] 
+                if conn["websocket"] != websocket
+            ]
+            if not self.active_connections[group_id]:
+                del self.active_connections[group_id]
+        logger.info(f"WebSocket断开: 小组{group_id}")
+    
+    async def broadcast(self, group_id: int, message: dict, exclude_ws: WebSocket = None):
+        if group_id in self.active_connections:
+            for conn in self.active_connections[group_id]:
+                if conn["websocket"] != exclude_ws:
+                    try:
+                        await conn["websocket"].send_json(message)
+                    except Exception as e:
+                        logger.error(f"广播消息失败: {e}")
+
+manager = ConnectionManager()
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -279,7 +317,7 @@ async def startup_event():
             from models.users import User, UserSubscription, UserKeyword, UserReadInfo, UserFavorite, Order, Product, SystemConfig, PushTemplate, PushLog, UserLoginRecord  # 导入用户相关模型
             from models.kaoyan import KaoyanInfo, KaoyanCrawlerConfig, KaoyanCrawlerLog  # 导入考研相关模型
             from models.kaogong import KaogongInfo, KaogongCrawlerConfig, KaogongCrawlerLog  # 导入考公相关模型
-            from models.learning_materials import MaterialCategory, LearningMaterial, UserDownload, MaterialRating, MaterialComment, ExamSchedule, Carousel  # 导入学习资料相关模型
+            from models.learning_materials import MaterialCategory, LearningMaterial, UserDownload, MaterialRating, MaterialComment, ExamSchedule, Carousel, DailyPractice, DailyPracticeRecord, HotTopic  # 导入学习资料相关模型
             from models.feedback import Feedback  # 导入反馈相关模型
             BaseCommon.metadata.create_all(bind=common_db_engine)
             BaseKaoyan.metadata.create_all(bind=kaoyan_db_engine)
@@ -375,6 +413,161 @@ async def shutdown_event():
         logger.info("服务安全关闭完成")
     except Exception as e:
         logger.error(f"关闭事件异常: {str(e)}")
+
+# WebSocket 路由 - 小组聊天
+@app.websocket("/ws/group/{group_id}")
+async def websocket_group_chat(
+    websocket: WebSocket, 
+    group_id: int
+):
+    """WebSocket 小组聊天"""
+    from fastapi import Query
+    from core.database import get_db_common
+    from models.users import User
+    from models.community import GroupMember
+    
+    # 从查询参数获取token
+    token = websocket.query_params.get("token")
+    
+    user_id = None
+    username = "匿名用户"
+    
+    # 验证token
+    if token:
+        try:
+            from fastapi import HTTPException
+            credentials_exception = HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="无法验证凭证",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+            payload = verify_token(token, credentials_exception)
+            if payload:
+                user_id = int(payload.get("user_id"))
+                db = next(get_db_common())
+                user = db.query(User).filter(User.id == user_id).first()
+                if user:
+                    username = user.username
+        except Exception as e:
+            logger.error(f"WebSocket token验证失败: {e}")
+    
+    if not user_id:
+        await websocket.close(code=4001, reason="未授权")
+        return
+    
+    # 检查用户是否是小组成员
+    db = next(get_db_common())
+    member = db.query(GroupMember).filter(
+        GroupMember.group_id == group_id,
+        GroupMember.user_id == user_id,
+        GroupMember.status == 1
+    ).first()
+    
+    if not member:
+        await websocket.close(code=4003, reason="不是小组成员")
+        return
+    
+    # 连接WebSocket
+    await manager.connect(websocket, group_id, user_id)
+    
+    try:
+        # 发送连接成功消息
+        await websocket.send_json({
+            "type": "system",
+            "content": f"{username} 加入了聊天室",
+            "time": datetime.now().isoformat()
+        })
+        
+        # 广播用户加入消息
+        await manager.broadcast(group_id, {
+            "type": "system",
+            "content": f"{username} 加入了聊天室",
+            "time": datetime.now().isoformat()
+        }, exclude_ws=websocket)
+        
+        # 持续接收消息
+        while True:
+            data = await websocket.receive_text()
+            try:
+                message = json.loads(data)
+                
+                # 处理不同类型的消息
+                if message.get("type") == "chat":
+                    content = message.get("content", "")
+                    mentioned_users = message.get("mentioned_users", [])
+                    
+                    # 聊天消息 - 广播给所有成员
+                    broadcast_msg = {
+                        "type": "chat",
+                        "user_id": user_id,
+                        "username": username,
+                        "content": content,
+                        "mentioned_users": mentioned_users,
+                        "time": datetime.now().isoformat()
+                    }
+                    await manager.broadcast(group_id, broadcast_msg)
+                    
+                    # 保存消息到数据库
+                    from models.community import GroupMessage
+                    mentioned_users_str = ",".join(map(str, mentioned_users)) if mentioned_users else None
+                    new_message = GroupMessage(
+                        group_id=group_id,
+                        user_id=user_id,
+                        content=content,
+                        message_type=1,
+                        mentioned_users=mentioned_users_str
+                    )
+                    db.add(new_message)
+                    db.commit()
+                    
+                    # 发送通知给被 @ 的用户
+                    if mentioned_users:
+                        for mentioned_user_id in mentioned_users:
+                            try:
+                                mentioned_user = db.query(User).filter(User.id == mentioned_user_id).first()
+                                if mentioned_user:
+                                    # 创建消息通知
+                                    from models.message import Message
+                                    notification = Message(
+                                        user_id=mentioned_user_id,
+                                        type="mention",
+                                        title=f"{username} 在小组聊天中@了你",
+                                        content=content[:100] + "..." if len(content) > 100 else content,
+                                        info_id=0,
+                                        is_read=0
+                                    )
+                                    db.add(notification)
+                            except Exception as e:
+                                logger.error(f"发送@通知失败: {e}")
+                        db.commit()
+                    
+                elif message.get("type") == "image":
+                    # 图片消息
+                    broadcast_msg = {
+                        "type": "image",
+                        "user_id": user_id,
+                        "username": username,
+                        "content": message.get("content", ""),
+                        "time": datetime.now().isoformat()
+                    }
+                    await manager.broadcast(group_id, broadcast_msg)
+                    
+            except json.JSONDecodeError:
+                await websocket.send_json({
+                    "type": "error",
+                    "content": "消息格式错误"
+                })
+                
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, group_id)
+        await manager.broadcast(group_id, {
+            "type": "system",
+            "content": f"{username} 离开了聊天室",
+            "time": datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"WebSocket错误: {e}")
+        manager.disconnect(websocket, group_id)
 
 # 初始化管理员用户
 def init_admin_user():

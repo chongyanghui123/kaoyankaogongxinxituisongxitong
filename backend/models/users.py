@@ -18,7 +18,7 @@ class User(BaseCommon):
     id = Column(Integer, primary_key=True, autoincrement=True, comment="用户ID")
     username = Column(String(50), unique=True, nullable=False, comment="用户名")
     email = Column(String(100), unique=True, nullable=False, comment="邮箱")
-    phone = Column(String(20), unique=True, nullable=False, comment="手机号")
+    phone = Column(String(20), unique=True, nullable=True, comment="手机号")
     password = Column(String(255), nullable=True, comment="密码（仅管理员用户需要）")
     avatar = Column(String(255), nullable=True, comment="头像URL")
     real_name = Column(String(50), nullable=True, comment="真实姓名")
@@ -30,16 +30,18 @@ class User(BaseCommon):
     last_login_time = Column(DateTime, nullable=True, comment="最后登录时间")
     is_active = Column(Boolean, default=True, comment="是否激活: 1-激活, 0-未激活")
     is_admin = Column(Boolean, default=False, comment="是否管理员: 1-是, 0-否")
+    user_type = Column(Integer, default=1, comment="用户类型: 1-普通用户, 2-VIP用户")
     is_vip = Column(Boolean, default=False, comment="是否VIP: 1-是, 0-否")
+    wx_openid = Column(String(100), unique=True, nullable=True, comment="微信OpenID")
+    wx_unionid = Column(String(100), unique=True, nullable=True, comment="微信UnionID")
     vip_start_time = Column(DateTime, nullable=True, comment="VIP开始时间")
     vip_end_time = Column(DateTime, nullable=True, comment="VIP结束时间")
     vip_type = Column(Integer, default=0, comment="VIP类型: 0-非VIP, 1-考研VIP, 2-考公VIP, 3-双赛道VIP")
     points = Column(Integer, default=0, comment="积分")
     continuous_sign_days = Column(Integer, default=0, comment="连续签到天数")
     last_sign_date = Column(DateTime, nullable=True, comment="最后签到日期")
-    real_name = Column(String(50), nullable=True, comment="真实姓名")
-    phone = Column(String(20), nullable=True, comment="手机号")
     address = Column(String(500), nullable=True, comment="详细地址")
+    phone_bound = Column(Boolean, default=False, comment="是否已绑定手机号: 1-是, 0-否")
     trial_status = Column(Integer, default=0, comment="试用状态: 0-未试用, 1-试用中, 2-已过期")
     need_change_password = Column(Boolean, default=True, comment="是否需要修改密码: 1-是, 0-否")
     created_at = Column(DateTime, default=datetime.now, comment="创建时间")
@@ -54,8 +56,7 @@ class User(BaseCommon):
         if not self.is_vip or not self.vip_end_time:
             return False
         # VIP服务从vip_start_time开始，到vip_end_time结束
-        if self.vip_start_time:
-            return self.vip_start_time <= datetime.now() < self.vip_end_time
+        # 如果vip_start_time还未到，也认为是有效的，以便用户可以续费
         return datetime.now() < self.vip_end_time
     
     @property

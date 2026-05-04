@@ -244,7 +244,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import axios from '@/utils/axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Picture } from '@element-plus/icons-vue'
 
@@ -291,8 +291,8 @@ const getCategories = async () => {
         'Authorization': `Bearer ${token}`
       }
     })
-    if (response.data.success) {
-      categories.value = response.data.data
+    if (response.success) {
+      categories.value = response.data
     }
   } catch (error) {
     console.error('获取资料分类列表失败:', error)
@@ -326,9 +326,9 @@ const getMaterials = async () => {
       params
     })
     
-    if (response.data.success) {
-      materials.value = response.data.data.items || []
-      total.value = response.data.data.total
+    if (response.success) {
+      materials.value = response.data.items || []
+      total.value = response.data.total
     } else {
       materials.value = []
       total.value = 0
@@ -369,9 +369,9 @@ const getDownloads = async () => {
       }
     })
     
-    if (response.data.success) {
-      downloads.value = response.data.data.items || []
-      downloadsTotal.value = response.data.data.total
+    if (response.success) {
+      downloads.value = response.data.items || []
+      downloadsTotal.value = response.data.total
     } else {
       downloads.value = []
       downloadsTotal.value = 0
@@ -413,8 +413,8 @@ const showMaterialDetail = async (material) => {
       }
     })
     
-    if (response.data.success) {
-      comments.value = response.data.data.items || []
+    if (response.success) {
+      comments.value = response.data.items || []
     } else {
       comments.value = []
     }
@@ -481,13 +481,13 @@ const submitRating = async () => {
       }
     })
     
-    if (response.data.success) {
+    if (response.success) {
       ElMessage.success('评分成功')
       showRateDialog.value = false
       // 刷新资料列表
       getMaterials()
     } else {
-      ElMessage.error('评分失败: ' + response.data.message)
+      ElMessage.error('评分失败: ' + response.message)
     }
   } catch (error) {
     console.error('评分失败:', error)
@@ -512,7 +512,7 @@ const submitComment = async () => {
       }
     })
     
-    if (response.data.success) {
+    if (response.success) {
       ElMessage.success('评论成功')
       showCommentDialog.value = false
       commentContent.value = ''
@@ -527,11 +527,11 @@ const submitComment = async () => {
         }
       })
       
-      if (commentResponse.data.success) {
-        comments.value = commentResponse.data.data.items || []
+      if (commentResponse.success) {
+        comments.value = commentResponse.data.items || []
       }
     } else {
-      ElMessage.error('评论失败: ' + response.data.message)
+      ElMessage.error('评论失败: ' + response.message)
     }
   } catch (error) {
     console.error('评论失败:', error)

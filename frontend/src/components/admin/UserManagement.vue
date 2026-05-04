@@ -8,10 +8,19 @@
         </div>
       </template>
       
+      <!-- 用户分类切换 -->
+      <div class="user-type-tabs">
+        <el-tabs v-model="activeTab" @tab-click="handleTabClick" type="card" class="mb-4">
+          <el-tab-pane label="全部用户" name="all" />
+          <el-tab-pane label="注册用户" name="registered" />
+          <el-tab-pane label="订阅用户" name="subscribed" />
+        </el-tabs>
+      </div>
+
       <!-- 搜索和筛选 -->
       <div class="search-filter">
         <el-row :gutter="20">
-          <el-col :span="8">
+          <el-col :span="6">
             <el-input
               v-model="searchQuery"
               placeholder="搜索用户"
@@ -24,15 +33,15 @@
               </template>
             </el-input>
           </el-col>
-          <el-col :span="8">
-            <el-select v-model="userTypeFilter" placeholder="按用户类型筛选" clearable @change="getUsers">
+
+          <el-col :span="6">
+            <el-select v-model="vipFilter" placeholder="按VIP状态筛选" clearable @change="getUsers">
               <el-option label="全部" value="" />
-              <el-option label="考研" value="考研" />
-              <el-option label="考公" value="考公" />
-              <el-option label="双赛道" value="双赛道" />
+              <el-option label="VIP" value="true" />
+              <el-option label="非VIP" value="false" />
             </el-select>
           </el-col>
-          <el-col :span="8">
+          <el-col :span="6">
             <el-select v-model="userStatusFilter" placeholder="按今日活跃状态筛选" clearable @change="getUsers">
               <el-option label="全部" value="" />
               <el-option label="今日活跃" value="true" />
@@ -45,51 +54,57 @@
       <!-- 用户表格 -->
       <el-table :data="users" style="width: 100%">
         <el-table-column type="index" label="序号" width="80" :index="(index) => index + 1" />
-        <el-table-column prop="username" label="用户名" />
-        <el-table-column prop="email" label="邮箱" />
-        <el-table-column prop="phone" label="手机号" />
-        <el-table-column label="用户类型">
+        <el-table-column prop="username" label="用户名" min-width="120" />
+        <el-table-column prop="email" label="邮箱" min-width="160" />
+        <el-table-column prop="phone" label="手机号" width="130">
           <template #default="scope">
-            {{ scope.row.is_admin ? '' : scope.row.user_type }}
+            {{ scope.row.phone || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="is_admin" label="管理员" width="100">
+
+        <el-table-column prop="is_admin" label="管理员" width="80">
           <template #default="scope">
-            <el-tag :type="scope.row.is_admin ? 'danger' : 'info'">
+            <el-tag :type="scope.row.is_admin ? 'danger' : 'info'" size="small">
               {{ scope.row.is_admin ? '是' : '否' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="is_vip" label="VIP" width="80">
+        <el-table-column label="手机绑定" width="90">
           <template #default="scope">
-            <el-tag :type="scope.row.is_vip ? 'warning' : 'info'">
+            <el-tag :type="scope.row.phone_bound ? 'success' : 'info'" size="small">
+              {{ scope.row.phone_bound ? '已绑定' : '未绑定' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="VIP" width="80">
+          <template #default="scope">
+            <el-tag :type="scope.row.is_vip ? 'warning' : 'info'" size="small">
               {{ scope.row.is_vip ? '是' : '否' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="服务到期时间" width="180">
+        <el-table-column label="VIP类型" width="100">
           <template #default="scope">
-            {{ scope.row.vip_end_time ? new Date(scope.row.vip_end_time).toLocaleString() : '无' }}
+            {{ scope.row.vip_type === 1 ? '考研' : scope.row.vip_type === 2 ? '考公' : scope.row.vip_type === 3 ? '双赛道' : '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="服务开始时间" width="180">
+        <el-table-column label="服务到期" width="170">
           <template #default="scope">
-            {{ scope.row.vip_start_time ? new Date(scope.row.vip_start_time).toLocaleString() : '无' }}
+            {{ scope.row.vip_end_time ? new Date(scope.row.vip_end_time).toLocaleString() : '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="今日活跃" width="100">
+        <el-table-column label="今日活跃" width="90">
           <template #default="scope">
-            <el-tag :type="scope.row.is_active ? 'success' : 'info'">
-              {{ scope.row.is_active ? '活跃' : '不活跃' }}
+            <el-tag :type="scope.row.is_active ? 'success' : 'info'" size="small">
+              {{ scope.row.is_active ? '活跃' : '-' }}
             </el-tag>
           </template>
         </el-table-column>
-
-        <el-table-column prop="created_at" label="创建时间" width="180" />
-        <el-table-column label="操作" width="200">
+        <el-table-column prop="created_at" label="创建时间" width="170" />
+        <el-table-column label="操作" width="200" fixed="right">
           <template #default="scope">
             <el-button type="primary" size="small" @click="editUser(scope.row.id)">编辑</el-button>
-            <el-button type="info" size="small" @click="viewUserRequirements(scope.row.id)">查看需求</el-button>
+            <el-button type="info" size="small" @click="viewUserRequirements(scope.row.id)" v-if="scope.row.is_vip || scope.row.vip_type > 0">需求</el-button>
             <el-button type="danger" size="small" @click="deleteUser(scope.row.id)" v-if="!scope.row.is_admin">删除</el-button>
           </template>
         </el-table-column>
@@ -106,20 +121,20 @@
         <el-form-item label="用户名" prop="username" required>
           <el-input v-model="userForm.username" placeholder="请输入用户名" />
         </el-form-item>
-        <el-form-item label="邮箱" prop="email" required>
+        <el-form-item label="邮箱" prop="email">
           <el-input v-model="userForm.email" type="email" placeholder="请输入邮箱" />
         </el-form-item>
-        <el-form-item label="手机号" prop="phone" required>
-          <el-input v-model="userForm.phone" placeholder="请输入手机号" />
+        <el-form-item label="手机号" prop="phone">
+          <el-input v-model="userForm.phone" placeholder="请输入手机号（微信注册用户可不填）" />
         </el-form-item>
         <el-form-item label="密码" prop="password" required>
           <el-input v-model="userForm.password" type="password" placeholder="请输入密码" />
         </el-form-item>
-        <el-form-item label="用户类型" prop="user_type" required>
-          <el-select v-model="userForm.user_type" placeholder="请选择用户类型">
-            <el-option label="考研" value="考研" />
-            <el-option label="考公" value="考公" />
-            <el-option label="双赛道" value="双赛道" />
+        <el-form-item label="VIP类型">
+          <el-select v-model="userForm.vip_type" placeholder="请选择VIP类型">
+            <el-option label="考研VIP" :value="1" />
+            <el-option label="考公VIP" :value="2" />
+            <el-option label="双赛道VIP" :value="3" />
           </el-select>
         </el-form-item>
         <el-form-item label="管理员">
@@ -144,21 +159,24 @@
         <el-form-item label="用户名" prop="username" required>
           <el-input v-model="userForm.username" placeholder="请输入用户名" />
         </el-form-item>
-        <el-form-item label="邮箱" prop="email" required>
+        <el-form-item label="邮箱" prop="email">
           <el-input v-model="userForm.email" type="email" placeholder="请输入邮箱" />
         </el-form-item>
-        <el-form-item label="手机号" prop="phone" required>
-          <el-input v-model="userForm.phone" placeholder="请输入手机号" />
+        <el-form-item label="手机号" prop="phone">
+          <el-input v-model="userForm.phone" placeholder="请输入手机号（微信注册用户可不填）" />
         </el-form-item>
         <el-form-item label="密码" prop="password">
           <el-input v-model="userForm.password" type="password" placeholder="请输入密码（留空则不修改）" />
         </el-form-item>
-        <el-form-item label="用户类型" prop="user_type" required>
-          <el-select v-model="userForm.user_type" placeholder="请选择用户类型">
-            <el-option label="考研" value="考研" />
-            <el-option label="考公" value="考公" />
-            <el-option label="双赛道" value="双赛道" />
+        <el-form-item label="VIP类型">
+          <el-select v-model="userForm.vip_type" placeholder="请选择VIP类型">
+            <el-option label="考研VIP" :value="1" />
+            <el-option label="考公VIP" :value="2" />
+            <el-option label="双赛道VIP" :value="3" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="VIP状态">
+          <el-switch v-model="userForm.is_vip" />
         </el-form-item>
         <el-form-item label="管理员">
           <el-switch v-model="userForm.is_admin" />
@@ -179,7 +197,7 @@
       width="800px"
     >
       <el-tabs v-model="userRequirementsActiveTab">
-        <el-tab-pane v-if="currentUser?.user_type !== '考公'" label="考研需求" name="kaoyan">
+        <el-tab-pane v-if="currentUser?.vip_type !== 2" label="考研需求" name="kaoyan">
           <el-descriptions :column="1" border>
             <el-descriptions-item label="关注省份">
               <el-tag v-for="province in (currentUserRequirements?.kaoyan?.provinces || [])" :key="province" class="mr-2 mb-2">
@@ -204,7 +222,7 @@
             </el-descriptions-item>
           </el-descriptions>
         </el-tab-pane>
-        <el-tab-pane v-if="currentUser?.user_type !== '考研'" label="考公需求" name="kaogong">
+        <el-tab-pane v-if="currentUser?.vip_type !== 1" label="考公需求" name="kaogong">
           <el-descriptions :column="1" border>
             <el-descriptions-item label="关注省份">
               <el-tag v-for="province in (currentUserRequirements?.kaogong?.provinces || [])" :key="province" class="mr-2 mb-2">
@@ -257,7 +275,7 @@
       width="800px"
     >
       <el-tabs v-model="editUserRequirementsActiveTab">
-        <el-tab-pane v-if="currentUser?.user_type !== '考公'" label="考研需求" name="kaoyan">
+        <el-tab-pane v-if="currentUser?.vip_type !== 2" label="考研需求" name="kaoyan">
           <el-form :model="editUserRequirementsForm.kaoyan" label-width="120px">
             <el-form-item label="关注省份">
               <el-select
@@ -299,7 +317,7 @@
             </el-form-item>
           </el-form>
         </el-tab-pane>
-        <el-tab-pane v-if="currentUser?.user_type !== '考研'" label="考公需求" name="kaogong">
+        <el-tab-pane v-if="currentUser?.vip_type !== 1" label="考公需求" name="kaogong">
           <el-form :model="editUserRequirementsForm.kaogong" label-width="120px">
             <el-form-item label="关注省份">
               <el-select
@@ -398,8 +416,9 @@ import { ElMessage, ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElSwitch, E
 
 // 用户管理相关
 const users = ref([])
+const activeTab = ref('all') // 当前激活的标签页
 const searchQuery = ref('')
-const userTypeFilter = ref('')
+const vipFilter = ref('')
 const userStatusFilter = ref('')
 const showAddUserDialog = ref(false)
 const showEditUserDialog = ref(false)
@@ -410,7 +429,8 @@ const userForm = reactive({
   phone: '',
   password: '',
   is_admin: false,
-  user_type: '考研'
+  is_vip: false,
+  vip_type: 0
 })
 
 // 表单引用
@@ -423,50 +443,14 @@ const userFormRules = reactive({
     { min: 3, max: 20, message: '用户名长度在3-20之间', trigger: 'blur' }
   ],
   email: [
-    { required: true, message: '请输入邮箱', trigger: 'blur' },
     { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
   ],
   phone: [
-    { required: true, message: '请输入手机号', trigger: 'blur' },
-    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号格式', trigger: 'blur' },
-    {
-      validator: async (rule, value, callback) => {
-        if (!value) {
-          callback()
-          return
-        }
-        
-        try {
-          const token = localStorage.getItem('token')
-          const response = await axios.get('/api/v1/admin/users', {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          })
-          
-          const existingUser = response.data.find(user => 
-            user.phone === value && user.id !== currentUser.value?.id
-          )
-          
-          if (existingUser) {
-            callback(new Error('手机号已被其他用户使用'))
-          } else {
-            callback()
-          }
-        } catch (error) {
-          console.error('验证手机号失败:', error)
-          callback()
-        }
-      },
-      trigger: 'blur'
-    }
+    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号格式', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, message: '密码长度至少6位', trigger: 'blur' }
-  ],
-  user_type: [
-    { required: true, message: '请选择用户类型', trigger: 'change' }
   ]
 })
 
@@ -514,10 +498,12 @@ const getUsers = async () => {
   try {
     const token = localStorage.getItem('token')
     const params = {
-      keyword: searchQuery.value
+      keyword: searchQuery.value,
+      is_admin: false // 只获取非管理员用户
     }
-    if (userTypeFilter.value) {
-      params.user_type = userTypeFilter.value
+
+    if (vipFilter.value) {
+      params.is_vip = vipFilter.value === 'true'
     }
     if (userStatusFilter.value) {
       params.is_active = userStatusFilter.value === 'true'
@@ -529,15 +515,36 @@ const getUsers = async () => {
       },
       params
     })
+    
+    // axios拦截器已经返回了response.data，所以response就是数据本身
+    const userData = Array.isArray(response) ? response : (response.data || [])
+    
+    // 根据当前标签页过滤用户
+    let filteredUsers = userData
+    
+    if (activeTab.value === 'registered') {
+      // 注册用户：is_vip为false且vip_type为0且登录次数为1（首次登录）且不是管理员
+      filteredUsers = userData.filter(user => !user.is_vip && user.vip_type === 0 && user.login_count === 1 && !user.is_admin)
+    } else if (activeTab.value === 'subscribed') {
+      // 订阅用户：is_vip为true或vip_type不为0或登录次数大于1（非首次登录）
+      filteredUsers = userData.filter(user => user.is_vip || user.vip_type !== 0 || user.login_count > 1)
+    }
+    
     // 将管理员用户放在最顶端
-    users.value = response.data.sort((a, b) => {
+    users.value = filteredUsers.sort((a, b) => {
       if (a.is_admin && !b.is_admin) return -1
       if (!a.is_admin && b.is_admin) return 1
       return 0
     })
   } catch (error) {
     console.error('获取用户列表失败:', error)
+    users.value = []
   }
+}
+
+// 标签页切换处理
+const handleTabClick = () => {
+  getUsers()
 }
 
 // 编辑用户
@@ -551,12 +558,12 @@ const editUser = async (userId) => {
     })
     
     currentUser.value = response.data
-    // 填充表单数据
     userForm.username = currentUser.value.username
     userForm.email = currentUser.value.email
-    userForm.phone = currentUser.value.phone
+    userForm.phone = currentUser.value.phone || ''
     userForm.is_admin = currentUser.value.is_admin
-    userForm.user_type = currentUser.value.user_type
+    userForm.is_vip = currentUser.value.is_vip
+    userForm.vip_type = currentUser.value.vip_type || 0
     
     showEditUserDialog.value = true
   } catch (error) {
@@ -746,10 +753,9 @@ const openEditUserRequirements = () => {
     }
   }
   
-  // 根据用户类型设置默认标签页
-  if (currentUser.value?.user_type === '考研') {
+  if (currentUser.value?.vip_type === 1) {
     editUserRequirementsActiveTab.value = 'kaoyan'
-  } else if (currentUser.value?.user_type === '考公') {
+  } else if (currentUser.value?.vip_type === 2) {
     editUserRequirementsActiveTab.value = 'kaogong'
   } else {
     editUserRequirementsActiveTab.value = 'kaoyan'

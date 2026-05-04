@@ -292,7 +292,7 @@ const form = reactive({
   subtitle: '',
   image_url: '',
   sort_order: 0,
-  is_active: 1
+  is_active: true
 })
 const formRules = reactive({
   title: [
@@ -364,9 +364,9 @@ const getCarousels = async () => {
       is_active: searchForm.is_active
     }
     const response = await axios.get('/api/v1/learning_materials/carousels', { params })
-    if (response.data.success) {
-      carousels.value = response.data.data.items
-      pagination.total = response.data.data.total
+    if (response.success) {
+      carousels.value = response.data.items
+      pagination.total = response.data.total
     }
   } catch (error) {
     console.error('获取轮播图列表失败:', error)
@@ -450,7 +450,7 @@ const handleSubmit = async () => {
     
     const response = await axios[method](url, form)
     
-    if (response.data.success) {
+    if (response.success) {
       dialogVisible.value = false
       getCarousels()
     }
@@ -470,12 +470,12 @@ const handleStatusChange = async (row) => {
     
     console.log('更新响应:', response)
     
-    if (response.data.success) {
+    if (response.success) {
       ElMessage.success('状态更新成功')
       // 更新成功后重新获取轮播图列表
       getCarousels()
     } else {
-      ElMessage.error(response.data.message || '更新失败')
+      ElMessage.error(response.message || '更新失败')
       row.is_active = !row.is_active // 恢复原状态
     }
   } catch (error) {

@@ -13,6 +13,7 @@ from core.database import get_db, get_db_common
 from core.security import get_current_user, get_current_admin
 from models.users import Order, Product, User, UserSubscription
 from models.users import PushLog
+from models.users import SystemConfig
 from schemas.payments import OrderCreate, OrderUpdate, OrderResponse, ProductCreate, ProductUpdate, ProductResponse, PaymentCallback
 
 # 导入日志功能
@@ -81,16 +82,85 @@ def generate_wechat_pay_params(order: Order, product: Product, user: User) -> di
 
 def generate_alipay_params(order: Order, product: Product) -> dict:
     """生成支付宝支付参数"""
-    # 支付宝支付参数生成逻辑
-    # 这里返回空，实际需要根据支付宝SDK生成
-    return {}
+    import random
+    import string
+    
+    # 订单号
+    out_trade_no = f"ORDER{order.id}{int(time.time())}"
+    
+    # 商品描述
+    subject = f"双赛道情报通-{product.name}"
+    
+    # 价格
+    total_amount = str(product.price)
+    
+    # 生成随机字符串
+    nonce_str = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+    
+    # 支付宝支付参数（模拟）
+    # 实际使用时需要集成支付宝SDK
+    alipay_params = {
+        "out_trade_no": out_trade_no,
+        "subject": subject,
+        "total_amount": total_amount,
+        "product_code": "QUICK_MSECURITY_PAY",
+        "timeout_express": "30m"
+    }
+    
+    # 如果配置了支付宝，生成真实支付参数
+    if settings.ALIPAY_APP_ID and settings.ALIPAY_PRIVATE_KEY:
+        try:
+            from alipay import AliPay
+            
+            alipay = AliPay(
+                appid=settings.ALIPAY_APP_ID,
+                app_notify_url=settings.ALIPAY_NOTIFY_URL or "http://your-domain.com/api/v1/payments/alipay/callback",
+                app_private_key_string=settings.ALIPAY_PRIVATE_KEY,
+                alipay_public_key_string=settings.ALIPAY_PUBLIC_KEY,
+                sign_type="RSA2",
+                debug=False
+            )
+            
+            order_string = alipay.api_alipay_trade_app_pay(
+                out_trade_no=out_trade_no,
+                total_amount=total_amount,
+                subject=subject,
+                notify_url=settings.ALIPAY_NOTIFY_URL or "http://your-domain.com/api/v1/payments/alipay/callback"
+            )
+            
+            return {
+                "order_string": order_string,
+                "out_trade_no": out_trade_no,
+                "alipay_trade_no": out_trade_no
+            }
+        except Exception as e:
+            log_error(f"生成支付宝支付参数失败: {str(e)}")
+            # 返回模拟参数
+            return {
+                "out_trade_no": out_trade_no,
+                "subject": subject,
+                "total_amount": total_amount,
+                "alipay_trade_no": out_trade_no,
+                "mock": True
+            }
+    
+    # 返回模拟参数
+    return {
+        "out_trade_no": out_trade_no,
+        "subject": subject,
+        "total_amount": total_amount,
+        "alipay_trade_no": out_trade_no,
+        "mock": True
+    }
 
 
-def process_payment_success(order: Order, db: Session, db_common: Session):
+def process_payment_success(order: Order, db: Session, db_common: Session, trade_no: str = None):
     """处理支付成功后的业务逻辑"""
     # 更新订单状态
     order.payment_status = 1
     order.payment_time = datetime.now()
+    if trade_no:
+        order.trade_no = trade_no
     order.updated_at = datetime.now()
     
     # 更新用户会员状态
@@ -98,12 +168,19 @@ def process_payment_success(order: Order, db: Session, db_common: Session):
     if product:
         user = db.query(User).filter(User.id == order.user_id).first()
         if user:
-            # 计算服务到期时间：从支付的第二天开始算
-            vip_start_time = order.payment_time + timedelta(days=1)
-            vip_end_time = vip_start_time + timedelta(days=product.duration)
+            # 计算服务到期时间：如果是续费，从当前到期时间延长；否则从支付第二天开始
+            if user.is_vip and user.vip_end_time and user.vip_end_time > datetime.now():
+                # 续费：从当前到期时间延长
+                vip_start_time = user.vip_end_time
+                vip_end_time = vip_start_time + timedelta(days=product.duration)
+            else:
+                # 新开通：从支付第二天开始
+                vip_start_time = order.payment_time + timedelta(days=1)
+                vip_end_time = vip_start_time + timedelta(days=product.duration)
             
             # 更新用户VIP状态
             user.is_vip = True
+            user.user_type = 2
             user.vip_start_time = vip_start_time
             user.vip_end_time = vip_end_time
             user.vip_type = product.type
@@ -111,6 +188,11 @@ def process_payment_success(order: Order, db: Session, db_common: Session):
             
             # 发送邮件通知
             if user.email:
+                # 判断是续费还是新开通
+                is_renewal = False
+                if user.is_vip and user.vip_end_time and user.vip_end_time > datetime.now():
+                    is_renewal = True
+                
                 if product.type == 1:
                     service_type = "考研"
                 elif product.type == 2:
@@ -120,8 +202,86 @@ def process_payment_success(order: Order, db: Session, db_common: Session):
                 else:
                     service_type = "推送"
                 
-                email_subject = f"【支付成功】您的{service_type}推送服务已开通"
-                email_content = f"""尊敬的 {user.username}：
+                # 检查是否是升级服务
+                is_upgrade = False
+                if is_renewal and product.type > user.vip_type:
+                    is_upgrade = True
+                
+                # 从系统配置中获取邮件文案
+                email_config = db_common.query(SystemConfig).filter(
+                    SystemConfig.config_key == f"email_{product.type}"
+                ).first()
+                
+                if email_config and email_config.config_value:
+                    if is_renewal:
+                        if is_upgrade:
+                            email_subject = email_config.description or f"【支付成功】您的{service_type}推送服务已升级"
+                        else:
+                            email_subject = email_config.description or f"【支付成功】您的{service_type}推送服务已续费"
+                    else:
+                        email_subject = email_config.description or f"【支付成功】您的{service_type}推送服务已开通"
+                    
+                    email_content = email_config.config_value
+                    # 替换模板变量
+                    email_content = email_content.replace("{username}", user.username or "")
+                    email_content = email_content.replace("{product_name}", product.name or "")
+                    email_content = email_content.replace("{service_type}", service_type or "")
+                    email_content = email_content.replace("{start_date}", vip_start_time.strftime('%Y-%m-%d'))
+                    email_content = email_content.replace("{end_date}", vip_end_time.strftime('%Y-%m-%d'))
+                    email_content = email_content.replace("{duration}", str(product.duration))
+                else:
+                    # 使用默认文案
+                    if is_renewal:
+                        if is_upgrade:
+                            email_subject = f"【支付成功】您的{service_type}推送服务已升级"
+                            email_content = f"""尊敬的 {user.username}：
+
+恭喜您支付成功！您的{service_type}推送服务已升级。
+
+服务详情：
+产品名称：{product.name}
+服务类型：{service_type}推送服务
+原服务到期时间：{user.vip_end_time.strftime('%Y-%m-%d')}
+新服务到期时间：{vip_end_time.strftime('%Y-%m-%d')}
+服务时长：{product.duration}天
+
+升级信息：
+您已成功升级到{service_type}推送服务，我们将为您提供以下内容：
+- 最新{service_type}相关资讯和政策变化
+- 个性化的考试信息推送
+- 专业的备考指导和建议
+- 更多高级功能和服务
+
+如有疑问，请联系客服。
+
+此致
+双赛道情报通团队"""
+                        else:
+                            email_subject = f"【支付成功】您的{service_type}推送服务已续费"
+                            email_content = f"""尊敬的 {user.username}：
+
+恭喜您支付成功！您的{service_type}推送服务已续费。
+
+服务详情：
+产品名称：{product.name}
+服务类型：{service_type}推送服务
+原服务到期时间：{user.vip_end_time.strftime('%Y-%m-%d')}
+新服务到期时间：{vip_end_time.strftime('%Y-%m-%d')}
+续费时长：{product.duration}天
+
+续费信息：
+您已成功续费{service_type}推送服务，我们将继续为您提供以下内容：
+- 最新{service_type}相关资讯和政策变化
+- 个性化的考试信息推送
+- 专业的备考指导和建议
+
+如有疑问，请联系客服。
+
+此致
+双赛道情报通团队"""
+                    else:
+                        email_subject = f"【支付成功】您的{service_type}推送服务已开通"
+                        email_content = f"""尊敬的 {user.username}：
 
 恭喜您支付成功！您的{service_type}推送服务已开通。
 
@@ -147,7 +307,14 @@ def process_payment_success(order: Order, db: Session, db_common: Session):
                 # 记录到推送历史记录
                 try:
                     # 修改推送内容，添加"系统"关键词，确保归类到系统通知
-                    push_content = f"【系统通知】{email_subject}"
+                    if is_renewal:
+                        if is_upgrade:
+                            push_content = f"【系统通知】您的{service_type}推送服务已升级\n\n服务详情：\n产品名称：{product.name}\n服务类型：{service_type}推送服务\n原服务到期时间：{user.vip_end_time.strftime('%Y-%m-%d')}\n新服务到期时间：{vip_end_time.strftime('%Y-%m-%d')}\n服务时长：{product.duration}天\n\n升级信息：\n您已成功升级到{service_type}推送服务，我们将为您提供更多高级功能和服务。\n\n如有疑问，请联系客服。\n\n此致\n双赛道情报通团队"
+                        else:
+                            push_content = f"【系统通知】您的{service_type}推送服务已续费\n\n服务详情：\n产品名称：{product.name}\n服务类型：{service_type}推送服务\n原服务到期时间：{user.vip_end_time.strftime('%Y-%m-%d')}\n新服务到期时间：{vip_end_time.strftime('%Y-%m-%d')}\n续费时长：{product.duration}天\n\n续费信息：\n您已成功续费{service_type}推送服务，我们将继续为您提供优质的信息推送服务。\n\n如有疑问，请联系客服。\n\n此致\n双赛道情报通团队"
+                    else:
+                        push_content = f"【系统通知】您的{service_type}推送服务已开通\n\n服务详情：\n产品名称：{product.name}\n服务类型：{service_type}推送服务\n服务开始时间：{vip_start_time.strftime('%Y-%m-%d')}\n服务结束时间：{vip_end_time.strftime('%Y-%m-%d')}\n服务时长：{product.duration}天\n\n订阅信息：\n您已成功订阅{service_type}推送服务，我们将为您提供以下内容：\n- 最新{service_type}相关资讯和政策变化\n- 个性化的考试信息推送\n- 专业的备考指导和建议\n\n如有疑问，请联系客服。\n\n此致\n双赛道情报通团队"
+                    
                     push_log = PushLog(
                         user_id=user.id,
                         info_id=order.id,
@@ -171,146 +338,44 @@ def process_payment_success(order: Order, db: Session, db_common: Session):
 async def create_order(
     order: OrderCreate,
     db: Session = Depends(get_db),
-    db_common: Session = Depends(get_db_common)
+    db_common: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
 ):
-    """创建订单"""
-    # 检查产品是否存在
+    """创建订单（小程序端已登录用户直接下单）"""
     product = db.query(Product).filter(Product.id == order.product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="产品不存在")
     
-    # 确定订单关联的用户ID
-    user_id = None
+    user_id = current_user.id
     
-    # 如果订单中包含用户ID，则使用该用户ID
-    if hasattr(order, 'user_id') and order.user_id:
-        # 检查指定的用户是否存在
-        target_user = db.query(User).filter(User.id == order.user_id).first()
-        if target_user:
-            user_id = order.user_id
-        else:
-            # 如果用户ID不存在，则抛出异常
-            raise HTTPException(status_code=404, detail="用户不存在")
-    
-    # 如果没有提供用户ID，但有用户需求信息，则创建新用户或使用现有用户
-    if not user_id and order.user_requirements:
-        # 从用户需求中提取联系方式
-        user_email = None
-        user_phone = None
-        user_username = None
-        
-        if isinstance(order.user_requirements, dict):
-            if "email" in order.user_requirements:
-                user_email = order.user_requirements["email"]
-            if "phone" in order.user_requirements:
-                user_phone = order.user_requirements["phone"]
-            if "username" in order.user_requirements:
-                user_username = order.user_requirements["username"]
-            if "real_name" in order.user_requirements:
-                user_username = order.user_requirements["real_name"]
-        
-        # 检查用户是否已存在（通过邮箱或手机号）
-        existing_user = None
-        if user_email:
-            existing_user = db.query(User).filter(User.email == user_email).first()
-        if not existing_user and user_phone:
-            existing_user = db.query(User).filter(User.phone == user_phone).first()
-        
-        if existing_user:
-            user_id = existing_user.id
-            # 如果找到现有用户，但用户需求信息中的用户名与实际用户名不符，需要更新
-            if user_username and existing_user.username != user_username:
-                existing_user.username = user_username
-                existing_user.real_name = user_username
-                db.commit()
-                db.refresh(existing_user)
-        else:
-            # 邮箱和手机号都不存在，创建新用户
-            if not user_username:
-                user_username = f"user_{int(time.time() * 1000)}"
-            if not user_phone:
-                user_phone = f"138{int(time.time() * 1000) % 10000000}"
-            
-            from core.security import get_password_hash
-            new_user = User(
-                username=user_username,
-                email=user_email,
-                phone=user_phone,
-                password=get_password_hash(os.getenv("DEFAULT_USER_PASSWORD", "changeme123")),
-                real_name=user_username,
-                is_admin=False,
-                is_active=True,
-                is_vip=False
-            )
-            db.add(new_user)
-            db.commit()
-            db.refresh(new_user)
-            user_id = new_user.id
-    
-    # 确保有用户ID
-    if not user_id:
-        # 如果没有提供用户ID，且没有用户需求信息，则返回错误
-        if not order.user_requirements:
-            raise HTTPException(status_code=400, detail="需要提供用户ID或用户需求信息")
-        
-        # 从用户需求信息中提取联系方式并创建新用户
-        user_username = f"user_{int(time.time() * 1000)}"
-        user_email = f"user_{int(time.time() * 1000)}@example.com"
-        user_phone = f"138{int(time.time() * 1000) % 10000000}"  # 生成唯一的手机号
-        
-        if isinstance(order.user_requirements, dict):
-            if "email" in order.user_requirements:
-                user_email = order.user_requirements["email"]
-            if "phone" in order.user_requirements:
-                user_phone = order.user_requirements["phone"]
-            if "username" in order.user_requirements:
-                user_username = order.user_requirements["username"]
-            if "real_name" in order.user_requirements:
-                user_username = order.user_requirements["real_name"]
-        
-        from core.security import get_password_hash
-        new_user = User(
-            username=user_username,
-            email=user_email,
-            phone=user_phone,
-            password=get_password_hash(os.getenv("DEFAULT_USER_PASSWORD", "changeme123")),
-            is_admin=False,
-            is_active=True,
-            is_vip=False
-        )
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-        user_id = new_user.id
-    
-    # 创建订单
-    db_order = Order(
-        order_no=f"ORDER{datetime.now().strftime('%Y%m%d%H%M%S')}{user_id}{product.id}",
-        user_id=user_id,
-        product_id=order.product_id,
-        product_name=product.name,
-        price=product.price,
-        quantity=1,
-        total_amount=product.price,
-        payment_method=int(order.payment_method),
-        payment_status=0,  # 0-待支付
-        user_requirements=order.user_requirements,
-        created_at=datetime.now()
-    )
-    db.add(db_order)
-    db.commit()
-    db.refresh(db_order)
-    
-    # 处理用户需求信息
     if order.user_requirements:
-        # 检查用户是否已有订阅配置
+        # 更新用户基本信息
+        user = db.query(User).filter(User.id == user_id).first()
+        if user:
+            if order.user_requirements.get('username'):
+                user.username = order.user_requirements['username']
+            if order.user_requirements.get('real_name'):
+                user.real_name = order.user_requirements['real_name']
+            if order.user_requirements.get('email'):
+                user.email = order.user_requirements['email']
+            if order.user_requirements.get('phone'):
+                user.phone = order.user_requirements['phone']
+                user.phone_bound = True
+            if order.user_requirements.get('gender') is not None:
+                user.gender = int(order.user_requirements['gender'])
+            if order.user_requirements.get('birthdate'):
+                try:
+                    from datetime import datetime
+                    user.birthdate = datetime.strptime(order.user_requirements['birthdate'], '%Y-%m-%d')
+                except Exception as e:
+                    log_error(f"解析出生日期失败: {str(e)}")
+        
+        # 更新用户订阅配置
         existing_subscription = db.query(UserSubscription).filter(
             UserSubscription.user_id == user_id
         ).first()
         
         if existing_subscription:
-            # 更新现有订阅配置
-            # 只保存考研和考公需求信息
             config_data = {
                 'kaoyan': order.user_requirements.get('kaoyan_requirements', {}),
                 'kaogong': order.user_requirements.get('kaogong_requirements', {})
@@ -318,16 +383,11 @@ async def create_order(
             existing_subscription.config_json = config_data
             existing_subscription.updated_at = datetime.now()
         else:
-            # 创建新的订阅配置
-            # 根据产品类型确定订阅类型
             subscribe_type = product.type
-            
-            # 只保存考研和考公需求信息
             config_data = {
                 'kaoyan': order.user_requirements.get('kaoyan_requirements', {}),
                 'kaogong': order.user_requirements.get('kaogong_requirements', {})
             }
-            
             new_subscription = UserSubscription(
                 user_id=user_id,
                 subscribe_type=subscribe_type,
@@ -337,83 +397,52 @@ async def create_order(
                 updated_at=datetime.now()
             )
             db.add(new_subscription)
-            print(f"DEBUG: 保存用户需求信息到订阅配置: user_id={user_id}, config_json={config_data}")
         
-        # 处理关键词
         from models.users import UserKeyword
+        db.query(UserKeyword).filter(UserKeyword.user_id == user_id).delete()
         
-        # 清除用户现有关键词
-        db.query(UserKeyword).filter(
-            UserKeyword.user_id == user_id
-        ).delete()
+        if order.user_requirements.get('kaoyan_requirements'):
+            kaoyan_keywords = order.user_requirements['kaoyan_requirements'].get('keywords', [])
+            keyword_list = [k.strip() for k in kaoyan_keywords.split(',')] if isinstance(kaoyan_keywords, str) else kaoyan_keywords
+            for keyword in keyword_list:
+                keyword = str(keyword).strip()
+                if keyword:
+                    new_keyword = UserKeyword(
+                        user_id=user_id, keyword=keyword, category=1,
+                        is_active=True, created_at=datetime.now()
+                    )
+                    db.add(new_keyword)
         
-        # 添加新关键词
-        if order.user_requirements:
-            # 处理考研关键词
-            if order.user_requirements.get('kaoyan_requirements'):
-                kaoyan_keywords = order.user_requirements['kaoyan_requirements'].get('keywords', [])
-                # 兼容字符串和数组格式的关键词
-                if isinstance(kaoyan_keywords, str):
-                    if kaoyan_keywords:
-                        for keyword in kaoyan_keywords.split(','):
-                            keyword = keyword.strip()
-                            if keyword:
-                                new_keyword = UserKeyword(
-                                    user_id=user_id,
-                                    keyword=keyword,
-                                    category=1,  # 1-考研
-                                    is_active=True,
-                                    created_at=datetime.now()
-                                )
-                                db.add(new_keyword)
-                elif isinstance(kaoyan_keywords, list):
-                    for keyword in kaoyan_keywords:
-                        keyword = str(keyword).strip()
-                        if keyword:
-                            new_keyword = UserKeyword(
-                                user_id=user_id,
-                                keyword=keyword,
-                                category=1,  # 1-考研
-                                is_active=True,
-                                created_at=datetime.now()
-                            )
-                            db.add(new_keyword)
-            
-            # 处理考公关键词
-            if order.user_requirements.get('kaogong_requirements'):
-                kaogong_keywords = order.user_requirements['kaogong_requirements'].get('keywords', [])
-                # 兼容字符串和数组格式的关键词
-                if isinstance(kaogong_keywords, str):
-                    if kaogong_keywords:
-                        for keyword in kaogong_keywords.split(','):
-                            keyword = keyword.strip()
-                            if keyword:
-                                new_keyword = UserKeyword(
-                                    user_id=user_id,
-                                    keyword=keyword,
-                                    category=2,  # 2-考公
-                                    is_active=True,
-                                    created_at=datetime.now()
-                                )
-                                db.add(new_keyword)
-                elif isinstance(kaogong_keywords, list):
-                    for keyword in kaogong_keywords:
-                        keyword = str(keyword).strip()
-                        if keyword:
-                            new_keyword = UserKeyword(
-                                user_id=user_id,
-                                keyword=keyword,
-                                category=2,  # 2-考公
-                                is_active=True,
-                                created_at=datetime.now()
-                            )
-                            db.add(new_keyword)
+        if order.user_requirements.get('kaogong_requirements'):
+            kaogong_keywords = order.user_requirements['kaogong_requirements'].get('keywords', [])
+            keyword_list = [k.strip() for k in kaogong_keywords.split(',')] if isinstance(kaogong_keywords, str) else kaogong_keywords
+            for keyword in keyword_list:
+                keyword = str(keyword).strip()
+                if keyword:
+                    new_keyword = UserKeyword(
+                        user_id=user_id, keyword=keyword, category=2,
+                        is_active=True, created_at=datetime.now()
+                    )
+                    db.add(new_keyword)
         
         db.commit()
-    db.refresh(db_order)
     
-    # 生成支付链接或参数
-    # 这里需要根据实际的支付接口实现
+    db_order = Order(
+        order_no=f"ORDER{datetime.now().strftime('%Y%m%d%H%M%S')}{user_id}{product.id}",
+        user_id=user_id,
+        product_id=order.product_id,
+        product_name=product.name,
+        price=product.price,
+        quantity=1,
+        total_amount=product.price,
+        payment_method=int(order.payment_method),
+        payment_status=0,
+        user_requirements=order.user_requirements,
+        created_at=datetime.now()
+    )
+    db.add(db_order)
+    db.commit()
+    db.refresh(db_order)
     
     return JSONResponse(content={
         "success": True,
@@ -426,12 +455,10 @@ async def create_order(
             "product_id": db_order.product_id,
             "product_name": db_order.product_name,
             "price": db_order.price,
-            "quantity": db_order.quantity,
             "total_amount": db_order.total_amount,
             "payment_method": db_order.payment_method,
             "payment_status": db_order.payment_status,
-            "created_at": db_order.created_at.isoformat(),
-            "updated_at": db_order.updated_at.isoformat() if db_order.updated_at else None
+            "created_at": db_order.created_at.isoformat()
         }
     })
 
@@ -494,7 +521,13 @@ async def pay_order(
     # 更新支付方式
     payment_method = payment_data.get("pay_method", "wechat")
     if payment_method:
-        order.payment_method = payment_method
+        # 支付方式映射: 1-微信支付, 2-支付宝
+        payment_method_map = {
+            "wechat": 1,
+            "wechatpay": 1,
+            "alipay": 2
+        }
+        order.payment_method = payment_method_map.get(payment_method.lower(), 1)
     
     # 获取产品信息
     product = db.query(Product).filter(Product.id == order.product_id).first()
@@ -512,22 +545,16 @@ async def pay_order(
             alipay_params = generate_alipay_params(order, product)
             return {"success": True, "code": 200, "message": "支付宝支付", "data": alipay_params}
         else:
-            # 没有配置，返回提示信息
+            # 没有配置，使用模拟支付
             if use_mock_payment:
                 # 用户明确确认使用模拟支付
                 process_payment_success(order, db, db_common)
-                return {"success": True, "code": 200, "message": "支付成功（模拟）", "data": {"mock": True}}
+                return {"success": True, "code": 200, "message": "支付成功（模拟）", "data": {"mock": True, "alipay_trade_no": f"MOCK{order.id}{int(time.time())}"}}
             else:
-                # 返回提示，让用户确认是否使用模拟支付
-                return {
-                    "success": False, 
-                    "code": 400, 
-                    "message": "支付宝支付未配置，是否使用模拟支付？", 
-                    "data": {
-                        "need_confirmation": True,
-                        "mock_payment_available": True
-                    }
-                }
+                # 直接使用模拟支付
+                alipay_params = generate_alipay_params(order, product)
+                process_payment_success(order, db, db_common)
+                return {"success": True, "code": 200, "message": "支付成功", "data": alipay_params}
     
     elif payment_method == "wechat" or payment_method == "wechatpay":
         # 微信支付
@@ -659,7 +686,8 @@ async def pay_order(
 @router.post("/callback")
 async def payment_callback(
     callback: PaymentCallback,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    db_common: Session = Depends(get_db_common)
 ):
     """支付回调"""
     # 验证回调签名
@@ -670,46 +698,8 @@ async def payment_callback(
     if not order:
         raise HTTPException(status_code=404, detail="订单不存在")
     
-    order.payment_status = 1  # 已支付
-    order.payment_time = datetime.now()
-    order.trade_no = callback.transaction_id
-    order.updated_at = datetime.now()
-    db.commit()
-    
-    # 更新用户会员状态
-    product = db.query(Product).filter(Product.id == order.product_id).first()
-    if product:
-        user = db.query(User).filter(User.id == order.user_id).first()
-        if user:
-            # 计算服务到期时间：从支付的第二天开始算
-            from datetime import timedelta
-            vip_start_time = order.payment_time + timedelta(days=1)  # 支付第二天开始
-            vip_end_time = vip_start_time + timedelta(days=product.duration)  # 根据产品有效期计算
-            
-            # 更新用户VIP状态
-            user.is_vip = True
-            user.vip_start_time = vip_start_time
-            user.vip_end_time = vip_end_time
-            user.vip_type = product.type
-            user.updated_at = datetime.now()
-            
-            # 发送邮件通知
-            if user.email:
-                # 根据产品类型确定服务类型
-                if product.type == 1:
-                    service_type = "考研"
-                elif product.type == 2:
-                    service_type = "考公"
-                elif product.type == 3:
-                    service_type = "考研考公"
-                else:
-                    service_type = "推送"
-                
-                email_subject = f"【支付成功】您的{service_type}推送服务已开通"
-                email_content = f"尊敬的 {user.username}：\n\n恭喜您支付成功！您的{service_type}推送服务已开通。\n\n服务详情：\n产品名称：{product.name}\n服务类型：{service_type}推送服务\n服务开始时间：{vip_start_time.strftime('%Y-%m-%d')}\n服务结束时间：{vip_end_time.strftime('%Y-%m-%d')}\n服务时长：{product.duration}天\n\n订阅信息：\n您已成功订阅{service_type}推送服务，我们将为您提供以下内容：\n- 最新{service_type}相关资讯和政策变化\n- 个性化的考试信息推送\n- 专业的备考指导和建议\n\n如有疑问，请联系客服。\n\n此致\n双赛道情报通团队"
-                send_email(user.email, email_subject, email_content)
-            
-            db.commit()
+    # 调用统一的支付成功处理函数
+    process_payment_success(order, db, db_common, callback.transaction_id)
     
     return {"message": "回调处理成功"}
 
@@ -723,6 +713,80 @@ async def get_products(
     """获取产品列表"""
     products = db.query(Product).offset(skip).limit(limit).all()
     return products
+
+
+@router.get("/renewal-options")
+async def get_renewal_options(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取续费选项（根据用户当前VIP类型推荐对应产品）"""
+    # 检查用户是否已经是VIP
+    if not current_user.is_vip_active or not current_user.vip_type:
+        raise HTTPException(status_code=400, detail="您尚未开通VIP服务，无法续费")
+    
+    # 根据用户当前的VIP类型获取对应的产品
+    products = db.query(Product).filter(Product.type == current_user.vip_type).all()
+    
+    if not products:
+        raise HTTPException(status_code=404, detail="未找到对应的续费产品")
+    
+    return {"success": True, "code": 200, "message": "获取续费选项成功", "data": products}
+
+
+@router.post("/renew")
+async def renew_subscription(
+    payment_method: int = Body(..., embed=True),
+    db: Session = Depends(get_db),
+    db_common: Session = Depends(get_db_common),
+    current_user: User = Depends(get_current_user)
+):
+    """续费订阅"""
+    # 检查用户是否已经是VIP
+    if not current_user.is_vip_active or not current_user.vip_type:
+        raise HTTPException(status_code=400, detail="您尚未开通VIP服务，无法续费")
+    
+    # 根据用户当前的VIP类型获取对应的产品
+    product = db.query(Product).filter(Product.type == current_user.vip_type).first()
+    
+    if not product:
+        raise HTTPException(status_code=404, detail="未找到对应的续费产品")
+    
+    # 创建续费订单
+    db_order = Order(
+        order_no=f"ORDER{datetime.now().strftime('%Y%m%d%H%M%S')}{current_user.id}{product.id}",
+        user_id=current_user.id,
+        product_id=product.id,
+        product_name=product.name,
+        price=product.price,
+        quantity=1,
+        total_amount=product.price,
+        payment_method=payment_method,
+        payment_status=0,
+        user_requirements={},
+        created_at=datetime.now()
+    )
+    db.add(db_order)
+    db.commit()
+    db.refresh(db_order)
+    
+    return JSONResponse(content={
+        "success": True,
+        "code": 200,
+        "message": "续费订单创建成功",
+        "data": {
+            "id": db_order.id,
+            "order_no": db_order.order_no,
+            "user_id": db_order.user_id,
+            "product_id": db_order.product_id,
+            "product_name": db_order.product_name,
+            "price": db_order.price,
+            "total_amount": db_order.total_amount,
+            "payment_method": db_order.payment_method,
+            "payment_status": db_order.payment_status,
+            "created_at": db_order.created_at.isoformat()
+        }
+    })
 
 
 @router.get("/products/{product_id}", response_model=ProductResponse)
@@ -878,6 +942,7 @@ async def update_order_status_admin(
                 
                 # 更新用户VIP状态
                 user.is_vip = True
+                user.user_type = 2
                 user.vip_start_time = vip_start_time
                 user.vip_end_time = vip_end_time
                 user.vip_type = product.type
@@ -895,8 +960,25 @@ async def update_order_status_admin(
                     else:
                         service_type = "推送"
                     
-                    email_subject = f"【支付成功】您的{service_type}推送服务已开通"
-                    email_content = f"尊敬的 {user.username}：\n\n恭喜您支付成功！您的{service_type}推送服务已开通。\n\n服务详情：\n产品名称：{product.name}\n服务类型：{service_type}推送服务\n服务开始时间：{vip_start_time.strftime('%Y-%m-%d')}\n服务结束时间：{vip_end_time.strftime('%Y-%m-%d')}\n服务时长：{product.duration}天\n\n订阅信息：\n您已成功订阅{service_type}推送服务，我们将为您提供以下内容：\n- 最新{service_type}相关资讯和政策变化\n- 个性化的考试信息推送\n- 专业的备考指导和建议\n\n如有疑问，请联系客服。\n\n此致\n双赛道情报通团队"
+                    # 从系统配置中获取邮件文案
+                    email_config = db_common.query(SystemConfig).filter(
+                        SystemConfig.config_key == f"email_{product.type}"
+                    ).first()
+                    
+                    if email_config and email_config.config_value:
+                        email_subject = email_config.description or f"【支付成功】您的{service_type}推送服务已开通"
+                        email_content = email_config.config_value
+                        # 替换模板变量
+                        email_content = email_content.replace("{username}", user.username or "")
+                        email_content = email_content.replace("{product_name}", product.name or "")
+                        email_content = email_content.replace("{service_type}", service_type or "")
+                        email_content = email_content.replace("{start_date}", vip_start_time.strftime('%Y-%m-%d'))
+                        email_content = email_content.replace("{end_date}", vip_end_time.strftime('%Y-%m-%d'))
+                        email_content = email_content.replace("{duration}", str(product.duration))
+                    else:
+                        # 使用默认文案
+                        email_subject = f"【支付成功】您的{service_type}推送服务已开通"
+                        email_content = f"尊敬的 {user.username}：\n\n恭喜您支付成功！您的{service_type}推送服务已开通。\n\n服务详情：\n产品名称：{product.name}\n服务类型：{service_type}推送服务\n服务开始时间：{vip_start_time.strftime('%Y-%m-%d')}\n服务结束时间：{vip_end_time.strftime('%Y-%m-%d')}\n服务时长：{product.duration}天\n\n订阅信息：\n您已成功订阅{service_type}推送服务，我们将为您提供以下内容：\n- 最新{service_type}相关资讯和政策变化\n- 个性化的考试信息推送\n- 专业的备考指导和建议\n\n如有疑问，请联系客服。\n\n此致\n双赛道情报通团队"
                     send_email(user.email, email_subject, email_content)
                     
                     # 记录到推送历史记录
@@ -906,7 +988,7 @@ async def update_order_status_admin(
                         from datetime import datetime
                         db_common = next(get_db_common())
                         # 修改推送内容，添加"系统"关键词，确保归类到系统通知
-                        push_content = f"【系统通知】{email_subject}"
+                        push_content = f"【系统通知】您的{service_type}推送服务已开通\n\n服务详情：\n产品名称：{product.name}\n服务类型：{service_type}推送服务\n服务开始时间：{vip_start_time.strftime('%Y-%m-%d')}\n服务结束时间：{vip_end_time.strftime('%Y-%m-%d')}\n服务时长：{product.duration}天\n\n订阅信息：\n您已成功订阅{service_type}推送服务，我们将为您提供以下内容：\n- 最新{service_type}相关资讯和政策变化\n- 个性化的考试信息推送\n- 专业的备考指导和建议\n\n如有疑问，请联系客服。\n\n此致\n双赛道情报通团队"
                         push_log = PushLog(
                             user_id=user.id,
                             info_id=db_order.id,

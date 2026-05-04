@@ -6,7 +6,7 @@ from datetime import datetime
 class UserBase(BaseModel):
     username: str = Field(..., min_length=2, max_length=50)
     email: str
-    phone: str
+    phone: Optional[str] = None
 
 
 class UserCreate(UserBase):
@@ -18,7 +18,6 @@ class UserUpdate(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     is_admin: Optional[bool] = None
-    user_type: Optional[str] = None
 
 
 class UserResponse(UserBase):
@@ -28,11 +27,11 @@ class UserResponse(UserBase):
     real_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
-    user_type: Optional[str] = None  # 新增字段：用户类型
     is_vip: bool = False  # 新增字段：是否VIP
     vip_type: int = 0  # 新增字段：VIP类型
     vip_start_time: Optional[datetime] = None  # 新增字段：VIP开始时间
     vip_end_time: Optional[datetime] = None  # 新增字段：服务到期时间
+    login_count: int = 0  # 新增字段：登录次数
     
     class Config:
         orm_mode = True

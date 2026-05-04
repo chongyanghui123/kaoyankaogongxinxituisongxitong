@@ -1,10 +1,10 @@
 <!-- subscription.wxml -->
 <view class="container">
   <!-- 订阅状态 -->
-  <view class="status-card">
+  <view class="status-card" wx:if="{{userInfo && userInfo.is_vip}}">
     <view class="status-header">
       <view class="status-title">当前订阅状态</view>
-      <view class="status-badge" wx:if="{{userInfo.is_vip_active}}">VIP会员</view>
+      <view class="status-badge">VIP会员</view>
     </view>
     <view class="status-content">
       <view class="status-item">
@@ -22,47 +22,237 @@
     </view>
   </view>
 
-  <!-- 订阅套餐 -->
-  <view class="plan-section">
-    <view class="section-title">订阅套餐</view>
-    <view class="plan-list">
-      <view class="plan-item" wx:for="{{plans}}" wx:key="id" bindtap="selectPlan" data-id="{{item.id}}" data-selected="{{selectedPlan === item.id}}">
-        <view class="plan-header">
-          <view class="plan-name">{{item.name}}</view>
-          <view class="plan-price">{{item.price}}元/{{item.period}}</view>
-        </view>
-        <view class="plan-features">
-          <view class="feature-item" wx:for="{{item.features}}" wx:key="index">{{item}}</view>
-        </view>
-        <view class="plan-select" wx:if="{{selectedPlan === item.id}}">✓</view>
-      </view>
+  <!-- 步骤指示器 - VIP用户隐藏 -->
+  <view class="steps" wx:if="{{!isVipUser}}">
+    <view class="step-item {{step >= 1 ? 'step-active' : ''}}">
+      <view class="step-num">1</view>
+      <view class="step-text">选择套餐</view>
+    </view>
+    <view class="step-line {{step >= 2 ? 'step-line-active' : ''}}"></view>
+    <view class="step-item {{step >= 2 ? 'step-active' : ''}}">
+      <view class="step-num">2</view>
+      <view class="step-text">填写需求</view>
+    </view>
+    <view class="step-line {{step >= 3 ? 'step-line-active' : ''}}"></view>
+    <view class="step-item {{step >= 3 ? 'step-active' : ''}}">
+      <view class="step-num">3</view>
+      <view class="step-text">确认支付</view>
     </view>
   </view>
 
-  <!-- 支付按钮 -->
-  <button class="pay-btn" bindtap="pay">立即支付</button>
+  <!-- VIP用户标题 -->
+  <view class="vip-title" wx:if="{{isVipUser}}">
+    <view class="vip-title-text">修改订阅配置</view>
+    <view class="vip-title-desc">您可以随时修改您的订阅偏好设置</view>
+  </view>
+
+  <!-- 第一步：选择套餐 - VIP用户隐藏 -->
+  <view class="plan-section" wx:if="{{step === 1 && !isVipUser}}">
+    <view class="section-title">选择订阅套餐</view>
+    <view class="plan-list">
+      <view class="plan-item {{selectedPlan === item.id ? 'plan-selected' : ''}}" wx:for="{{products}}" wx:key="id" bindtap="selectPlan" data-id="{{item.id}}">
+        <view class="plan-check" wx:if="{{selectedPlan === item.id}}">✓</view>
+        <view class="plan-name">{{item.name}}</view>
+        <view class="plan-price"><text class="price-num">{{item.price}}</text>元/{{item.period}}</view>
+        <view class="plan-features">
+          <view class="feature-item" wx:for="{{item.features}}" wx:for-item="feat" wx:key="index">
+            <text class="feature-dot">•</text> {{feat}}
+          </view>
+        </view>
+      </view>
+    </view>
+    <button class="next-btn" bindtap="goToNextStep">下一步：填写需求</button>
+  </view>
+
+  <!-- 第二步：填写需求 -->
+  <view class="requirements-section" wx:if="{{step === 2}}">
+    <!-- 用户基本信息 -->
+    <view class="req-card">
+      <view class="req-title">👤 基本信息</view>
+      <view class="form-group">
+        <view class="form-label">姓名</view>
+        <input class="form-input" placeholder="请输入真实姓名" bindinput="onUserInfoInput" data-field="real_name" value="{{userInfoForm.real_name}}" />
+      </view>
+      <view class="form-group">
+        <view class="form-label">邮箱</view>
+        <input class="form-input" placeholder="请输入邮箱地址" bindinput="onUserInfoInput" data-field="email" value="{{userInfoForm.email}}" />
+      </view>
+      <view class="form-group">
+        <view class="form-label">手机号</view>
+        <input class="form-input" placeholder="请输入手机号" bindinput="onUserInfoInput" data-field="phone" value="{{userInfoForm.phone}}" />
+      </view>
+      <view class="form-group">
+        <view class="form-label">性别</view>
+        <picker class="form-picker" range="{{genderOptions}}" value="{{userInfoForm.gender}}" bindchange="onGenderChange">
+          <view class="picker-text">{{genderOptions[userInfoForm.gender]}}</view>
+        </picker>
+      </view>
+      <view class="form-group">
+        <view class="form-label">出生日期</view>
+        <picker mode="date" class="form-picker" value="{{userInfoForm.birthdate}}" bindchange="onBirthdateChange">
+          <view class="picker-text">{{userInfoForm.birthdate || '请选择出生日期'}}</view>
+        </picker>
+      </view>
+    </view>
+
+    <!-- 考研需求 -->
+    <view class="req-card" wx:if="{{showKaoyan}}">
+      <view class="req-title">📚 考研需求</view>
+      <view class="form-group">
+        <view class="form-label">关注省份 <text class="multi-hint">(可多选)</text></view>
+        <view class="multi-select-input" bindtap="showProvincePicker" data-type="kaoyan">
+          <view class="picker-text {{kaoyanRequirements.provincesList.length > 0 ? 'has-value' : ''}}">
+            <text wx:if="{{kaoyanRequirements.provincesList.length === 0}}">请选择关注省份</text>
+            <view class="selected-tags" wx:else>
+              <view class="tag" wx:for="{{kaoyanRequirements.provincesList}}" wx:key="*this">
+                {{item}} <text class="tag-remove" catchtap="removeKaoyanProvince" data-value="{{item}}">×</text>
+              </view>
+            </view>
+          </view>
+          <text class="picker-arrow">▼</text>
+        </view>
+      </view>
+      <view class="form-group">
+        <view class="form-label">目标院校 <text class="multi-hint">(可多选)</text></view>
+        <view class="multi-select-input" bindtap="showSchoolPicker" data-type="kaoyan">
+          <view class="picker-text {{kaoyanRequirements.schoolsList.length > 0 ? 'has-value' : ''}}">
+            <text wx:if="{{kaoyanRequirements.schoolsList.length === 0}}">请先选择省份，再选择院校</text>
+            <view class="selected-tags" wx:else>
+              <view class="tag" wx:for="{{kaoyanRequirements.schoolsList}}" wx:key="*this">
+                {{item}} <text class="tag-remove" catchtap="removeKaoyanSchool" data-value="{{item}}">×</text>
+              </view>
+            </view>
+          </view>
+          <text class="picker-arrow">▼</text>
+        </view>
+      </view>
+      <view class="form-group">
+        <view class="form-label">报考专业</view>
+        <input class="form-input" placeholder="如：计算机、金融（逗号分隔）" bindinput="onKaoyanInput" data-field="majors" value="{{kaoyanRequirements.majors}}" />
+      </view>
+      <view class="form-group">
+        <view class="form-label">关注类型</view>
+        <picker class="form-picker" range="{{kaoyanTypeOptions}}" bindchange="onKaoyanTypeChange" value="{{kaoyanRequirements.typesIndex}}">
+          <view class="picker-text">{{kaoyanRequirements.types || '请选择关注类型'}}</view>
+        </picker>
+      </view>
+      <view class="form-group">
+        <view class="form-label">关键词</view>
+        <input class="form-input" placeholder="如：34所,调剂,复试（逗号分隔）" bindinput="onKaoyanInput" data-field="keywords" value="{{kaoyanRequirements.keywords}}" />
+      </view>
+    </view>
+
+    <!-- 考公需求 -->
+    <view class="req-card" wx:if="{{showKaogong}}">
+      <view class="req-title">🏛️ 考公需求</view>
+      <view class="form-group">
+        <view class="form-label">关注省份 <text class="multi-hint">(可多选)</text></view>
+        <view class="multi-select-input" bindtap="showProvincePicker" data-type="kaogong">
+          <view class="picker-text {{kaogongRequirements.provincesList.length > 0 ? 'has-value' : ''}}">
+            <text wx:if="{{kaogongRequirements.provincesList.length === 0}}">请选择关注省份</text>
+            <view class="selected-tags" wx:else>
+              <view class="tag" wx:for="{{kaogongRequirements.provincesList}}" wx:key="*this">
+                {{item}} <text class="tag-remove" catchtap="removeKaogongProvince" data-value="{{item}}">×</text>
+              </view>
+            </view>
+          </view>
+          <text class="picker-arrow">▼</text>
+        </view>
+      </view>
+      <view class="form-group">
+        <view class="form-label">职位类型</view>
+        <picker class="form-picker" range="{{kaogongPositionTypeOptions}}" bindchange="onKaogongPositionTypeChange" value="{{kaogongRequirements.positionTypesIndex}}">
+          <view class="picker-text">{{kaogongRequirements.position_types || '请选择职位类型'}}</view>
+        </picker>
+      </view>
+      <view class="form-group">
+        <view class="form-label">专业</view>
+        <input class="form-input" placeholder="如：计算机、金融（逗号分隔）" bindinput="onKaogongInput" data-field="majors" value="{{kaogongRequirements.majors}}" />
+      </view>
+      <view class="form-group">
+        <view class="form-label">学历要求</view>
+        <picker class="form-picker" range="{{educationOptions}}" value="{{kaogongRequirements.education}}" bindchange="onKaogongEducationChange">
+          <view class="picker-text">{{educationOptions[kaogongRequirements.education]}}</view>
+        </picker>
+      </view>
+      <view class="form-group">
+        <view class="form-label">是否应届生</view>
+        <picker class="form-picker" range="{{freshGraduateOptions}}" value="{{kaogongRequirements.is_fresh_graduate}}" bindchange="onKaogongFreshGraduateChange">
+          <view class="picker-text">{{freshGraduateOptions[kaogongRequirements.is_fresh_graduate]}}</view>
+        </picker>
+      </view>
+      <view class="form-group">
+        <view class="form-label">关键词</view>
+        <input class="form-input" placeholder="如：国考,省考,选调（逗号分隔）" bindinput="onKaogongInput" data-field="keywords" value="{{kaogongRequirements.keywords}}" />
+      </view>
+    </view>
+
+    <view class="req-hint">💡 填写的信息将用于个性化推送，留空则接收全部相关情报</view>
+
+    <!-- VIP用户显示保存按钮 -->
+    <view class="step-btns" wx:if="{{isVipUser}}">
+      <button class="pay-btn" bindtap="saveRequirements">保存配置</button>
+    </view>
+
+    <!-- 非VIP用户显示上一步和确认支付按钮 -->
+    <view class="step-btns" wx:if="{{!isVipUser}}">
+      <button class="prev-btn" bindtap="goToPrevStep">上一步</button>
+      <button class="pay-btn" bindtap="pay">确认支付</button>
+    </view>
+  </view>
 
   <!-- 支付弹窗 -->
   <view class="pay-modal" wx:if="{{showPayModal}}">
+    <view class="modal-mask" bindtap="closePayModal"></view>
     <view class="modal-content">
       <view class="modal-header">
         <view class="modal-title">选择支付方式</view>
         <view class="modal-close" bindtap="closePayModal">×</view>
       </view>
       <view class="modal-body">
-        <view class="pay-option" bindtap="selectPayMethod" data-method="wechat">
-          <view class="pay-icon">💳</view>
+        <view class="pay-option {{selectedPayMethod === 'wechat' ? 'pay-selected' : ''}}" bindtap="selectPayMethod" data-method="wechat">
+          <view class="pay-icon wechat-icon">💳</view>
           <view class="pay-name">微信支付</view>
-          <view class="pay-select" wx:if="{{selectedPayMethod === 'wechat'}}">✓</view>
+          <view class="pay-check" wx:if="{{selectedPayMethod === 'wechat'}}">✓</view>
         </view>
-        <view class="pay-option" bindtap="selectPayMethod" data-method="alipay">
-          <view class="pay-icon">💚</view>
+        <view class="pay-option {{selectedPayMethod === 'alipay' ? 'pay-selected' : ''}}" bindtap="selectPayMethod" data-method="alipay">
+          <view class="pay-icon alipay-icon">💚</view>
           <view class="pay-name">支付宝</view>
-          <view class="pay-select" wx:if="{{selectedPayMethod === 'alipay'}}">✓</view>
+          <view class="pay-check" wx:if="{{selectedPayMethod === 'alipay'}}">✓</view>
         </view>
       </view>
       <view class="modal-footer">
         <button class="confirm-btn" bindtap="confirmPay">确认支付</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 多选弹窗 -->
+  <view class="multi-select-modal" wx:if="{{showMultiSelectModal}}">
+    <view class="modal-mask" bindtap="closeMultiSelectModal"></view>
+    <view class="multi-select-content">
+      <view class="multi-select-header">
+        <view class="multi-select-title">{{multiSelectTitle}}</view>
+        <view class="multi-select-close" bindtap="closeMultiSelectModal">×</view>
+      </view>
+      <view class="multi-select-search" wx:if="{{multiSelectType === 'school'}}">
+        <input class="search-input" placeholder="搜索学校..." bindinput="onSchoolSearch" value="{{schoolSearchKeyword}}" />
+      </view>
+      <scroll-view class="multi-select-list" scroll-y>
+        <view class="multi-select-item {{item.selected ? 'selected' : ''}}" 
+              wx:for="{{multiSelectOptions}}" 
+              wx:key="value" 
+              bindtap="toggleMultiSelectItem"
+              data-value="{{item.value}}">
+          <view class="item-checkbox {{item.selected ? 'checked' : ''}}">
+            <text wx:if="{{item.selected}}">✓</text>
+          </view>
+          <view class="item-label">{{item.label}}</view>
+        </view>
+      </scroll-view>
+      <view class="multi-select-footer">
+        <view class="selected-count">已选择 {{multiSelectSelectedCount}} 项</view>
+        <button class="multi-select-confirm" bindtap="confirmMultiSelect">确定</button>
       </view>
     </view>
   </view>

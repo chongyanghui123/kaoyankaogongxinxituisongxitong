@@ -17,7 +17,7 @@
         <view class="message-content">
           <view class="sender-name" wx:if="{{!item.isSelf}}">{{item.senderName}}</view>
           <view class="message-bubble">
-            <text class="message-text" wx:if="{{item.message_type === 1}}">{{item.content}}</text>
+            <rich-text class="message-text" nodes="{{item.highlightedContent || item.content}}" wx:if="{{item.message_type === 1}}"></rich-text>
             <image class="message-image" src="{{item.image_url}}" mode="widthFix" wx:if="{{item.message_type === 2}}" bindtap="previewImage" data-url="{{item.image_url}}"></image>
             <text class="system-message" wx:if="{{item.message_type === 3}}">{{item.content}}</text>
           </view>
@@ -33,8 +33,30 @@
     </view>
   </scroll-view>
 
+  <!-- 成员选择器弹窗 -->
+  <view class="member-picker-mask" wx:if="{{showMemberPicker}}" bindtap="hideMemberPicker">
+    <view class="member-picker" catchtap="stopPropagation">
+      <view class="picker-header">
+        <text class="picker-title">选择要@的成员</text>
+        <text class="picker-close" bindtap="hideMemberPicker">×</text>
+      </view>
+      <scroll-view class="member-list" scroll-y>
+        <view class="member-item" wx:for="{{members}}" wx:key="user_id" bindtap="selectMember" data-user-id="{{item.user_id}}" data-username="{{item.username}}">
+          <image class="member-avatar" src="{{item.avatar || '/images/default-avatar.png'}}" mode="aspectFill"></image>
+          <text class="member-name">{{item.username}}</text>
+        </view>
+        <view class="empty-members" wx:if="{{members.length === 0}}">
+          <text>暂无成员</text>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
   <view class="input-area">
     <view class="input-wrapper">
+      <button class="at-btn" bindtap="showMemberPicker">
+        <text class="btn-icon">@</text>
+      </button>
       <input class="message-input" placeholder="输入消息..." bindinput="onInput" value="{{inputText}}" confirm-type="send" bindconfirm="sendMessage"></input>
       <button class="image-btn" bindtap="chooseImage">
         <text class="btn-icon">📷</text>
