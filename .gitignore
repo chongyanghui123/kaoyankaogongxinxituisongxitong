@@ -66,10 +66,7 @@ test*.py
 backend/uploads/*
 !backend/uploads/.gitkeep
 
-# Database
-common_db.sql
-kaoyan_db.sql
-kaogong_db.sql
+
 
 # Docs
 docs/api_documentation.md
